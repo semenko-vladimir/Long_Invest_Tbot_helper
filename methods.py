@@ -77,6 +77,19 @@ def create_df(candles: [HistoricCandle]):
 
     return df
 
+def get_figi_by_ticker(ticker: str):
+    with Client(credentials.TOKEN) as client:
+        instruments: InstrumentsService = client.instruments
+
+        for method in ["shares", "bonds", "etfs", "currencies", "futures"]:
+            data = getattr(instruments, method)().instruments
+            figi = next((instrument.figi for instrument in data if instrument.ticker == ticker and instrument.figi.startswith("BBG")), None)
+            if figi is None:
+                figi = next((instrument.figi for instrument in data if instrument.ticker == ticker), None)
+            if figi is not None:
+                return figi
+
+        return None
 
 def get_share_figi_by_ticker(ticker: str):
     with Client(credentials.TOKEN) as client:
@@ -100,17 +113,87 @@ def get_share_ticker_by_figi(figi: str):
     with Client(credentials.TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
-        data = DataFrame(instruments.shares(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments,
-                         columns=['name', 'figi', 'ticker', 'class_code'])
+        data = instruments.shares(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments
 
-        ticker = next((instrument.ticker for instrument in data if instrument.figi == figi), None)
+        ticker = next((instrument.ticker for instrument in data if instrument.figi == figi and instrument.figi.startswith("BBG")), None)
 
         if ticker is None:
-            print("Фиги не найден")
+            ticker = next((instrument.ticker for instrument in data if instrument.figi == figi), None)
+
+        if ticker is None:
+            print("Тикер не найден")
             return
 
         return ticker
 
+def get_currency_ticker_by_figi(figi: str):
+    with Client(credentials.TOKEN) as client:
+        instruments: InstrumentsService = client.instruments
+
+        data = instruments.currencies(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments
+
+        ticker = next((instrument.ticker for instrument in data if instrument.figi == figi and instrument.figi.startswith("BBG")), None)
+
+        if ticker is None:
+            ticker = next((instrument.ticker for instrument in data if instrument.figi == figi), None)
+
+        if ticker is None:
+            print("Тикер не найден")
+            return
+
+        return ticker
+    
+def get_etf_ticker_by_figi(figi: str):
+    with Client(credentials.TOKEN) as client:
+        instruments: InstrumentsService = client.instruments
+
+        data = instruments.etfs(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments
+
+        ticker = next((instrument.ticker for instrument in data if instrument.figi == figi and instrument.figi.startswith("BBG")), None)
+
+        if ticker is None:
+            ticker = next((instrument.ticker for instrument in data if instrument.figi == figi), None)
+
+        if ticker is None:
+            print("Тикер не найден")
+            return
+
+        return ticker
+    
+
+def get_bond_ticker_by_figi(figi: str):
+    with Client(credentials.TOKEN) as client:
+        instruments: InstrumentsService = client.instruments
+
+        data = instruments.bonds(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments
+
+        ticker = next((instrument.ticker for instrument in data if instrument.figi == figi and instrument.figi.startswith("BBG")), None)
+
+        if ticker is None:
+            ticker = next((instrument.ticker for instrument in data if instrument.figi == figi), None)
+
+        if ticker is None:
+            print("Тикер не найден")
+            return
+
+        return ticker
+    
+def get_future_ticker_by_figi(figi: str):
+    with Client(credentials.TOKEN) as client:
+        instruments: InstrumentsService = client.instruments
+
+        data = instruments.futures(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments
+
+        ticker = next((instrument.ticker for instrument in data if instrument.figi == figi and instrument.figi.startswith("BBG")), None)
+
+        if ticker is None:
+            ticker = next((instrument.ticker for instrument in data if instrument.figi == figi), None)
+
+        if ticker is None:
+            print("Тикер не найден")
+            return
+
+        return ticker
 
 # def get_last_average_price(figi: str):
 #     with Client(creds.TOKEN) as client:
@@ -155,7 +238,7 @@ def get_info_by_ticker(ticker: str):
 
         l = []
 
-        for method in ["shares", "bonds", "etfs"]:  # "currencies" "features"
+        for method in ["shares", "bonds", "etfs", "currencies", "futures"]:   
             for item in getattr(instruments, method)().instruments:
                 l.append({
                     "name": item.name,
@@ -173,7 +256,33 @@ def get_info_by_ticker(ticker: str):
             return
 
         print(df)
-        return df['figi'].iloc[0]
+        return df
+    
+def get_info_by_figi(figi: str):
+    with Client(credentials.TOKEN) as client:
+        instruments: InstrumentsService = client.instruments
+
+        l = []
+
+        for method in ["shares", "bonds", "etfs", "currencies", "futures"]:   
+            for item in getattr(instruments, method)().instruments:
+                l.append({
+                    "name": item.name,
+                    "figi": item.figi,
+                    "ticker": item.ticker,
+                    "type": method
+                })
+
+        df = DataFrame(l)
+
+        df = df[df['figi'] == figi]
+
+        if df.empty:
+            print("Фиги не найден")
+            return
+
+        print(df)
+        return df
 
 
 def get_portfolio(token: str):
@@ -182,32 +291,85 @@ def get_portfolio(token: str):
         account_id = accounts.accounts[0].id
         portfolio: PortfolioResponse = client.operations.get_portfolio(account_id=account_id)
 
-        # Общая стоимость акций
-        total_amount_shares = cast_money(portfolio.total_amount_shares)
-        # Общая стоимость облигаций
-        total_amount_bonds = cast_money(portfolio.total_amount_bonds)
-        # Общая стоимость фондов
-        total_amount_etf = cast_money(portfolio.total_amount_etf)
-        # Общая стоимость валют
-        total_amount_currencies = cast_money(portfolio.total_amount_currencies)
-        # Ожидаемый доход
-        expected_yield = cast_money(portfolio.expected_yield)
-        # Общая стоимость портфеля
-        total_amount_portfolio = cast_money(portfolio.total_amount_portfolio)
+    print(portfolio)
 
-        # TODO пройтись по позициям в портфеле и сделать их вывод
-        for position in portfolio.positions:
-            pass
+    # Общая стоимость акций
+    total_amount_shares = cast_money(portfolio.total_amount_shares)
+    # Общая стоимость облигаций
+    total_amount_bonds = cast_money(portfolio.total_amount_bonds)
+    # Общая стоимость фондов
+    total_amount_etf = cast_money(portfolio.total_amount_etf)
+    # Общая стоимость валют
+    total_amount_currencies = cast_money(portfolio.total_amount_currencies)
+    # Ожидаемый доход
+    expected_yield = cast_money(portfolio.expected_yield)
+    # Общая стоимость портфеля
+    total_amount_portfolio = cast_money(portfolio.total_amount_portfolio)
 
-        return {
+    positions = []
+    # TODO пройтись по позициям в портфеле и сделать их вывод
+    for position in portfolio.positions:
+
+        if position.instrument_type == "share":
+            position_ticker = get_share_ticker_by_figi(position.figi)
+        elif position.instrument_type == "bond":
+            position_ticker = get_bond_ticker_by_figi(position.figi)
+        elif position.instrument_type == "etf":
+            position_ticker = get_etf_ticker_by_figi(position.figi)
+        elif position.instrument_type == "currency":
+            position_ticker = get_currency_ticker_by_figi(position.figi)
+        elif position.instrument_type == "future":
+            position_ticker = get_future_ticker_by_figi(position.figi)
+
+        position_info = get_info_by_figi(position.figi)
+
+        position_type = ""
+        
+
+        if position.instrument_type == "share":
+            position_type = "Акция"
+        elif position.instrument_type == "bond":
+            position_type = "Облигация"
+        elif position.instrument_type == "etf":
+            position_type = "Фонд"
+        elif position.instrument_type == "currency":
+            position_type = "Валюта"
+        elif position.instrument_type == "future":
+            position_type = "Фьючерс"
+
+        is_blocked = ""
+
+        if position.blocked:
+            is_blocked = "Заблокирована"
+        else:
+            is_blocked = "Активна"
+
+        data = {
+            "name": position_info['name'].values[0:1][0] if position_info is not None else "Нет информации",
+            "ticker": position_ticker,
+            "type": position_type,
+            "figi": position.figi,
+
+            "quantity": cast_money(position.quantity),
+            "average_position_price": cast_money(position.average_position_price),
+            "expected_yield": cast_money(position.expected_yield),
+
+            "current_price": round(cast_money(position.current_price) * cast_money(position.quantity), 2),
+            "blocked": is_blocked
+        }
+
+        positions.append(data)
+
+    return {
         'total_amount_shares': total_amount_shares,
         'total_amount_bonds': total_amount_bonds,
         'total_amount_etf': total_amount_etf,
         'total_amount_currencies': total_amount_currencies,
         'expected_yield': expected_yield,
-        'total_amount_portfolio': total_amount_portfolio
+        'total_amount_portfolio': total_amount_portfolio,
+        'positions': positions
     }
 
 
-get_portfolio(credentials.TOKEN)
+#get_portfolio(credentials.TOKEN)
 #get_info_by_ticker("TATN")
