@@ -59,6 +59,7 @@ def get_historic_candles(figi: str, start_time, end_time, interval):
         )
 
         return data
+    
 
 
 def cast_money(v):
@@ -371,5 +372,8 @@ def get_portfolio(token: str):
     }
 
 
-#get_portfolio(credentials.TOKEN)
-#get_info_by_ticker("TATN")
+# from tinkoff.invest import CandleInterval
+# from datetime import datetime, timedelta
+# figi = get_figi_by_ticker("GAZP")
+# data = get_historic_candles(figi, datetime.utcnow() - timedelta(days=30), datetime.utcnow(), CandleInterval.CANDLE_INTERVAL_WEEK)
+# print(data)
