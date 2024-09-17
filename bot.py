@@ -263,25 +263,25 @@ def percent_handler(call):
         type_of = info['type'].values[0:1][0]
 
         if interval == '10 минут':
-            start_time = datetime.utcnow() - timedelta(minutes=10)
+            start_time = datetime.now() - timedelta(minutes=10)
             candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
         elif interval == 'час':
-            start_time = datetime.utcnow() - timedelta(hours=1)
-            candle_interval = CandleInterval.CANDLE_INTERVAL_10_MIN
+            start_time = datetime.now() - timedelta(hours=1)
+            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
         elif interval == 'день':
-            start_time = datetime.utcnow() - timedelta(days=1)
+            start_time = datetime.now().replace(hour=10, minute=0, second=0)
             candle_interval = CandleInterval.CANDLE_INTERVAL_10_MIN
         elif interval == 'неделя':
-            start_time = datetime.utcnow() - timedelta(weeks=1)
+            start_time = datetime.now() - timedelta(weeks=1)
             candle_interval = CandleInterval.CANDLE_INTERVAL_DAY
         elif interval == 'месяц':
-            start_time = datetime.utcnow() - timedelta(days=30)
+            start_time = datetime.now() - timedelta(days=30)
             candle_interval = CandleInterval.CANDLE_INTERVAL_WEEK
         elif interval == 'год':
-            start_time = datetime.utcnow() - timedelta(days=365)
+            start_time = datetime.now() - timedelta(days=365)
             candle_interval = CandleInterval.CANDLE_INTERVAL_MONTH
 
-        end_time = datetime.utcnow()
+        end_time = datetime.now()
         price_change, price_change_percent, max_price, min_price, close_price = get_price_change_in_current_interval(figi, start_time, end_time, candle_interval)
 
         # Проверка процента изменения цены
@@ -393,16 +393,16 @@ def configure_scheduler():
                     ticker = ticker[0]
 
                     if collapse_updates_time == 10:
-                        start_time = datetime.utcnow() - timedelta(minutes=10)
+                        start_time = datetime.now() - timedelta(minutes=10)
                         candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
                     elif collapse_updates_time == 30:
-                        start_time = datetime.utcnow() - timedelta(minutes=30)
+                        start_time = datetime.now() - timedelta(minutes=30)
                         candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
                     elif collapse_updates_time == 60:
-                        start_time = datetime.utcnow() - timedelta(hours=1)
-                        candle_interval = CandleInterval.CANDLE_INTERVAL_10_MIN
+                        start_time = datetime.now() - timedelta(hours=1)
+                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
 
-                    end_time = datetime.utcnow()
+                    end_time = datetime.now()
                     # Настраиваем задания планировщика
                     scheduler.add_job(send_price_change_notification, 'interval', minutes=collapse_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
 
