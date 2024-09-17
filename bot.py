@@ -373,6 +373,9 @@ def configure_scheduler():
         collapse_updates = row[2]
         collapse_updates_time = row[3]
 
+        if chat_id in chat_schedulers:
+            bot.send_message(chat_id, 'Вы уже подписаны на обновления')
+
         if chat_id not in chat_schedulers and chat_id is not None and collapse_updates:
             scheduler = BackgroundScheduler()
             chat_schedulers[chat_id] = scheduler
