@@ -68,15 +68,17 @@ def create_table_users():
     conn.commit()
     conn.close()
 
-# Функция для создания таблицы tickers
-def create_table_tickers():
+# Функция для создания таблицы config
+def create_table_config():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tickers (
-            ticker TEXT PRIMARY KEY,
-            user_id INTEGER,
-            FOREIGN KEY (user_id) REFERENCES users (chat_id)
+        CREATE TABLE IF NOT EXISTS config (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER,
+            collapse_updates BOOLEAN,
+            collapse_updates_time TIMESTAMP,
+            FOREIGN KEY (chat_id) REFERENCES users (chat_id)
         )
     ''')
     conn.commit()
@@ -138,3 +140,23 @@ def delete_all_tickers(user_id):
     cursor.execute("DELETE FROM tickers WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
+
+def update_config_collapse(chat_id, collapse_updates_time, update):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM config WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        cursor.execute("INSERT INTO config (chat_id, collapse_updates, collapse_updates_time) VALUES (?, ?, ?)", (chat_id, update, collapse_updates_time))
+    else:
+        cursor.execute("UPDATE config SET collapse_updates = ?, collapse_updates_time = ? WHERE chat_id = ?", (update, collapse_updates_time, chat_id))
+    conn.commit()
+    conn.close()
+
+def get_config():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM config")
+    config = cursor.fetchall()
+    conn.close()
+    return config

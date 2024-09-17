@@ -63,10 +63,13 @@ from datetime import datetime, timedelta
 import telebot
 import sqlite3
 import credentials
-from db import get_t_token, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers
+from db import get_config, get_t_token, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse
+import db
 from methods import get_portfolio, get_figi_by_ticker, get_info_by_ticker, get_price_change_in_current_interval
 from telebot import types
 from tinkoff.invest import CandleInterval
+from apscheduler.schedulers.background import BackgroundScheduler
+
 # Создаем экземпляр бота
 bot = telebot.TeleBot(credentials.BOT_TOKEN)
 
@@ -90,9 +93,14 @@ def start(message):
         ticker_delete_button = types.KeyboardButton('Удалить тикер')
         tickers_delete_all_button = types.KeyboardButton('Удалить мои тикеры')
         receive_market_collapse_button = types.KeyboardButton('Получить обвал рынка по тикерам')
+        subscribe_to_collapse_update_button = types.KeyboardButton('Подписаться на обновления падений рынка')
+        unsubscribe_to_collapse_update_button = types.KeyboardButton('Отписаться от обновления падений рынка')
+
         
         keyboard.row(portfolio_button, tickers_get_button, receive_market_collapse_button)
         keyboard.row(ticker_add_button, ticker_delete_button, tickers_delete_all_button)
+        keyboard.row(subscribe_to_collapse_update_button, unsubscribe_to_collapse_update_button)
+
         
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 
@@ -259,7 +267,7 @@ def percent_handler(call):
             candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
         elif interval == 'час':
             start_time = datetime.utcnow() - timedelta(hours=1)
-            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+            candle_interval = CandleInterval.CANDLE_INTERVAL_10_MIN
         elif interval == 'день':
             start_time = datetime.utcnow() - timedelta(days=1)
             candle_interval = CandleInterval.CANDLE_INTERVAL_10_MIN
@@ -278,18 +286,140 @@ def percent_handler(call):
 
         # Проверка процента изменения цены
         if percent == 'до 100%' and price_change_percent < -0.01:
-            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Текущая цена: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
+            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Цена закрытия последней свечи: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
         if percent == 'до 2%' and 0 > price_change_percent > -2:
-            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Текущая цена: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
+            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Цена закрытия последней свечи: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
         elif percent == 'от 2% до 5%' and -2 >= price_change_percent >= -5:
-            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Текущая цена: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
+            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Цена закрытия последней свечи: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
         elif percent == 'от 5% до 10%' and -5 >= price_change_percent >= -10:
-            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Текущая цена: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
+            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Цена закрытия последней свечи: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
         elif percent == 'от 10% до 20%' and -10 >= price_change_percent >= -20:
-            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Текущая цена: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
+            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Цена закрытия последней свечи: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
         elif percent == 'более 20%' and price_change_percent <= -20:
-            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Текущая цена: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
+            bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Цена закрытия последней свечи: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
+
+chat_schedulers = {}
+
+def send_price_change_notification(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker):
+    price_change, price_change_percent, max_price, min_price, close_price = get_price_change_in_current_interval(figi, start_time, end_time, candle_interval)
+    if price_change_percent < -0.001:
+        bot.send_message(chat_id, f'Название: {name}\n Тип: {type_of}\n Тикер: {ticker}\n Изменение цены: {round(price_change_percent, 2)}% \n Цена закрытия последней свечи: {close_price} \n Максимальная цена: {max_price} \n Минимальная цена: {min_price}')
 
 
+# Функция для подписки на обновления падений рынка
+@bot.message_handler(func=lambda message: message.text == 'Подписаться на обновления падений рынка')
+# TODO: Refactor this function
+def add_ticker_handler(message):
+    chat_id = message.chat.id
+    token = get_t_token(chat_id)
+    if token is not None:
+        tickers = get_all_tickers(chat_id)
+
+        if not tickers:
+            bot.send_message(chat_id, 'У вас нет активных тикеров')
+        else:
+            inline_keyboard = types.InlineKeyboardMarkup()
+            buttons = [
+                types.InlineKeyboardButton(text='10 минут', callback_data='ucinterval_10 минут'),
+                types.InlineKeyboardButton(text='пол часа', callback_data='ucinterval_пол_часа'),
+                types.InlineKeyboardButton(text='час', callback_data='ucinterval_час'),
+            ]
+            inline_keyboard.add(*buttons)
+            bot.send_message(chat_id, 'Выберите интервал для получения обновлений', reply_markup=inline_keyboard)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('ucinterval_'))
+def percent_handler(call):
+    data = call.data.split('_')
+    interval = data[1]
+    chat_id = call.message.chat.id
+    time = 0
+
+    if interval == '10 минут':
+        time = 10
+    elif interval == 'пол часа':
+        time = 30
+    elif interval == 'час':
+        time = 60
+
+    update_config_collapse(chat_id, time, True)
+    configure_scheduler()
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == 'Отписаться от обновления падений рынка')
+def remove_ticker_handler(message):
+    chat_id = message.chat.id
+    update_config_collapse(chat_id, 0, False)
+    if chat_id in chat_schedulers:
+        scheduler = chat_schedulers[chat_id]
+        scheduler.shutdown()
+        del chat_schedulers[chat_id]
+        bot.send_message(chat_id, 'Вы отписались от обновлений')
+    else:
+        bot.send_message(chat_id, 'Вы не подписаны на обновления')
+        
+
+def configure_scheduler():
+
+    chat_id = None
+    collapse_updates = None
+    collapse_updates_time = None
+
+    config_data = get_config()
+
+    for row in config_data:
+        chat_id = row[1]
+        collapse_updates = row[2]
+        collapse_updates_time = row[3]
+
+        if chat_id not in chat_schedulers and chat_id is not None and collapse_updates:
+            scheduler = BackgroundScheduler()
+            chat_schedulers[chat_id] = scheduler
+            scheduler.start()
+
+            scheduler = chat_schedulers[chat_id]
+
+            tickers = get_all_tickers(chat_id)
+
+            if not tickers:
+                bot.send_message(chat_id, 'У вас нет активных тикеров')
+            else:
+                for ticker in tickers:
+                    info = get_info_by_ticker(str(ticker[0]))
+                    figi = info['figi'].values[0:1][0]
+                    name = info['name'].values[0:1][0]
+                    type_of = info['type'].values[0:1][0]
+                    ticker = ticker[0]
+
+                    if collapse_updates_time == 10:
+                        start_time = datetime.utcnow() - timedelta(minutes=10)
+                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    elif collapse_updates_time == 30:
+                        start_time = datetime.utcnow() - timedelta(minutes=30)
+                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    elif collapse_updates_time == 60:
+                        start_time = datetime.utcnow() - timedelta(hours=1)
+                        candle_interval = CandleInterval.CANDLE_INTERVAL_10_MIN
+
+                    end_time = datetime.utcnow()
+                    # Настраиваем задания планировщика
+                    scheduler.add_job(send_price_change_notification, 'interval', minutes=collapse_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
+
+
+
+
+# def update_config(chat_id, collapse_updates, collapse_updates_time):
+#     # Обновляем данные в базе данных config
+#     with db.connect() as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("UPDATE config SET collapse_updates = ?, collapse_updates_time = ? WHERE chat_id = ?", (collapse_updates, collapse_updates_time, chat_id))
+#         conn.commit()
+
+
+
+# Настройка конфигуратора планировщика
+configure_scheduler()
+print("Конфигуратор успешно настроен")
 # Запускаем бота
 bot.polling()
