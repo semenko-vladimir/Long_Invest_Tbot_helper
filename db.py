@@ -78,9 +78,20 @@ def create_table_config():
             chat_id INTEGER,
             collapse_updates BOOLEAN,
             collapse_updates_time TIMESTAMP,
+            market_updates BOOLEAN,
+            market_updates_time TIMESTAMP,
             FOREIGN KEY (chat_id) REFERENCES users (chat_id)
         )
     ''')
+    conn.commit()
+    conn.close()
+
+import sqlite3
+
+def delete_config_table():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('DROP TABLE IF EXISTS config')
     conn.commit()
     conn.close()
 
@@ -141,15 +152,17 @@ def delete_all_tickers(user_id):
     conn.commit()
     conn.close()
 
-def update_config_collapse(chat_id, collapse_updates_time, update):
+def update_config_collapse(chat_id, collapse_updates_time, collapse_updates, market_updates_time, market_updates):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM config WHERE chat_id = ?", (chat_id,))
     row = cursor.fetchone()
     if row is None:
-        cursor.execute("INSERT INTO config (chat_id, collapse_updates, collapse_updates_time) VALUES (?, ?, ?)", (chat_id, update, collapse_updates_time))
+        cursor.execute("INSERT INTO config (chat_id, collapse_updates, collapse_updates_time, market_updates, market_updates_time) VALUES (?, ?, ?, ?, ?)", 
+                       (chat_id, collapse_updates, collapse_updates_time, market_updates, market_updates_time))
     else:
-        cursor.execute("UPDATE config SET collapse_updates = ?, collapse_updates_time = ? WHERE chat_id = ?", (update, collapse_updates_time, chat_id))
+        cursor.execute("UPDATE config SET collapse_updates = ?, collapse_updates_time = ?, market_updates = ?, market_updates_time = ? WHERE chat_id = ?", 
+                       (collapse_updates, collapse_updates_time, market_updates, market_updates_time, chat_id))
     conn.commit()
     conn.close()
 
@@ -160,3 +173,4 @@ def get_config():
     config = cursor.fetchall()
     conn.close()
     return config
+
