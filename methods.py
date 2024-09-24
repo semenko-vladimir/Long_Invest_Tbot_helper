@@ -356,6 +356,7 @@ def get_portfolio(token: str):
             "expected_yield": cast_money(position.expected_yield),
 
             "current_price": round(cast_money(position.current_price) * cast_money(position.quantity), 2),
+            "current_price_one": cast_money(position.current_price),
             "blocked": is_blocked
         }
 

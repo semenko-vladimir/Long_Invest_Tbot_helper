@@ -63,7 +63,7 @@ from datetime import datetime, timedelta
 import telebot
 import sqlite3
 import credentials
-from db import get_config, get_t_token, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse
+from db import get_config, get_t_token, get_tpsl, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse, update_tpsl
 import db
 from methods import get_portfolio, get_figi_by_ticker, get_info_by_ticker, get_price_change_in_current_interval
 from telebot import types
@@ -99,6 +99,8 @@ def start(message):
         unsubscribe_to_collapse_update_button = types.KeyboardButton('Отписаться от обновления падений рынка')
         subscribe_to_market_update_button = types.KeyboardButton('Подписаться на обновления рынка')
         unsubscribe_to_market_update_button = types.KeyboardButton('Отписаться от обновления рынка')
+        take_profit_stop_loss_button = types.KeyboardButton('Take Profit/Stop Loss')
+
 
         
         keyboard.row(portfolio_button, tickers_get_button, receive_market_collapse_button)
@@ -109,7 +111,7 @@ def start(message):
 
         keyboard.row(subscribe_to_market_update_button, unsubscribe_to_market_update_button, receive_market_update_button)
 
-        keyboard.row(all_market_status_button)
+        keyboard.row(all_market_status_button, take_profit_stop_loss_button)
         
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 
@@ -146,7 +148,7 @@ def get_portfolio_handler(message):
 
 
         
-        bot.send_message(chat_id, text)
+            bot.send_message(chat_id, text)
 
 
 @bot.message_handler(func=lambda message: message.text == 'Добавить тикер')
@@ -478,6 +480,7 @@ def percent_handler(call):
 
 
 chat_schedulers = {}
+tpsl_shedulers = {}
 
 def send_price_change_notification_collapse(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker):
     price_change, price_change_percent, max_price, min_price, close_price = get_price_change_in_current_interval(figi, start_time, end_time, candle_interval)
@@ -500,9 +503,9 @@ def add_ticker_handler(message):
         chat_id = row[1]
         collapse_updates = row[2]
 
-    if collapse_updates and message.chat.id == chat_id:
-        bot.send_message(message.chat.id, 'Вы уже подписаны на обновления падений рынка')
-        return
+        if collapse_updates and message.chat.id == chat_id:
+            bot.send_message(message.chat.id, 'Вы уже подписаны на обновления падений рынка')
+            return
 
     bot.send_message(message.chat.id, 'Вы автоматически будете отписаны от обновлений рынка')
     chat_id = message.chat.id
@@ -587,9 +590,9 @@ def add_ticker_handler(message):
         chat_id = row[1]
         market_updates = row[4]
 
-    if market_updates and message.chat.id == chat_id:
-        bot.send_message(message.chat.id, 'Вы уже подписаны на обновления рынка')
-        return
+        if market_updates and message.chat.id == chat_id:
+            bot.send_message(message.chat.id, 'Вы уже подписаны на обновления рынка')
+            return
 
     bot.send_message(message.chat.id, 'Вы автоматически будете отписаны от обновлений падений рынка')
     chat_id = message.chat.id
@@ -726,14 +729,251 @@ def configure_scheduler():
                     scheduler.add_job(send_price_change_notification_market_updates, 'interval', minutes=market_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
 
 
+    chat_id = None
+    trigger = None
+    time = None
 
 
-# def update_config(chat_id, collapse_updates, collapse_updates_time):
-#     # Обновляем данные в базе данных config
-#     with db.connect() as conn:
-#         cursor = conn.cursor()
-#         cursor.execute("UPDATE config SET collapse_updates = ?, collapse_updates_time = ? WHERE chat_id = ?", (collapse_updates, collapse_updates_time, chat_id))
-#         conn.commit()
+    tpsl_data = get_tpsl()
+
+    if tpsl_data is None:
+        return
+
+    for row in tpsl_data:
+        chat_id = row[1]
+        trigger = row[2]
+        time = row[3]
+
+        if chat_id not in tpsl_shedulers and trigger:
+            scheduler = BackgroundScheduler()
+            tpsl_shedulers[chat_id] = scheduler
+            scheduler.start()
+
+            scheduler = tpsl_shedulers[chat_id]
+
+            scheduler.add_job(tpsl_run, 'interval', minutes=int(time), args=(chat_id,))
+
+            
+
+
+
+# <=============================================================================>
+
+
+@bot.message_handler(func=lambda message: message.text == 'Take Profit/Stop Loss')
+def add_ticker_handler(message):
+    chat_id = message.chat.id
+    inline_keyboard = types.InlineKeyboardMarkup()
+    buttons = [
+        types.InlineKeyboardButton(text='Подключить Take Profit/Stop Loss', callback_data='connect_tp_sl'),
+        types.InlineKeyboardButton(text='Отключить Take Profit/Stop Loss', callback_data='disconnect_tp_sl'),
+    ]
+    inline_keyboard.add(*buttons)
+    bot.send_message(chat_id, 'Выберите опцию', reply_markup=inline_keyboard)
+
+
+user_data = {}
+
+@bot.callback_query_handler(func=lambda call: call.data == 'connect_tp_sl')
+def connect_tp_sl(call):
+    chat_id = call.message.chat.id
+    data = get_tpsl()
+    for row in data:
+        trigger_chat_id = row[1]
+        trigger = row[2]
+        if trigger and chat_id == trigger_chat_id:
+            bot.send_message(chat_id, 'У вас уже подключены Take Profit/Stop Loss')
+            return
+    user_data[chat_id] = {}
+    bot.send_message(chat_id, 'Введите значение для Take Profit')
+    bot.register_next_step_handler_by_chat_id(chat_id, get_tp_value)
+
+
+def get_tp_value(message):
+    chat_id = message.chat.id
+    tp_value = message.text
+    user_data[chat_id]['tp_value'] = tp_value
+    bot.send_message(chat_id, 'Введите значение для Stop Loss')
+    bot.register_next_step_handler_by_chat_id(chat_id, get_sl_value)
+
+
+def get_sl_value(message):
+    chat_id = message.chat.id
+    sl_value = message.text
+    user_data[chat_id]['sl_value'] = sl_value
+
+    # Вместо использования next_step_handler, сразу выводим клавиатуру для интервала
+    inline_keyboard = types.InlineKeyboardMarkup()
+    buttons = [
+        types.InlineKeyboardButton(text='1 минута', callback_data='1'),
+        types.InlineKeyboardButton(text='5 минут', callback_data='5'),
+        types.InlineKeyboardButton(text='10 минут', callback_data='10'),
+    ]
+    inline_keyboard.add(*buttons)
+    bot.send_message(chat_id, 'Выберите интервал', reply_markup=inline_keyboard)
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ['1', '5', '10'])
+def get_time(call):
+    chat_id = call.message.chat.id
+    time_value = call.data
+    user_data[chat_id]['time_value'] = time_value
+
+    inline_keyboard = types.InlineKeyboardMarkup()
+    buttons = [
+        types.InlineKeyboardButton(text='Да', callback_data='yes'),
+        types.InlineKeyboardButton(text='Нет', callback_data='no'),
+    ]
+    inline_keyboard.add(*buttons)
+    bot.send_message(chat_id, 'Включить ли автоматическую торговлю?', reply_markup=inline_keyboard)
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ['yes', 'no'])
+def auto_trade(call):
+    chat_id = call.message.chat.id
+    user_data[chat_id]['call_data'] = call.data
+    set_tpsl(chat_id)
+
+
+def set_tpsl(chat_id):
+    tp_value = user_data[chat_id]['tp_value']
+    sl_value = user_data[chat_id]['sl_value']
+    time_value = user_data[chat_id]['time_value']
+    call_data = user_data[chat_id]['call_data']
+
+    if call_data == 'yes':
+        update_tpsl(chat_id, tp_value, sl_value, time_value, 1, 1)
+    else:
+        update_tpsl(chat_id, tp_value, sl_value, time_value, 0, 1)
+
+    if chat_id not in tpsl_shedulers:
+        scheduler = BackgroundScheduler()
+        tpsl_shedulers[chat_id] = scheduler
+        scheduler.start()
+        scheduler = tpsl_shedulers[chat_id]
+
+        scheduler.add_job(tpsl_run, 'interval', minutes=int(time_value), args=(chat_id,))
+
+    bot.send_message(chat_id, 'Take Profit/Stop Loss успешно добавлен')
+
+
+
+
+def tpsl_run(chat_id):
+
+    text = ""
+    token = get_t_token(chat_id)
+    if token is not None:
+
+        portfolio = get_portfolio(token)
+
+        positions = portfolio['positions']
+
+        if positions is None:
+            bot.send_message(chat_id, 'Портфолио пустое')
+            return
+        
+        tpls_data = get_tpsl()
+
+        if tpls_data is None:
+            return
+
+        for row in tpls_data:
+            auto_market = row[4]
+            take_profit = row[5]
+            stop_loss = row[6]
+
+        for position in positions:
+
+            expected_yeild = position['expected_yield']
+
+            #Buy price
+            average_position_price = position['average_position_price']
+
+            current_price_one = position['current_price_one']
+            print(current_price_one)
+            quantity = position['quantity']
+            ticker = position['ticker']
+            brokerFee = 0.3
+
+            comission = (average_position_price + current_price_one) * brokerFee / 100
+
+            profit = current_price_one - average_position_price - comission
+
+            current_profit = 100 * profit / average_position_price
+
+            print(current_profit, ' <=>', ticker)
+
+            if expected_yeild is None or expected_yeild == 0:
+                pass
+            else:
+
+                if auto_market == 1:
+                    # TODO: РЕАЛИЗОВАТЬ АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ЗАЯВКИ
+                    pass
+                else:
+
+                    if current_profit >= take_profit:
+                        text = ""
+                        text += (
+                            f"TAKE_PROFIT\n\n"
+                            f"\nНазвание: {position['name']}\n"
+                            f"Тикер: {position['ticker']}\n"
+                            f"Figi: {position['figi']}\n"
+                            f"Тип: {position['type']}\n"
+                            f"Количество: {position['quantity']}\n"
+                            f"Средневзвешенная цена: {position['average_position_price']}\n"
+                            f"Ожидаемая доходность: {position['expected_yield']}\n"
+                            f"Текущая цена: {position['current_price']}\n"
+                            f"Состояние: {position['blocked']}\n"
+                        )
+                        bot.send_message(chat_id, text)
+
+                    elif current_profit <= -stop_loss:
+                        text = ""
+                        text += (
+                            f"STOP_LOSS\n\n"
+                            f"\nНазвание: {position['name']}\n"
+                            f"Тикер: {position['ticker']}\n"
+                            f"Figi: {position['figi']}\n"
+                            f"Тип: {position['type']}\n"
+                            f"Количество: {position['quantity']}\n"
+                            f"Средневзвешенная цена: {position['average_position_price']}\n"
+                            f"Ожидаемая доходность: {position['expected_yield']}\n"
+                            f"Текущая цена: {position['current_price']}\n"
+                            f"Состояние: {position['blocked']}\n"
+                        )
+                        bot.send_message(chat_id, text)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'disconnect_tp_sl')
+def connect_tp_sl(call):
+
+    chat_id = call.message.chat.id
+
+    update_tpsl(chat_id, 0, 0, 0, 0, 0)
+
+    if chat_id in tpsl_shedulers:
+        scheduler = tpsl_shedulers[chat_id]
+        scheduler.shutdown()
+        del tpsl_shedulers[chat_id]
+        bot.send_message(chat_id, 'Take Profit/Stop Loss отключен')
+    else:
+        bot.send_message(chat_id, 'Take Profit/Stop Loss не включен')
+
+
+                        
+
+
+
+            
+
+
+
+
+
+
+
+
 
 
 

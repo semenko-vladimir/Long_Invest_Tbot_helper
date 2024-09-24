@@ -1,4 +1,5 @@
 import sqlite3
+import os
 
 # Функция для создания БД
 # TODO: Сделать проверку на существование БД. Дополнить фукнционал созданием всех
@@ -86,12 +87,38 @@ def create_table_config():
     conn.commit()
     conn.close()
 
-import sqlite3
+# Функция для создания таблицы tpsl
+def create_table_tpsl():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tpsl (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER,
+            trigger BOOLEAN,
+            time TIMESTAMP,
+            auto_market BOOLEAN,
+            take_profit FLOAT,
+            stop_loss FLOAT,
+            FOREIGN KEY (chat_id) REFERENCES users (chat_id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
 
 def delete_config_table():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('DROP TABLE IF EXISTS config')
+    conn.commit()
+    conn.close()
+
+def delete_tpsl_table():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('DROP TABLE IF EXISTS tpsl')
     conn.commit()
     conn.close()
 
@@ -166,6 +193,20 @@ def update_config_collapse(chat_id, collapse_updates_time, collapse_updates, mar
     conn.commit()
     conn.close()
 
+def update_tpsl(chat_id, tp_value, sl_value, time_value, auto_market, trigger):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tpsl WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        cursor.execute("INSERT INTO tpsl (chat_id, take_profit, stop_loss, time, auto_market, trigger) VALUES (?, ?, ?, ?, ?, ?)",
+                       (chat_id, tp_value, sl_value, time_value, auto_market, trigger))
+    else:
+        cursor.execute("UPDATE tpsl SET take_profit = ?, stop_loss = ?, time = ?, auto_market = ?, trigger = ? WHERE chat_id = ?",
+                       (tp_value, sl_value, time_value, auto_market, trigger, chat_id))
+    conn.commit()
+    conn.close()
+
 def get_config():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -173,4 +214,13 @@ def get_config():
     config = cursor.fetchall()
     conn.close()
     return config
+
+
+def get_tpsl():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM tpsl")
+    tpsl = cursor.fetchall()
+    conn.close()
+    return tpsl
 
