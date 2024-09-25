@@ -308,7 +308,7 @@ def get_portfolio(token: str):
     total_amount_portfolio = cast_money(portfolio.total_amount_portfolio)
 
     positions = []
-    # TODO пройтись по позициям в портфеле и сделать их вывод
+
     for position in portfolio.positions:
 
         if position.instrument_type == "share":
@@ -371,6 +371,70 @@ def get_portfolio(token: str):
         'total_amount_portfolio': total_amount_portfolio,
         'positions': positions
     }
+
+def get_instrument_from_portfolio_by_ticker(token: str, figi: str):
+
+    with Client(token) as client:
+        accounts = client.users.get_accounts()
+        account_id = accounts.accounts[0].id
+        portfolio: PortfolioResponse = client.operations.get_portfolio(account_id=account_id)
+
+    for position in portfolio.positions:
+
+        if position.figi == figi:
+            if position.instrument_type == "share":
+                position_ticker = get_share_ticker_by_figi(position.figi)
+            elif position.instrument_type == "bond":
+                position_ticker = get_bond_ticker_by_figi(position.figi)
+            elif position.instrument_type == "etf":
+                position_ticker = get_etf_ticker_by_figi(position.figi)
+            elif position.instrument_type == "currency":
+                position_ticker = get_currency_ticker_by_figi(position.figi)
+            elif position.instrument_type == "future":
+                position_ticker = get_future_ticker_by_figi(position.figi)
+
+            position_info = get_info_by_figi(position.figi)
+
+            position_type = ""
+            
+
+            if position.instrument_type == "share":
+                position_type = "Акция"
+            elif position.instrument_type == "bond":
+                position_type = "Облигация"
+            elif position.instrument_type == "etf":
+                position_type = "Фонд"
+            elif position.instrument_type == "currency":
+                position_type = "Валюта"
+            elif position.instrument_type == "future":
+                position_type = "Фьючерс"
+
+            is_blocked = ""
+
+            if position.blocked:
+                is_blocked = "Заблокирована"
+            else:
+                is_blocked = "Активна"
+
+            data = {
+                "name": position_info['name'].values[0:1][0] if position_info is not None else "Нет информации",
+                "ticker": position_ticker,
+                "type": position_type,
+                "figi": position.figi,
+
+                "quantity": cast_money(position.quantity),
+                "average_position_price": cast_money(position.average_position_price),
+                "expected_yield": cast_money(position.expected_yield),
+
+                "current_price": round(cast_money(position.current_price) * cast_money(position.quantity), 2),
+                "current_price_one": cast_money(position.current_price),
+                "blocked": is_blocked
+            }
+
+            return data
+
+    return None
+            
 
 
 # from tinkoff.invest import CandleInterval

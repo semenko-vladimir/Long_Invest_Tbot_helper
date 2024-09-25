@@ -106,6 +106,25 @@ def create_table_tpsl():
     conn.commit()
     conn.close()
 
+def create_table_strategy_rsi():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS strategy_rsi (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER,
+            trigger BOOLEAN,
+            time TIMESTAMP,
+            auto_market BOOLEAN,
+            period FLOAT,
+            higthLevel FLOAT,
+            lowLevel FLOAT,
+            FOREIGN KEY (chat_id) REFERENCES users (chat_id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
 
 
 def delete_config_table():
@@ -207,6 +226,20 @@ def update_tpsl(chat_id, tp_value, sl_value, time_value, auto_market, trigger):
     conn.commit()
     conn.close()
 
+def update_strategy_rsi(chat_id, trigger, time_value, auto_market, period, highLevel, lowLevel):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM strategy_rsi WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        cursor.execute("INSERT INTO strategy_rsi (chat_id, trigger, time, auto_market, period, higthLevel, lowLevel) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (chat_id, trigger, time_value, auto_market, period, highLevel, lowLevel))
+    else:
+        cursor.execute("UPDATE strategy_rsi SET trigger = ?, time = ?, auto_market = ?, period = ?, higthLevel = ?, lowLevel = ? WHERE chat_id = ?",
+                       (trigger, time_value, auto_market, period, highLevel, lowLevel, chat_id))
+    conn.commit()
+    conn.close()
+
 def get_config():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -223,4 +256,14 @@ def get_tpsl():
     tpsl = cursor.fetchall()
     conn.close()
     return tpsl
+
+def get_rsi():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM strategy_rsi")
+    rsi_data = cursor.fetchall()
+    conn.close()
+    return rsi_data
+
+
 
