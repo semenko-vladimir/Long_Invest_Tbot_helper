@@ -229,7 +229,6 @@ def get_share_info_by_ticker(ticker: str):
 
                          columns=['name', 'figi', 'ticker', 'class_code'])
 
-        print(data[data['ticker'] == ticker].iloc[0])
         return data[data['ticker'] == ticker].iloc[0]
 
 
@@ -256,7 +255,6 @@ def get_info_by_ticker(ticker: str):
             print("Тикер не найден")
             return
 
-        print(df)
         return df
     
 def get_info_by_figi(figi: str):
@@ -282,7 +280,6 @@ def get_info_by_figi(figi: str):
             print("Фиги не найден")
             return
 
-        print(df)
         return df
 
 
@@ -292,7 +289,6 @@ def get_portfolio(token: str):
         account_id = accounts.accounts[0].id
         portfolio: PortfolioResponse = client.operations.get_portfolio(account_id=account_id)
 
-    print(portfolio)
 
     # Общая стоимость акций
     total_amount_shares = cast_money(portfolio.total_amount_shares)
@@ -372,7 +368,7 @@ def get_portfolio(token: str):
         'positions': positions
     }
 
-def get_instrument_from_portfolio_by_ticker(token: str, figi: str):
+def get_instrument_from_portfolio_by_ticker(token: str, figi: str, ticker: str):
 
     with Client(token) as client:
         accounts = client.users.get_accounts()
@@ -382,17 +378,6 @@ def get_instrument_from_portfolio_by_ticker(token: str, figi: str):
     for position in portfolio.positions:
 
         if position.figi == figi:
-            if position.instrument_type == "share":
-                position_ticker = get_share_ticker_by_figi(position.figi)
-            elif position.instrument_type == "bond":
-                position_ticker = get_bond_ticker_by_figi(position.figi)
-            elif position.instrument_type == "etf":
-                position_ticker = get_etf_ticker_by_figi(position.figi)
-            elif position.instrument_type == "currency":
-                position_ticker = get_currency_ticker_by_figi(position.figi)
-            elif position.instrument_type == "future":
-                position_ticker = get_future_ticker_by_figi(position.figi)
-
             position_info = get_info_by_figi(position.figi)
 
             position_type = ""
@@ -418,7 +403,7 @@ def get_instrument_from_portfolio_by_ticker(token: str, figi: str):
 
             data = {
                 "name": position_info['name'].values[0:1][0] if position_info is not None else "Нет информации",
-                "ticker": position_ticker,
+                "ticker": ticker,
                 "type": position_type,
                 "figi": position.figi,
 

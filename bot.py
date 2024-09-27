@@ -932,7 +932,6 @@ def tpsl_run(chat_id):
             average_position_price = position['average_position_price']
 
             current_price_one = position['current_price_one']
-            print(current_price_one)
             quantity = position['quantity']
             ticker = position['ticker']
             brokerFee = 0.3
@@ -1191,15 +1190,17 @@ def strategy_rsi_run(chat_id, auto_market, time, period, highLevel, lowLevel):
                 candle_interval = None
                 time = int(time)
 
+                CANDLE_CONSTANT = 2
+
                 # Получаем свечи для тикера (интервал можно задать)
                 if time == 2:
-                    start_time = datetime.now() - timedelta(minutes=period)
+                    start_time = datetime.now() - timedelta(minutes=period+CANDLE_CONSTANT)
                     candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
                 elif time == 5:
-                    start_time = datetime.now() - timedelta(minutes=period)
+                    start_time = datetime.now() - timedelta(minutes=period+CANDLE_CONSTANT)
                     candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
                 elif time == 10:
-                    start_time = datetime.now() - timedelta(minutes=period)
+                    start_time = datetime.now() - timedelta(minutes=period+CANDLE_CONSTANT)
                     candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
 
                 end_time = datetime.now()
@@ -1210,8 +1211,11 @@ def strategy_rsi_run(chat_id, auto_market, time, period, highLevel, lowLevel):
                 # Расчет RSI
                 rsi_value = calculate_rsi(candles, period)
 
+                if rsi_value is None:
+                    continue
+
                 # Смотрим, есть ли актив в портфеле
-                position = get_instrument_from_portfolio_by_ticker(token, figi)
+                position = get_instrument_from_portfolio_by_ticker(token, figi, ticker[0])
 
                 if position is not None:
                     average_position_price = position['average_position_price']
@@ -1245,8 +1249,8 @@ def strategy_rsi_run(chat_id, auto_market, time, period, highLevel, lowLevel):
                     elif signal == 'sell':
                         bot.send_message(chat_id, f"Актив {ticker} перекуплен. Рекомендуется продажа.")
 
-                    # elif signal == 'hold':
-                    #     bot.send_message(chat_id, f"Актив {ticker} необходимо держать.")
+                    elif signal == 'hold':
+                         bot.send_message(chat_id, f"Актив {ticker} необходимо держать.")
 
 
 
