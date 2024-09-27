@@ -125,6 +125,24 @@ def create_table_strategy_rsi():
     conn.commit()
     conn.close()
 
+def create_table_strategy_sma():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS strategy_sma (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER,
+            trigger BOOLEAN,
+            time TIMESTAMP,
+            auto_market BOOLEAN,
+            fastLength INTEGER,
+            slowLength INTEGER,
+            FOREIGN KEY (chat_id) REFERENCES users (chat_id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
 
 
 def delete_config_table():
@@ -240,6 +258,20 @@ def update_strategy_rsi(chat_id, trigger, time_value, auto_market, period, highL
     conn.commit()
     conn.close()
 
+def update_strategy_sma(chat_id, trigger, time_value, auto_market, fastLength, slowLength):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM strategy_sma WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        cursor.execute("INSERT INTO strategy_sma (chat_id, trigger, time, auto_market, fastLength, slowLength) VALUES (?, ?, ?, ?, ?, ?)",
+                       (chat_id, trigger, time_value, auto_market, fastLength, slowLength))
+    else:
+        cursor.execute("UPDATE strategy_sma SET trigger = ?, time = ?, auto_market = ?, fastLength = ?, slowLength = ? WHERE chat_id = ?",
+                       (trigger, time_value, auto_market, fastLength, slowLength, chat_id))
+    conn.commit()
+    conn.close()
+
 def get_config():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -265,5 +297,12 @@ def get_rsi():
     conn.close()
     return rsi_data
 
+def get_sma():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM strategy_sma")
+    rsi_data = cursor.fetchall()
+    conn.close()
+    return rsi_data
 
 

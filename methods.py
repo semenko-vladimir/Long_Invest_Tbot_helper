@@ -378,7 +378,7 @@ def get_instrument_from_portfolio_by_ticker(token: str, figi: str, ticker: str):
     for position in portfolio.positions:
 
         if position.figi == figi:
-            position_info = get_info_by_figi(position.figi)
+            #position_info = get_info_by_figi(position.figi)
 
             position_type = ""
             
@@ -402,7 +402,7 @@ def get_instrument_from_portfolio_by_ticker(token: str, figi: str, ticker: str):
                 is_blocked = "Активна"
 
             data = {
-                "name": position_info['name'].values[0:1][0] if position_info is not None else "Нет информации",
+                #"name": position_info['name'].values[0:1][0] if position_info is not None else "Нет информации",
                 "ticker": ticker,
                 "type": position_type,
                 "figi": position.figi,
