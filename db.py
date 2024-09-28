@@ -88,16 +88,13 @@ def create_table_config():
     conn.close()
 
 # Функция для создания таблицы tpsl
-def create_table_tpsl():
+def create_table_signal_tpsl():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tpsl (
+        CREATE TABLE IF NOT EXISTS signal_tpsl (
             id INTEGER PRIMARY KEY,
             chat_id INTEGER,
-            trigger BOOLEAN,
-            time TIMESTAMP,
-            auto_market BOOLEAN,
             take_profit FLOAT,
             stop_loss FLOAT,
             FOREIGN KEY (chat_id) REFERENCES users (chat_id)
@@ -106,16 +103,13 @@ def create_table_tpsl():
     conn.commit()
     conn.close()
 
-def create_table_strategy_rsi():
+def create_table_signal_rsi():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS strategy_rsi (
+        CREATE TABLE IF NOT EXISTS signal_rsi (
             id INTEGER PRIMARY KEY,
             chat_id INTEGER,
-            trigger BOOLEAN,
-            time TIMESTAMP,
-            auto_market BOOLEAN,
             period FLOAT,
             higthLevel FLOAT,
             lowLevel FLOAT,
@@ -125,16 +119,13 @@ def create_table_strategy_rsi():
     conn.commit()
     conn.close()
 
-def create_table_strategy_sma():
+def create_table_signal_sma():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS strategy_sma (
+        CREATE TABLE IF NOT EXISTS signal_sma (
             id INTEGER PRIMARY KEY,
             chat_id INTEGER,
-            trigger BOOLEAN,
-            time TIMESTAMP,
-            auto_market BOOLEAN,
             fastLength INTEGER,
             slowLength INTEGER,
             FOREIGN KEY (chat_id) REFERENCES users (chat_id)
@@ -143,6 +134,27 @@ def create_table_strategy_sma():
     conn.commit()
     conn.close()
 
+
+def create_table_strategy():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS strategy (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER,
+                   
+            tpls_trigger BOOLEAN,
+            rsi_trigger BOOLEAN,
+            sma_trigger BOOLEAN,
+                   
+            time TIMESTAMP,
+            auto_market BOOLEAN,
+                   
+            FOREIGN KEY (chat_id) REFERENCES users (chat_id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 
 def delete_config_table():
@@ -230,45 +242,59 @@ def update_config_collapse(chat_id, collapse_updates_time, collapse_updates, mar
     conn.commit()
     conn.close()
 
-def update_tpsl(chat_id, tp_value, sl_value, time_value, auto_market, trigger):
+def update_signal_tpsl(chat_id, tp_value, sl_value):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tpsl WHERE chat_id = ?", (chat_id,))
+    cursor.execute("SELECT * FROM signal_tpsl WHERE chat_id = ?", (chat_id,))
     row = cursor.fetchone()
     if row is None:
-        cursor.execute("INSERT INTO tpsl (chat_id, take_profit, stop_loss, time, auto_market, trigger) VALUES (?, ?, ?, ?, ?, ?)",
-                       (chat_id, tp_value, sl_value, time_value, auto_market, trigger))
+        cursor.execute("INSERT INTO signal_tpsl (chat_id, take_profit, stop_loss) VALUES (?, ?, ?)",
+                       (chat_id, tp_value, sl_value))
     else:
-        cursor.execute("UPDATE tpsl SET take_profit = ?, stop_loss = ?, time = ?, auto_market = ?, trigger = ? WHERE chat_id = ?",
-                       (tp_value, sl_value, time_value, auto_market, trigger, chat_id))
+        cursor.execute("UPDATE signal_tpsl SET take_profit = ?, stop_loss = ? WHERE chat_id = ?",
+                       (tp_value, sl_value, chat_id))
     conn.commit()
     conn.close()
 
-def update_strategy_rsi(chat_id, trigger, time_value, auto_market, period, highLevel, lowLevel):
+def update_signal_rsi(chat_id, period, highLevel, lowLevel):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM strategy_rsi WHERE chat_id = ?", (chat_id,))
+    cursor.execute("SELECT * FROM signal_rsi WHERE chat_id = ?", (chat_id,))
     row = cursor.fetchone()
     if row is None:
-        cursor.execute("INSERT INTO strategy_rsi (chat_id, trigger, time, auto_market, period, higthLevel, lowLevel) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                       (chat_id, trigger, time_value, auto_market, period, highLevel, lowLevel))
+        cursor.execute("INSERT INTO signal_rsi (chat_id, period, higthLevel, lowLevel) VALUES (?, ?, ?, ?)",
+                       (chat_id, period, highLevel, lowLevel))
     else:
-        cursor.execute("UPDATE strategy_rsi SET trigger = ?, time = ?, auto_market = ?, period = ?, higthLevel = ?, lowLevel = ? WHERE chat_id = ?",
-                       (trigger, time_value, auto_market, period, highLevel, lowLevel, chat_id))
+        cursor.execute("UPDATE signal_rsi SET period = ?, higthLevel = ?, lowLevel = ? WHERE chat_id = ?",
+                       (period, highLevel, lowLevel, chat_id))
     conn.commit()
     conn.close()
 
-def update_strategy_sma(chat_id, trigger, time_value, auto_market, fastLength, slowLength):
+def update_signal_sma(chat_id, fastLength, slowLength):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM strategy_sma WHERE chat_id = ?", (chat_id,))
+    cursor.execute("SELECT * FROM signal_sma WHERE chat_id = ?", (chat_id,))
     row = cursor.fetchone()
     if row is None:
-        cursor.execute("INSERT INTO strategy_sma (chat_id, trigger, time, auto_market, fastLength, slowLength) VALUES (?, ?, ?, ?, ?, ?)",
-                       (chat_id, trigger, time_value, auto_market, fastLength, slowLength))
+        cursor.execute("INSERT INTO signal_sma (chat_id, fastLength, slowLength) VALUES (?, ?, ?)",
+                       (chat_id, fastLength, slowLength))
     else:
-        cursor.execute("UPDATE strategy_sma SET trigger = ?, time = ?, auto_market = ?, fastLength = ?, slowLength = ? WHERE chat_id = ?",
-                       (trigger, time_value, auto_market, fastLength, slowLength, chat_id))
+        cursor.execute("UPDATE signal_sma SET fastLength = ?, slowLength = ? WHERE chat_id = ?",
+                       (fastLength, slowLength, chat_id))
+    conn.commit()
+    conn.close()
+
+def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, time, auto_market):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM strategy WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        cursor.execute("INSERT INTO strategy (chat_id, tpls_trigger, rsi_trigger, sma_trigger, time, auto_market) VALUES (?, ?, ?, ?, ?, ?)",
+                       (chat_id, tpls_trigger, rsi_trigger, sma_trigger, time, auto_market))
+    else:
+        cursor.execute("UPDATE strategy SET tpls_trigger = ?, rsi_trigger = ?, sma_trigger = ?, time = ?, auto_market = ? WHERE chat_id = ?",
+                       (tpls_trigger, rsi_trigger, sma_trigger, time, auto_market, chat_id))
     conn.commit()
     conn.close()
 
@@ -281,28 +307,37 @@ def get_config():
     return config
 
 
-def get_tpsl():
+def get_tpsl(chat_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tpsl")
+    cursor.execute("SELECT * FROM signal_tpsl WHERE chat_id = ?", (chat_id,))
     tpsl = cursor.fetchall()
     conn.close()
     return tpsl
 
-def get_rsi():
+def get_rsi(chat_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM strategy_rsi")
+    cursor.execute("SELECT * FROM signal_rsi WHERE chat_id = ?", (chat_id,))
     rsi_data = cursor.fetchall()
     conn.close()
     return rsi_data
 
-def get_sma():
+def get_sma(chat_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM strategy_sma")
-    rsi_data = cursor.fetchall()
+    cursor.execute("SELECT * FROM signal_sma WHERE chat_id = ?", (chat_id,))
+    sma_data = cursor.fetchall()
     conn.close()
-    return rsi_data
+    return sma_data
+
+def get_strategy():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM strategy")
+    strategy_data = cursor.fetchall()
+    conn.close()
+    return strategy_data
+
 
 

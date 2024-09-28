@@ -63,8 +63,9 @@ from datetime import datetime, timedelta
 import telebot
 import sqlite3
 import credentials
-from db import get_config, get_sma, get_t_token, get_tpsl, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse, update_strategy_sma, update_tpsl, update_strategy_rsi, get_rsi
+from db import get_config, get_sma, get_strategy, get_t_token, get_tpsl, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse, update_signal_rsi, update_signal_sma, update_signal_tpsl, get_rsi, update_strategy
 import db
+from helpers import calculate_profit
 from methods import create_df, get_historic_candles, get_portfolio, get_figi_by_ticker, get_info_by_ticker, get_price_change_in_current_interval, get_instrument_from_portfolio_by_ticker
 from telebot import types
 from tinkoff.invest import CandleInterval
@@ -101,7 +102,6 @@ def start(message):
         unsubscribe_to_collapse_update_button = types.KeyboardButton('Отписаться от обновления падений рынка')
         subscribe_to_market_update_button = types.KeyboardButton('Подписаться на обновления рынка')
         unsubscribe_to_market_update_button = types.KeyboardButton('Отписаться от обновления рынка')
-        take_profit_stop_loss_button = types.KeyboardButton('Take Profit/Stop Loss')
 
         strategies_button = types.KeyboardButton('Стратегии')
 
@@ -484,9 +484,6 @@ def percent_handler(call):
 
 
 chat_schedulers = {}
-tpsl_shedulers = {}
-strategy_rsi_shedulers = {}
-strategy_sma_shedulers = {}
 
 
 def send_price_change_notification_collapse(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker):
@@ -644,6 +641,9 @@ def percent_handler(call):
     print("РАБОТАЮТ ОБНОВЛЕНИЯ РЫНКА")
     configure_scheduler()
 
+# Глобальные переменные для сохранения состояния стратегии
+strategy_shedulers = {}
+
 def configure_scheduler():
 
     chat_id = None
@@ -735,308 +735,41 @@ def configure_scheduler():
                     # Настраиваем задания планировщика
                     scheduler.add_job(send_price_change_notification_market_updates, 'interval', minutes=market_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
 
-    # < ============================================================================>
-
+    
     chat_id = None
-    trigger = None
-    time = None
-    auto_market = None
-    period = None
-    highLevel = None
-    lowLevel = None
-
-
-    rsi_data = get_rsi()
-
-    if rsi_data is None:
-        return
-
-    for row in rsi_data:
-        chat_id = row[1]
-        trigger = row[2]
-        time = row[3]
-        auto_market = row[4]
-        period = row[5]
-        highLevel = row[6]
-        lowLevel = row[7]
-
-        if chat_id not in strategy_rsi_shedulers and trigger:
-            scheduler = BackgroundScheduler()
-            strategy_rsi_shedulers[chat_id] = scheduler
-            scheduler.start()
-
-            scheduler = strategy_rsi_shedulers[chat_id]
-
-            scheduler.add_job(strategy_rsi_run, 'interval', minutes=int(time), args=(chat_id, auto_market, time, period, highLevel, lowLevel))
-
-
-    # < ============================================================================>
-
-    chat_id = None
-    trigger = None
-    time = None
-    auto_market = None
-    slowLength = None
-    fastLength = None
-
-
-    sma_data = get_sma()
-
-    if sma_data is None:
-        return
-
-    for row in sma_data:
-        chat_id = row[1]
-        trigger = row[2]
-        time = row[3]
-        auto_market = row[4]
-        slowLength = row[6]
-        fastLength = row[5]
-
-        if chat_id not in strategy_sma_shedulers and trigger:
-            scheduler = BackgroundScheduler()
-            strategy_sma_shedulers[chat_id] = scheduler
-            scheduler.start()
-
-            scheduler = strategy_sma_shedulers[chat_id]
-
-            scheduler.add_job(strategy_sma_run, 'interval', minutes=int(time), args=(chat_id, auto_market, time, slowLength, fastLength))
-
-
-    # < ============================================================================>
-
-    chat_id = None
-    trigger = None
     time = None
 
-
-    tpsl_data = get_tpsl()
-
-    if tpsl_data is None:
-        return
-
-    for row in tpsl_data:
+    strategy_data = get_strategy()
+    
+    for row in strategy_data:
         chat_id = row[1]
-        trigger = row[2]
-        time = row[3]
+        tpsl = row[2]
+        rsi = row[3]
+        sma = row[4]
+        time = row[5]
+        autom = row[6]
 
-        if chat_id not in tpsl_shedulers and trigger:
-            scheduler = BackgroundScheduler()
-            tpsl_shedulers[chat_id] = scheduler
-            scheduler.start()
-
-            scheduler = tpsl_shedulers[chat_id]
-
-            scheduler.add_job(tpsl_run, 'interval', minutes=int(time), args=(chat_id,))
-
-            
-
-
-
-# <=============================================================================>
-
-
-@bot.message_handler(func=lambda message: message.text == 'Take Profit/Stop Loss')
-def add_ticker_handler(message):
-    chat_id = message.chat.id
-    inline_keyboard = types.InlineKeyboardMarkup()
-    buttons = [
-        types.InlineKeyboardButton(text='Подключить Take Profit/Stop Loss', callback_data='connect_tp_sl'),
-        types.InlineKeyboardButton(text='Отключить Take Profit/Stop Loss', callback_data='disconnect_tp_sl'),
-    ]
-    inline_keyboard.add(*buttons)
-    bot.send_message(chat_id, 'Выберите опцию', reply_markup=inline_keyboard)
-
-
-user_data = {}
-
-@bot.callback_query_handler(func=lambda call: call.data == 'connect_tp_sl')
-def connect_tp_sl(call):
-    chat_id = call.message.chat.id
-    data = get_tpsl()
-    for row in data:
-        trigger_chat_id = row[1]
-        trigger = row[2]
-        if trigger and chat_id == trigger_chat_id:
-            bot.send_message(chat_id, 'У вас уже подключены Take Profit/Stop Loss')
-            return
-    user_data[chat_id] = {}
-    bot.send_message(chat_id, 'Введите значение для Take Profit')
-    bot.register_next_step_handler_by_chat_id(chat_id, get_tp_value)
-
-
-def get_tp_value(message):
-    chat_id = message.chat.id
-    tp_value = message.text
-    user_data[chat_id]['tp_value'] = tp_value
-    bot.send_message(chat_id, 'Введите значение для Stop Loss')
-    bot.register_next_step_handler_by_chat_id(chat_id, get_sl_value)
-
-
-def get_sl_value(message):
-    chat_id = message.chat.id
-    sl_value = message.text
-    user_data[chat_id]['sl_value'] = sl_value
-
-    # Вместо использования next_step_handler, сразу выводим клавиатуру для интервала
-    inline_keyboard = types.InlineKeyboardMarkup()
-    buttons = [
-        types.InlineKeyboardButton(text='1 минута', callback_data='1'),
-        types.InlineKeyboardButton(text='5 минут', callback_data='5'),
-        types.InlineKeyboardButton(text='10 минут', callback_data='10'),
-    ]
-    inline_keyboard.add(*buttons)
-    bot.send_message(chat_id, 'Выберите интервал', reply_markup=inline_keyboard)
-
-
-@bot.callback_query_handler(func=lambda call: call.data in ['1', '5', '10'])
-def get_time(call):
-    chat_id = call.message.chat.id
-    time_value = call.data
-    user_data[chat_id]['time_value'] = time_value
-
-    inline_keyboard = types.InlineKeyboardMarkup()
-    buttons = [
-        types.InlineKeyboardButton(text='Да', callback_data='yes'),
-        types.InlineKeyboardButton(text='Нет', callback_data='no'),
-    ]
-    inline_keyboard.add(*buttons)
-    bot.send_message(chat_id, 'Включить ли автоматическую торговлю?', reply_markup=inline_keyboard)
-
-
-@bot.callback_query_handler(func=lambda call: call.data in ['yes', 'no'])
-def auto_trade(call):
-    chat_id = call.message.chat.id
-    user_data[chat_id]['call_data'] = call.data
-    set_tpsl(chat_id)
-
-
-def set_tpsl(chat_id):
-    tp_value = user_data[chat_id]['tp_value']
-    sl_value = user_data[chat_id]['sl_value']
-    time_value = user_data[chat_id]['time_value']
-    call_data = user_data[chat_id]['call_data']
-
-    if call_data == 'yes':
-        update_tpsl(chat_id, tp_value, sl_value, time_value, 1, 1)
-    else:
-        update_tpsl(chat_id, tp_value, sl_value, time_value, 0, 1)
-
-    if chat_id not in tpsl_shedulers:
-        scheduler = BackgroundScheduler()
-        tpsl_shedulers[chat_id] = scheduler
-        scheduler.start()
-        scheduler = tpsl_shedulers[chat_id]
-
-        scheduler.add_job(tpsl_run, 'interval', minutes=int(time_value), args=(chat_id,))
-
-    bot.send_message(chat_id, 'Take Profit/Stop Loss успешно добавлен')
-
-
-
-
-def tpsl_run(chat_id):
-
-    text = ""
-    token = get_t_token(chat_id)
-    if token is not None:
-
-        portfolio = get_portfolio(token)
-
-        positions = portfolio['positions']
-
-        if positions is None:
-            bot.send_message(chat_id, 'Портфолио пустое')
+        if tpsl == 0 and rsi == 0 and sma == 0:
             return
         
-        tpls_data = get_tpsl()
+        if chat_id not in strategy_shedulers and chat_id is not None:
+            scheduler = BackgroundScheduler()
+            strategy_shedulers[chat_id] = scheduler
+            scheduler.start()
 
-        if tpls_data is None:
-            return
+            scheduler = strategy_shedulers[chat_id]
 
-        for row in tpls_data:
-            auto_market = row[4]
-            take_profit = row[5]
-            stop_loss = row[6]
+            scheduler.add_job(strategy_run, 'interval', minutes=int(time), args=(chat_id,))
+            print("Стратегия добавлена в планировщик")
 
-        for position in positions:
-
-            expected_yeild = position['expected_yield']
-
-            #Buy price
-            average_position_price = position['average_position_price']
-
-            current_price_one = position['current_price_one']
-            quantity = position['quantity']
-            ticker = position['ticker']
-            brokerFee = 0.3
-
-            comission = (average_position_price + current_price_one) * brokerFee / 100
-
-            profit = current_price_one - average_position_price - comission
-
-            current_profit = 100 * profit / average_position_price
-
-            print(current_profit, ' <=>', ticker)
-
-            if expected_yeild is None or expected_yeild == 0:
-                pass
-            else:
-
-                if auto_market == 1:
-                    # TODO: РЕАЛИЗОВАТЬ АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ЗАЯВКИ
-                    pass
-                else:
-
-                    if current_profit >= take_profit:
-                        text = ""
-                        text += (
-                            f"TAKE_PROFIT\n\n"
-                            f"\nНазвание: {position['name']}\n"
-                            f"Тикер: {position['ticker']}\n"
-                            f"Figi: {position['figi']}\n"
-                            f"Тип: {position['type']}\n"
-                            f"Количество: {position['quantity']}\n"
-                            f"Средневзвешенная цена: {position['average_position_price']}\n"
-                            f"Ожидаемая доходность: {position['expected_yield']}\n"
-                            f"Текущая цена: {position['current_price']}\n"
-                            f"Состояние: {position['blocked']}\n"
-                        )
-                        bot.send_message(chat_id, text)
-
-                    elif current_profit <= -stop_loss:
-                        text = ""
-                        text += (
-                            f"STOP_LOSS\n\n"
-                            f"\nНазвание: {position['name']}\n"
-                            f"Тикер: {position['ticker']}\n"
-                            f"Figi: {position['figi']}\n"
-                            f"Тип: {position['type']}\n"
-                            f"Количество: {position['quantity']}\n"
-                            f"Средневзвешенная цена: {position['average_position_price']}\n"
-                            f"Ожидаемая доходность: {position['expected_yield']}\n"
-                            f"Текущая цена: {position['current_price']}\n"
-                            f"Состояние: {position['blocked']}\n"
-                        )
-                        bot.send_message(chat_id, text)
-
-@bot.callback_query_handler(func=lambda call: call.data == 'disconnect_tp_sl')
-def connect_tp_sl(call):
-
-    chat_id = call.message.chat.id
-
-    update_tpsl(chat_id, 0, 0, 0, 0, 0)
-
-    if chat_id in tpsl_shedulers:
-        scheduler = tpsl_shedulers[chat_id]
-        scheduler.shutdown()
-        del tpsl_shedulers[chat_id]
-        bot.send_message(chat_id, 'Take Profit/Stop Loss отключен')
-    else:
-        bot.send_message(chat_id, 'Take Profit/Stop Loss не включен')
 
 
 # <=============================================================================================>
+
+# Словарь для хранения промежуточных данных сигналов
+user_rsi_data = {}
+user_sma_data = {}
+user_tpsl_data = {}
 
 @bot.message_handler(func=lambda message: message.text == 'Стратегии')
 def show_strategies(message):
@@ -1045,121 +778,211 @@ def show_strategies(message):
     if token is not None:
         inline_keyboard = types.InlineKeyboardMarkup()
         buttons = [
-            types.InlineKeyboardButton(text='RSI', callback_data='strategy_rsi'),
-            types.InlineKeyboardButton(text='SMA', callback_data='strategy_sma'),
+            types.InlineKeyboardButton(text='Настроить сигналы', callback_data='signals_set'),
+            types.InlineKeyboardButton(text='Настроить стратегию', callback_data='strategy_set'),
+            types.InlineKeyboardButton(text='Отключить стратегию', callback_data='strategy_remove'),
         ]
         inline_keyboard.add(*buttons)
-        bot.send_message(chat_id, 'Выберите стратегию', reply_markup=inline_keyboard)
+        bot.send_message(chat_id, 'Выберите опцию', reply_markup=inline_keyboard)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'signals_set')
+def show_signals(call):
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    if token is not None:
+        inline_keyboard = types.InlineKeyboardMarkup()
+        buttons = [
+            types.InlineKeyboardButton(text='Take Profit/Stop Loss', callback_data='signal_tpsl'),
+            types.InlineKeyboardButton(text='RSI', callback_data='signal_rsi'),
+            types.InlineKeyboardButton(text='SMA', callback_data='signal_sma'),
+        ]
+        inline_keyboard.add(*buttons)
+        bot.send_message(chat_id, 'Выберите сигнал для настройки', reply_markup=inline_keyboard)
+
+
+
+# <==================== ОБРАБОТЧИКИ НАСТРОЙКИ СТРАТЕГИИ ====================>
+
+selected_signals = {}
+available_signals = ['RSI', 'SMA', 'Take Profit/Stop Loss']
+tpsl_trigger = False
+rsi_trigger = False
+sma_trigger = False
+time = None
+auto_market = None
+
+@bot.callback_query_handler(func=lambda call: call.data == 'strategy_set')
+def show_signals(call):
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    if token is not None:
+        # Генерация кнопок для выбора сигналов
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        buttons = [types.InlineKeyboardButton(signal, callback_data=f'select_{signal.lower()}') for signal in available_signals]
+        buttons.append(types.InlineKeyboardButton('Ок', callback_data='ok'))
+        buttons.append(types.InlineKeyboardButton('Отмена', callback_data='cancel'))
+        markup.add(*buttons)
+
+        bot.send_message(chat_id, "Выберите, какие сигналы подключить к стратегии:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'strategy_remove')
+def remove_strategy(call):
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, time, auto_market
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    if token is not None:
+
+        if chat_id in strategy_shedulers:
+            scheduler = strategy_shedulers[chat_id]
+            scheduler.shutdown()
+            del strategy_shedulers[chat_id]
+
+        update_strategy(chat_id, 0, 0, 0, 0, False)
+        
+        selected_signals = {}
+        tpsl_trigger = False
+        rsi_trigger = False
+        sma_trigger = False
+        time = None
+        auto_market = None
+
+        bot.send_message(chat_id, "Стратегия отключена.")
+
+
+
+# Обработчик выбора сигнала
+@bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
+def select_signal(call):
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger
+    chat_id = call.message.chat.id
+    signal = call.data.split('_')[1].upper()
+
+    # Проверяем, не выбран ли сигнал уже
+    if selected_signals.get(signal):
+        bot.send_message(chat_id, f"Сигнал {signal} уже выбран.")
+        return
+
+    # Проверяем, что все поля для сигнала заполнены
+    if signal == 'RSI':
+        if get_rsi(chat_id)[2:] == [None, None]:  
+            bot.send_message(chat_id, "Сигнал RSI не настроен.")
+        else:
+            selected_signals[signal] = True
+            rsi_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+    elif signal == 'SMA':
+        if get_sma(chat_id)[2:] == [None, None]:
+            bot.send_message(chat_id, "Сигнал SMA не настроен.")
+        else:
+            selected_signals[signal] = True
+            sma_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+    elif signal == 'TAKE PROFIT/STOP LOSS':
+        if get_tpsl(chat_id)[2:] == [None, None]:
+            bot.send_message(chat_id, "Сигнал Take Profit/Stop Loss не настроен.")
+        else:
+            selected_signals[signal] = True
+            tpsl_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+
+    # Повторно выводим кнопки для выбора сигналов
+    show_signals(call)
         
 
-# <==================== ОБРАБОТЧИК СТРАТЕГИИ RSI ====================>
-
-@bot.callback_query_handler(func=lambda call: call.data == 'strategy_rsi')
-def list_strategy_rsi(call):
-
+@bot.callback_query_handler(func=lambda call: call.data == 'ok')
+def confirm_selection(call):
     chat_id = call.message.chat.id
-    
-    inline_keyboard = types.InlineKeyboardMarkup()
-    buttons = [
-        types.InlineKeyboardButton(text='Подключить стратегию', callback_data='rsi_on'),
-        types.InlineKeyboardButton(text='Отключить стратегию', callback_data='rsi_off'),
-    ]
-    inline_keyboard.add(*buttons)
-    bot.send_message(chat_id, 'Выберите действие', reply_markup=inline_keyboard)
+
+    if not selected_signals:
+        bot.send_message(chat_id, "Вы не выбрали ни одного сигнала.")
+        return
+
+    # Показываем выбор времени
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    markup.add(types.InlineKeyboardButton('2 минуты', callback_data='time_2'),
+               types.InlineKeyboardButton('5 минут', callback_data='time_5'),
+               types.InlineKeyboardButton('10 минут', callback_data='time_10'))
+    bot.send_message(chat_id, "Выберите время для стратегии:", reply_markup=markup)
 
 
-@bot.callback_query_handler(func=lambda call: call.data == 'strategy_sma')
-def list_strategy_sma(call):
-
+@bot.callback_query_handler(func=lambda call: call.data.startswith('time_'))
+def select_time(call):
+    global time
     chat_id = call.message.chat.id
+    time = int(call.data.split('_')[1])
     
-    inline_keyboard = types.InlineKeyboardMarkup()
-    buttons = [
-        types.InlineKeyboardButton(text='Подключить стратегию', callback_data='sma_on'),
-        types.InlineKeyboardButton(text='Отключить стратегию', callback_data='sma_off'),
-    ]
-    inline_keyboard.add(*buttons)
-    bot.send_message(chat_id, 'Выберите действие', reply_markup=inline_keyboard)
+    # Спрашиваем о включении автоматической торговли
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(types.InlineKeyboardButton('Да', callback_data='auto_yes'),
+               types.InlineKeyboardButton('Нет', callback_data='auto_no'))
+    bot.send_message(chat_id, "Включить автоматическую торговлю?", reply_markup=markup)
+        
 
+# Обработчик включения автоматической торговли
+@bot.callback_query_handler(func=lambda call: call.data.startswith('auto_'))
+def set_auto_market(call):
+    global auto_market, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, time
+    chat_id = call.message.chat.id
+    auto_market = call.data.split('_')[1] == 'yes'
+    
+    # Вызов функции обновления стратегии
+    update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, time, auto_market)
+
+    if chat_id in strategy_shedulers:
+        scheduler = strategy_shedulers[chat_id]
+        scheduler.shutdown()
+        del strategy_shedulers[chat_id]
+
+    
+    scheduler = BackgroundScheduler()
+    strategy_shedulers[chat_id] = scheduler
+    scheduler.start()
+
+    scheduler = strategy_shedulers[chat_id]
+
+    scheduler.add_job(strategy_run, 'interval', minutes=int(time), args=(chat_id,))
+
+    selected_signals = {}
+    tpsl_trigger = False
+    rsi_trigger = False
+    sma_trigger = False
+    time = None
+    auto_market = None
+
+    bot.send_message(chat_id, "Стратегия обновлена.")
+
+
+
+
+# Обработчик кнопки "Отмена"
+@bot.callback_query_handler(func=lambda call: call.data == 'cancel')
+def cancel_strategy(call):
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, time, auto_market
+    chat_id = call.message.chat.id
+
+    # Сброс всех параметров
+    selected_signals.clear()
+    tpsl_trigger = None
+    rsi_trigger = None
+    sma_trigger = None
+    time = None
+    auto_market = None
+
+    bot.send_message(chat_id, "Выбор стратегии отменен.")
+
+# <==================== ОБРАБОТЧИКИ НАСТРОЙКИ СИГНАЛА RSI ====================>
 
 from telebot import types
 
-# Словарь для хранения промежуточных данных стратегии RSI
-user_rsi_data = {}
-user_sma_data = {}
-
-@bot.callback_query_handler(func=lambda call: call.data == 'rsi_on')
+@bot.callback_query_handler(func=lambda call: call.data == 'signal_rsi')
 def rsi_on(call):
     chat_id = call.message.chat.id
     token = get_t_token(chat_id)
     
     if token is not None:
-        tickers = get_all_tickers(chat_id)
-        if not tickers:
-            bot.send_message(chat_id, 'У вас нет активных тикеров')
-        else:
-            # Шаг 1: Просим ввести период RSI
-            data = get_rsi()
-            for row in data:
-                trigger_chat_id = row[1]
-                trigger = row[2]
-                if trigger and chat_id == trigger_chat_id:
-                    bot.send_message(chat_id, 'У вас уже подключена стратегия RSI')
-                    return
-                else:
-                    msg = bot.send_message(chat_id, "Введите период RSI:")
-                    bot.register_next_step_handler(msg, get_rsi_period)
-
-
-@bot.callback_query_handler(func=lambda call: call.data == 'sma_on')
-def sma_on(call):
-    chat_id = call.message.chat.id
-    token = get_t_token(chat_id)
-    
-    if token is not None:
-        tickers = get_all_tickers(chat_id)
-        if not tickers:
-            bot.send_message(chat_id, 'У вас нет активных тикеров')
-        else:
-            # Шаг 1: Просим ввести период RSI
-            data = get_sma()
-            # for row in data:
-            #     trigger_chat_id = row[1]
-            #     trigger = row[2]
-            #     if trigger and chat_id == trigger_chat_id:
-            #         bot.send_message(chat_id, 'У вас уже подключена стратегия SMA')
-            #         return
-            #     else:
-            msg = bot.send_message(chat_id, "Введите кол-во точек для расчета быстрого тренда:")
-            bot.register_next_step_handler(msg, get_sma_fast)
-
-
-@bot.callback_query_handler(func=lambda call: call.data == 'rsi_off')
-def rsi_off(call):
-    chat_id = call.message.chat.id
-    token = get_t_token(chat_id)
-    
-    if token is not None:
-        update_strategy_rsi(chat_id, 0, 0, 0, 0, 0, 0)
-        if chat_id in strategy_rsi_shedulers:
-            scheduler = strategy_rsi_shedulers[chat_id]
-            scheduler.shutdown()
-            del strategy_rsi_shedulers[chat_id]
-        bot.send_message(chat_id, 'Стратегия RSI отключена')
-
-
-@bot.callback_query_handler(func=lambda call: call.data == 'sma_off')
-def sma_off(call):
-    chat_id = call.message.chat.id
-    token = get_t_token(chat_id)
-    
-    if token is not None:
-        update_strategy_sma(chat_id, 0, 0, 0, 0, 0)
-        if chat_id in strategy_sma_shedulers:
-            scheduler = strategy_sma_shedulers[chat_id]
-            scheduler.shutdown()
-            del strategy_sma_shedulers[chat_id]
-            bot.send_message(chat_id, 'Стратегия SMA отключена')
+        msg = bot.send_message(chat_id, "Введите период RSI:")
+        bot.register_next_step_handler(msg, get_rsi_period)
 
 def get_rsi_period(message):
     chat_id = message.chat.id
@@ -1171,6 +994,50 @@ def get_rsi_period(message):
     except ValueError:
         msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода:")
         bot.register_next_step_handler(msg, get_rsi_period)
+
+def get_rsi_overbought(message):
+    chat_id = message.chat.id
+    try:
+        overbought = int(message.text)
+        user_rsi_data[chat_id]['overbought'] = overbought  # Сохраняем уровень перекупленности
+        bot.send_message(chat_id, f"Вы выбрали уровень перекупленности {overbought}. Теперь введите уровень перепроданности:")
+        bot.register_next_step_handler(message, get_rsi_oversold)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для уровня перекупленности:")
+        bot.register_next_step_handler(msg, get_rsi_overbought)
+
+def get_rsi_oversold(message):
+    chat_id = message.chat.id
+
+    oversold = int(message.text)
+    user_rsi_data[chat_id]['oversold'] = oversold  
+
+    period = user_rsi_data[chat_id]['period']
+    overbought = user_rsi_data[chat_id]['overbought']
+    oversold = user_rsi_data[chat_id]['oversold']
+
+    update_signal_rsi(chat_id, period, overbought, oversold)
+    
+    # Подтверждение настройки стратегии
+    bot.send_message(chat_id, f"Стратегия RSI настроена с параметрами:\n"
+                            f"Период: {period}\n"
+                            f"Перекупленность: {overbought}\n"
+                            f"Перепроданность: {oversold}\n")
+
+    # Очищаем временные данные после использования
+    del user_rsi_data[chat_id]
+        
+    
+# <=====================================НАСТРОЙКА СИГНАЛА SMA===============================================>
+
+@bot.callback_query_handler(func=lambda call: call.data == 'signal_sma')
+def sma_on(call):
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    
+    if token is not None:
+        msg = bot.send_message(chat_id, "Введите кол-во точек для расчета быстрого тренда:")
+        bot.register_next_step_handler(msg, get_sma_fast)
 
 def get_sma_fast(message):
     chat_id = message.chat.id
@@ -1190,148 +1057,58 @@ def get_sma_slow(message):
         slowLength = int(message.text)
         user_sma_data[chat_id]['slowLength'] = slowLength # Сохраняем период
         bot.send_message(chat_id, f"Вы выбрали кол-во точек для расчета медленного тренда {slowLength}.")
-        keyboard = types.InlineKeyboardMarkup()
+        fastLength = user_sma_data[chat_id]['fastLength']
 
-        time_options = ['2 минуты', '5 минут', '10 минут']
-        
-        for time in time_options:
-            keyboard.add(types.InlineKeyboardButton(time, callback_data=f"sma_time_{time.replace(' ', '_')}"))
-        
-        bot.send_message(chat_id, "Теперь выберите время срабатывания стратегии:", reply_markup=keyboard)
+        update_signal_sma(chat_id, fastLength, slowLength)
 
-        #bot.register_next_step_handler(message, get_sma_slow)
+        # Подтверждение активации стратегии
+        bot.send_message(chat_id, 
+                                f"Стратегия SMA настроена с параметрами:\n"
+                                f"Кол-во точек для расчета быстрого тренда: {fastLength}\n"
+                                f"Кол-во точек для расчета медленного тренда: {slowLength}\n"
+                         )
+
+
+        # Очищаем временные данные после использования
+        del user_sma_data[chat_id]
+        
     except ValueError:
         msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода:")
-        bot.register_next_step_handler(msg, get_sma_fast)
+        bot.register_next_step_handler(msg, get_sma_slow)
 
-def get_rsi_overbought(message):
+# <=====================================НАСТРОЙКА СИГНАЛА TPSL===============================================>
+
+@bot.callback_query_handler(func=lambda call: call.data == 'signal_tpsl')
+def connect_tp_sl(call):
+    chat_id = call.message.chat.id
+    bot.send_message(chat_id, 'Введите значение для Take Profit')
+    bot.register_next_step_handler_by_chat_id(chat_id, get_tp_value)
+
+
+def get_tp_value(message):
     chat_id = message.chat.id
-    try:
-        overbought = int(message.text)
-        user_rsi_data[chat_id]['overbought'] = overbought  # Сохраняем уровень перекупленности
-        bot.send_message(chat_id, f"Вы выбрали уровень перекупленности {overbought}. Теперь введите уровень перепроданности:")
-        bot.register_next_step_handler(message, get_rsi_oversold)
-    except ValueError:
-        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для уровня перекупленности:")
-        bot.register_next_step_handler(msg, get_rsi_overbought)
+    tp_value = message.text
+    user_tpsl_data[chat_id] = {'tp_value': tp_value}
+    bot.send_message(chat_id, 'Введите значение для Stop Loss')
+    bot.register_next_step_handler_by_chat_id(chat_id, get_sl_value)
 
-def get_rsi_oversold(message):
+
+def get_sl_value(message):
     chat_id = message.chat.id
-    try:
-        oversold = int(message.text)
-        user_rsi_data[chat_id]['oversold'] = oversold  # Сохраняем уровень перепроданности
-        bot.send_message(chat_id, f"Вы выбрали уровень перепроданности {oversold}.")
-        
-        # Шаг 2: Выбор времени срабатывания стратегии
-        keyboard = types.InlineKeyboardMarkup()
-        time_options = ['2 минуты', '5 минут', '10 минут']
-        
-        for time in time_options:
-            keyboard.add(types.InlineKeyboardButton(time, callback_data=f"rsi_time_{time.replace(' ', '_')}"))
-        
-        bot.send_message(chat_id, "Теперь выберите время срабатывания стратегии:", reply_markup=keyboard)
-    except ValueError:
-        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для уровня перепроданности:")
-        bot.register_next_step_handler(msg, get_rsi_oversold)
+    sl_value = message.text
+    user_tpsl_data[chat_id]['sl_value'] = sl_value
+    tp_value = user_tpsl_data[chat_id]['tp_value']
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('rsi_time_'))
-def set_rsi_time(call):
-    chat_id = call.message.chat.id
-    time_interval = call.data.split('_')[2]
+    update_signal_tpsl(chat_id, tp_value, sl_value)
 
-    # Сохраняем выбранное время в словарь
-    user_rsi_data[chat_id]['time_interval'] = time_interval
+    bot.send_message(chat_id, 'Take Profit/Stop Loss настроен с параметрами:\nTake Profit = ' + user_tpsl_data[chat_id]['tp_value'] + '\nStop Loss = ' + user_tpsl_data[chat_id]['sl_value'])
 
-    # Шаг 3: Выбор автоматической торговли
-    keyboard = types.InlineKeyboardMarkup()
-    keyboard.add(types.InlineKeyboardButton("Да", callback_data="rsi_auto_yes"))
-    keyboard.add(types.InlineKeyboardButton("Нет", callback_data="rsi_auto_no"))
-
-    bot.send_message(chat_id, "Хотите ли вы активировать автоматическую торговлю?", reply_markup=keyboard)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('sma_time_'))
-def set_sma_time(call):
-    chat_id = call.message.chat.id
-    time_interval = call.data.split('_')[2]
-
-    # Сохраняем выбранное время в словарь
-    user_sma_data[chat_id]['time_interval'] = time_interval
-
-    # Шаг 3: Выбор автоматической торговли
-    keyboard = types.InlineKeyboardMarkup()
-    keyboard.add(types.InlineKeyboardButton("Да", callback_data="sma_auto_yes"))
-    keyboard.add(types.InlineKeyboardButton("Нет", callback_data="sma_auto_no"))
-
-    bot.send_message(chat_id, "Хотите ли вы активировать автоматическую торговлю?", reply_markup=keyboard)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('rsi_auto_'))
-def set_rsi_auto_trade(call):
-    chat_id = call.message.chat.id
-    auto_trade = True if call.data == "rsi_auto_yes" else False
-
-    # Сохраняем выбор автоматической торговли в словарь
-    user_rsi_data[chat_id]['auto_trade'] = auto_trade
-    
-    period = user_rsi_data[chat_id]['period']
-    overbought = user_rsi_data[chat_id]['overbought']
-    oversold = user_rsi_data[chat_id]['oversold']
-    time_interval = user_rsi_data[chat_id]['time_interval']
-
-    # Шаг 4: Обновляем стратегию в базе данных
-    update_strategy_rsi(chat_id, 1, time_interval, auto_trade, period, overbought, oversold)
-
-    if chat_id not in strategy_rsi_shedulers:
-        scheduler = BackgroundScheduler()
-        strategy_rsi_shedulers[chat_id] = scheduler
-        scheduler.start()
-        scheduler = strategy_rsi_shedulers[chat_id]
-
-        scheduler.add_job(strategy_rsi_run, 'interval', minutes=int(time_interval), args=(chat_id, auto_trade, time_interval, period, overbought, oversold))
-
-    # Подтверждение активации стратегии
-    bot.send_message(chat_id, f"Стратегия RSI активирована с параметрами:\n"
-                              f"Период: {period}\n"
-                              f"Перекупленность: {overbought}\n"
-                              f"Перепроданность: {oversold}\n"
-                              f"Время срабатывания: {time_interval}\n"
-                              f"Автоматическая торговля: {'Да' if auto_trade else 'Нет'}.")
-    
-    # Очищаем временные данные после использования
-    del user_rsi_data[chat_id]
+    del user_tpsl_data[chat_id]
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('sma_auto_'))
-def set_sma_auto_trade(call):
-    chat_id = call.message.chat.id
-    auto_trade = True if call.data == "sma_auto_yes" else False
+# <=====================================ЗАПУСК СТРАТЕГИИ===============================================>
+def strategy_run(chat_id):
 
-    # Сохраняем выбор автоматической торговли в словарь
-    user_sma_data[chat_id]['auto_trade'] = auto_trade
-    
-    slowLength = user_sma_data[chat_id]['slowLength']
-    fastLength = user_sma_data[chat_id]['fastLength']
-    time_interval = user_sma_data[chat_id]['time_interval']
-
-    # Шаг 4: Обновляем стратегию в базе данных
-    update_strategy_sma(chat_id, 1, time_interval, auto_trade, fastLength, slowLength)
-
-    if chat_id not in strategy_sma_shedulers:
-        scheduler = BackgroundScheduler()
-        strategy_sma_shedulers[chat_id] = scheduler
-        scheduler.start()
-        scheduler = strategy_sma_shedulers[chat_id]
-
-        scheduler.add_job(strategy_sma_run, 'interval', minutes=int(time_interval), args=(chat_id, auto_trade, time_interval, slowLength, fastLength))
-
-    # Подтверждение активации стратегии
-    bot.send_message(chat_id, f"Стратегия SMA активирована")
-
-    
-    # Очищаем временные данные после использования
-    del user_sma_data[chat_id]
-
-
-def strategy_sma_run(chat_id, auto_market, time, slowLength, fastLength):
     token = get_t_token(chat_id)
     if token is not None:
 
@@ -1344,182 +1121,182 @@ def strategy_sma_run(chat_id, auto_market, time, slowLength, fastLength):
         
         else:
 
-            # Проходимся по каждому тикеру
+            tpsl = None
+            rsi = None
+            sma = None
+            time = None
+            auto_market = None
+
+            strategy_data = get_strategy()
+
+            for row in strategy_data:
+
+                tpsl = row[2]
+                rsi = row[3]
+                sma = row[4]
+                time = row[5]
+                auto_market = row[6]
+
             for ticker in tickers:
 
-                signal = None
+                current_profit = None
 
-                if ticker[0] == 'SVCB':
-                    k = 1
+                rsi_signal = None
+                tpsl_signal = None
+                sma_signal = None
 
                 figi = get_figi_by_ticker(ticker[0])
-                if figi is None:
-                    bot.send_message(chat_id, 'Не удалось получить FIGI для тикера: ' + ticker[0])
-                    continue
-
-                # Запускаем стратегию
-
-                start_time = None
-                candle_interval = None
-                time = int(time)
-
-                CANDLE_CONSTANT = 1
-
-                # Получаем свечи для тикера (интервал можно задать)
-                if time == 2:
-                    start_time = datetime.now() - timedelta(minutes=slowLength+CANDLE_CONSTANT)
-                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                elif time == 5:
-                    start_time = datetime.now() - timedelta(minutes=slowLength+CANDLE_CONSTANT)
-                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                elif time == 10:
-                    start_time = datetime.now() - timedelta(minutes=slowLength+CANDLE_CONSTANT)
-                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-
-                end_time = datetime.now()
-
-                # Получение свечей за указаный период
-                candles = get_historic_candles(figi, start_time, end_time, candle_interval)
-
-                if len(create_df(candles.candles)["close"].values) < slowLength:
-                    print("MINIMUM")
-                    continue
 
                 # Смотрим, есть ли актив в портфеле
                 position = get_instrument_from_portfolio_by_ticker(token, figi, ticker[0])
 
                 if position is not None:
-                    #BuyPrice
+
                     average_position_price = position['average_position_price']
                     current_price_one = position['current_price_one']
-                    #print(current_price_one)
-                    #quantity = position['quantity']
-                    ticker = position['ticker']
+                    #ticker = position['ticker']
                     brokerFee = 0.3
 
-                    comission = (average_position_price + current_price_one) * brokerFee / 100
-
-                    profit = current_price_one - average_position_price - comission
-
-                    current_profit = 100 * profit / average_position_price
-
-                    print(current_profit, ' <=>', ticker)
-
-                    # Проверяем сигналы RSI
-                    signal = calculate_sma_strategy(candles, fastLength, slowLength, current_profit)
-
-
+                    current_profit = calculate_profit(average_position_price, current_price_one, brokerFee)
 
                 else:
-                    signal = calculate_sma_strategy(candles, fastLength, slowLength, 0)
-                    print(0, ' <=>', ticker)
 
-                if signal is not None:
-                    # TODO: Подключить автоматическую торговлю
-                    if signal == 'buy':
-                        bot.send_message(chat_id, f"Актив {ticker} перепродан. Рекомендуется покупка.")
+                    current_profit = 0
 
-                    elif signal == 'sell':
-                        bot.send_message(chat_id, f"Актив {ticker} перекуплен. Рекомендуется продажа.")
+                # Проверяем rsi
+                if rsi == 1:
 
-                    elif signal == 'hold':
-                         bot.send_message(chat_id, f"Актив {ticker} необходимо держать.")
+                    period = None
+                    lowLevel = None
+                    highLevel = None
 
+                    rsi_data = get_rsi(chat_id)
 
+                    for row in rsi_data:
 
-def strategy_rsi_run(chat_id, auto_market, time, period, highLevel, lowLevel):
+                        period = row[2]
+                        highLevel = row[3]
+                        lowLevel = row[4]
+                    
 
-    token = get_t_token(chat_id)
-    if token is not None:
+                    start_time = None
+                    candle_interval = None
+                    time = int(time)
 
-        # Получаем тикеры из базы данных
-        tickers = get_all_tickers(chat_id)
-        
-        if not tickers:
-            bot.send_message(chat_id, 'У вас нет активных тикеров')
-            return
-
-        # Запускаем стратегию
-        else:
-
-            # Проходимя по каждому тикеру.
-            # Применяем стратегию RSI и смотрим, сигнал на покупку или продажу
-            # Если сигнал на покупку, присылаем соответствующее уведомление.
-            # Если сигнал на продажу, сначала смотрим, есть ли актив в портфеле, если есть, то присылаем соответствующее уведомление.
-            # Проходим по каждому тикеру
-            for ticker in tickers:
-
-                signal = None
-
-                figi = get_figi_by_ticker(ticker[0])
-
-                start_time = None
-                candle_interval = None
-                time = int(time)
-
-                CANDLE_CONSTANT = 2
-
-                # Получаем свечи для тикера (интервал можно задать)
-                if time == 2:
+                    CANDLE_CONSTANT = 1
+                    
                     start_time = datetime.now() - timedelta(minutes=period+CANDLE_CONSTANT)
                     candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                elif time == 5:
-                    start_time = datetime.now() - timedelta(minutes=period+CANDLE_CONSTANT)
+                    
+
+                    end_time = datetime.now()
+
+                    # Получение свечей за указаный период
+                    candles = get_historic_candles(figi, start_time, end_time, candle_interval)
+
+                    if len(create_df(candles.candles)["close"].values) < period+CANDLE_CONSTANT:
+                        print("MINIMUM")
+                    
+                    else:
+
+                        # Расчет RSI
+                        rsi_value = calculate_rsi(candles, period)
+
+                        if rsi_value is None:
+                            continue
+
+                        rsi_signal = check_rsi_signal(rsi_value, lowLevel, highLevel, current_profit)
+
+
+                # Проверяем sma
+                if sma == 1:
+
+                    fastLength = None
+                    slowLength = None
+
+                    sma_data = get_sma(chat_id)
+
+                    for row in sma_data:
+
+                        fastLength = row[2]
+                        slowLength = row[3]
+                    
+
+                    start_time = None
+                    candle_interval = None
+                    time = int(time)
+
+                    CANDLE_CONSTANT = 1
+                    
+                    start_time = datetime.now() - timedelta(minutes=slowLength+CANDLE_CONSTANT)
                     candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                elif time == 10:
-                    start_time = datetime.now() - timedelta(minutes=period+CANDLE_CONSTANT)
-                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    
 
-                end_time = datetime.now()
+                    end_time = datetime.now()
 
-                # Получение свечей за указаный период
-                candles = get_historic_candles(figi, start_time, end_time, candle_interval)
+                    # Получение свечей за указаный период
+                    candles = get_historic_candles(figi, start_time, end_time, candle_interval)
 
-                # Расчет RSI
-                rsi_value = calculate_rsi(candles, period)
+                    if len(create_df(candles.candles)["close"].values) < slowLength+CANDLE_CONSTANT:
+                        print("MINIMUM")
 
-                if rsi_value is None:
-                    continue
+                    else:
+                        # Расчет SMA
+                        sma_signal = calculate_sma_strategy(candles, fastLength, slowLength, current_profit)
 
-                # Смотрим, есть ли актив в портфеле
-                position = get_instrument_from_portfolio_by_ticker(token, figi, ticker[0])
+                
+                # Проверяем tpsl
+                if tpsl == 1:
 
-                if position is not None:
-                    average_position_price = position['average_position_price']
-                    current_price_one = position['current_price_one']
-                    #print(current_price_one)
-                    #quantity = position['quantity']
-                    ticker = position['ticker']
-                    brokerFee = 0.3
+                    takeProfit = None
+                    stopLoss = None
 
-                    comission = (average_position_price + current_price_one) * brokerFee / 100
+                    tpsl_data = get_tpsl(chat_id)
 
-                    profit = current_price_one - average_position_price - comission
+                    for row in tpsl_data:
 
-                    current_profit = 100 * profit / average_position_price
+                        takeProfit = row[2]
+                        stopLoss = row[3]
+                    
 
-                    print(current_profit, ' <=>', ticker)
+                    if current_profit > takeProfit or current_profit < -stopLoss:
 
-                    # Проверяем сигналы RSI
-                    signal = check_rsi_signal(rsi_value, lowLevel, highLevel, current_profit)
+                        tpsl_signal = "sell"
 
+                    else:
 
+                        tpsl_signal = "hold"
 
-                else:
-                    signal = check_rsi_signal(rsi_value, lowLevel, highLevel, 0)
+                # TODO: Добавить автоматическую торговлю
+                if rsi_signal == "buy" or sma_signal == "buy" or tpsl_signal == "buy":
+                    signal_text = ""
+                    if rsi_signal == "buy":
+                        signal_text += "RSI "
+                    if sma_signal == "buy":
+                        signal_text += "SMA "
+                    if tpsl_signal == "buy":
+                        signal_text += "TPSL "
+                    bot.send_message(chat_id, f"Покупка {ticker[0]} по сигналу {signal_text}")
 
-                if signal is not None:
-                    # TODO: Подключить автоматическую торговлю
-                    if signal == 'buy':
-                        bot.send_message(chat_id, f"Актив {ticker} перепродан. Рекомендуется покупка.")
+                elif rsi_signal == "sell" or sma_signal == "sell" or tpsl_signal == "sell":
+                    signal_text = ""
+                    if rsi_signal == "sell":
+                        signal_text += "RSI "
+                    if sma_signal == "sell":
+                        signal_text += "SMA "
+                    if tpsl_signal == "sell":
+                        signal_text += "TPSL "
+                    bot.send_message(chat_id, f"Продаем {ticker[0]} по сигналу {signal_text}")
 
-                    elif signal == 'sell':
-                        bot.send_message(chat_id, f"Актив {ticker} перекуплен. Рекомендуется продажа.")
-
-                    elif signal == 'hold':
-                         bot.send_message(chat_id, f"Актив {ticker} необходимо держать.")
-
-
+                elif rsi_signal == "hold" or sma_signal == "hold" or tpsl_signal == "hold":
+                    signal_text = ""
+                    if rsi_signal == "hold":
+                        signal_text += "RSI "
+                    if sma_signal == "hold":
+                        signal_text += "SMA "
+                    if tpsl_signal == "hold":
+                        signal_text += "TPSL "
+                    bot.send_message(chat_id, f"Держим {ticker[0]} по сигналу {signal_text}")
 
 
 

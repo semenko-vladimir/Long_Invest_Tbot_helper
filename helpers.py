@@ -8,3 +8,5 @@ def calculate_profit(average_position_price, current_price_one, brokerFee=0.3):
     current_profit = 100 * profit / average_position_price
 
     return current_profit
+
+
