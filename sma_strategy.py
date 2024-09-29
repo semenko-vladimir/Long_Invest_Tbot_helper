@@ -1,15 +1,36 @@
 import numpy as np
-
 from methods import create_df
+import pandas as pd
+import ta
+import os
+import matplotlib.pyplot as plt
+
+
+'''
+Алгоритм расчета SMA (простого скользящего среднего) для периода N выглядит следующим образом:
+
+1. Берутся цены закрытия за выбранный период.
+2. Для каждого дня берется среднее арифметическое цен закрытия за период N.
+   Формула для расчета SMA:
+   SMA = (P1 + P2 + ... + Pn) / N,
+   где P1, P2, ..., Pn — цены закрытия за период N.
+3. Для начала периода (первые N-1 ) SMA не может быть рассчитано, поэтому добавляются значения None (или 0 при необходимости),
+чтобы длина выходного массива соответствовала длине массива цен.
+'''
 
 # Функция для расчета SMA
 def sma(prices, length):
     if len(prices) < length:
-        return None
-    sma_values = np.convolve(prices, np.ones(length), 'valid') / length
-    # Добавляем None для выравнивания длины списка до длины цен
-    sma_values = np.concatenate((np.full(length - 1, None), sma_values))
-    return sma_values
+        return None  # Возвращаем NaN для всех значений
+
+    # Преобразуем в Series для удобства
+    prices_series = pd.Series(prices)
+
+    # Рассчитываем SMA с помощью ta
+    sma_values = ta.trend.sma_indicator(prices_series, window=length, fillna=True)
+
+    return sma_values.to_numpy()  # Возвращаем в виде массива NumPy
+
 
 # Функция для проверки пересечения (crossover) - снизу вверх
 def crossover(source1, source2):
@@ -24,7 +45,7 @@ def crossunder(source1, source2):
     return source1[-2] > source2[-2] and source1[-1] < source2[-1]
 
 # Функция для расчета сигнала по стратегии SMA
-def calculate_sma_strategy(data, fast_length, slow_length, profit):
+def calculate_sma_strategy(data, fast_length, slow_length, profit, bot, chat_id):
     candles = data.candles
     df = create_df(candles)
 

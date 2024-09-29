@@ -146,6 +146,7 @@ def create_table_strategy():
             tpls_trigger BOOLEAN,
             rsi_trigger BOOLEAN,
             sma_trigger BOOLEAN,
+            alligator_trigger BOOLEAN,
                    
             time TIMESTAMP,
             auto_market BOOLEAN,
@@ -155,6 +156,27 @@ def create_table_strategy():
     ''')
     conn.commit()
     conn.close()
+
+
+def create_table_signal_alligator():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS signal_alligator (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER,
+            jaw_period INTEGER,
+            jaw_shift INTEGER,
+            teeth_period INTEGER,
+            teeth_shift INTEGER,
+            lips_period INTEGER,
+            lips_shift INTEGER,
+            FOREIGN KEY (chat_id) REFERENCES users (chat_id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
 
 
 def delete_config_table():
@@ -284,17 +306,37 @@ def update_signal_sma(chat_id, fastLength, slowLength):
     conn.commit()
     conn.close()
 
-def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, time, auto_market):
+
+def update_signal_alligator(chat_id, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM signal_alligator WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        cursor.execute('''INSERT INTO signal_alligator 
+                          (chat_id, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                       (chat_id, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift))
+    else:
+        cursor.execute('''UPDATE signal_alligator 
+                          SET jaw_period = ?, jaw_shift = ?, teeth_period = ?, teeth_shift = ?, lips_period = ?, lips_shift = ? 
+                          WHERE chat_id = ?''',
+                       (jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift, chat_id))
+    conn.commit()
+    conn.close()
+
+
+def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM strategy WHERE chat_id = ?", (chat_id,))
     row = cursor.fetchone()
     if row is None:
-        cursor.execute("INSERT INTO strategy (chat_id, tpls_trigger, rsi_trigger, sma_trigger, time, auto_market) VALUES (?, ?, ?, ?, ?, ?)",
-                       (chat_id, tpls_trigger, rsi_trigger, sma_trigger, time, auto_market))
+        cursor.execute("INSERT INTO strategy (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market))
     else:
-        cursor.execute("UPDATE strategy SET tpls_trigger = ?, rsi_trigger = ?, sma_trigger = ?, time = ?, auto_market = ? WHERE chat_id = ?",
-                       (tpls_trigger, rsi_trigger, sma_trigger, time, auto_market, chat_id))
+        cursor.execute("UPDATE strategy SET tpls_trigger = ?, rsi_trigger = ?, sma_trigger = ?, alligator_trigger = ?, time = ?, auto_market = ? WHERE chat_id = ?",
+                       (tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, chat_id))
     conn.commit()
     conn.close()
 
@@ -330,6 +372,15 @@ def get_sma(chat_id):
     sma_data = cursor.fetchall()
     conn.close()
     return sma_data
+
+def get_alligator(chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM signal_alligator WHERE chat_id = ?", (chat_id,))
+    alligator_data = cursor.fetchall()
+    conn.close()
+    return alligator_data
+
 
 def get_strategy():
     conn = sqlite3.connect('database.db')

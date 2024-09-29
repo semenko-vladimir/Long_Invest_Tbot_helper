@@ -14,19 +14,23 @@ from methods import create_df
 На основании RS вычисляется индекс относительной силы: RSI = 100 – 100 / (RS + 1).
 '''
 
+import numpy as np
+import pandas as pd
+import ta
+from tinkoff.invest import HistoricCandle
+from methods import create_df
+
 def ema(prices, length):
     if len(prices) < length:
         return None
 
-    ema_values = np.zeros(len(prices))
-    initial_sma = np.mean(prices[:length])
-    ema_values[length - 1] = initial_sma
-    k = 2 / (length + 1)
+    # Преобразуем в Series для удобства
+    prices_series = pd.Series(prices)
 
-    for i in range(length, len(prices)):
-        ema_values[i] = (prices[i] * k) + (ema_values[i - 1] * (1 - k))
+    # Рассчитываем EMA с помощью ta
+    ema_values = ta.trend.ema_indicator(prices_series, window=length, fillna=True)
 
-    return ema_values
+    return ema_values.to_numpy()
 
 def calculate_rsi(data, period):
     period = int(period)
@@ -58,8 +62,6 @@ def calculate_rsi(data, period):
 
     return rsi
 
-
-
 def check_rsi_signal(rsi_value, low_level, high_level, profit):
     # Проверяем пересечение уровня перепроданности (сигнал на покупку)
     if rsi_value < low_level:
@@ -70,3 +72,4 @@ def check_rsi_signal(rsi_value, low_level, high_level, profit):
         return 'sell'
     
     return 'hold'
+

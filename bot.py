@@ -62,8 +62,9 @@ bot.polling()
 from datetime import datetime, timedelta
 import telebot
 import sqlite3
+from alligator_strategy import calculate_alligator_strategy
 import credentials
-from db import get_config, get_sma, get_strategy, get_t_token, get_tpsl, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse, update_signal_rsi, update_signal_sma, update_signal_tpsl, get_rsi, update_strategy
+from db import get_alligator, get_config, get_sma, get_strategy, get_t_token, get_tpsl, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse, update_signal_alligator, update_signal_rsi, update_signal_sma, update_signal_tpsl, get_rsi, update_strategy
 import db
 from helpers import calculate_profit
 from methods import create_df, get_historic_candles, get_portfolio, get_figi_by_ticker, get_info_by_ticker, get_price_change_in_current_interval, get_instrument_from_portfolio_by_ticker
@@ -115,7 +116,7 @@ def start(message):
 
         keyboard.row(subscribe_to_market_update_button, unsubscribe_to_market_update_button, receive_market_update_button)
 
-        keyboard.row(all_market_status_button, take_profit_stop_loss_button, strategies_button)
+        keyboard.row(all_market_status_button, strategies_button)
         
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 
@@ -655,85 +656,85 @@ def configure_scheduler():
 
     config_data = get_config()
 
-    if config_data is None:
-        return
-
-    for row in config_data:
-        chat_id = row[1]
-        collapse_updates = row[2]
-        collapse_updates_time = row[3]
-        market_updates = row[4]
-        market_updates_time = row[5]
-
-        # if chat_id in chat_schedulers:
-        #     bot.send_message(chat_id, 'Вы уже подписаны на обновления')
-
-        if chat_id not in chat_schedulers and chat_id is not None and collapse_updates:
-            scheduler = BackgroundScheduler()
-            chat_schedulers[chat_id] = scheduler
-            scheduler.start()
-
-            scheduler = chat_schedulers[chat_id]
-
-            tickers = get_all_tickers(chat_id)
-
-            if not tickers:
-                bot.send_message(chat_id, 'У вас нет активных тикеров')
-            else:
-                for ticker in tickers:
-                    info = get_info_by_ticker(str(ticker[0]))
-                    figi = info['figi'].values[0:1][0]
-                    name = info['name'].values[0:1][0]
-                    type_of = info['type'].values[0:1][0]
-                    ticker = ticker[0]
-
-                    if collapse_updates_time == 10:
-                        start_time = datetime.now() - timedelta(minutes=10)
-                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                    elif collapse_updates_time == 30:
-                        start_time = datetime.now() - timedelta(minutes=30)
-                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                    elif collapse_updates_time == 60:
-                        start_time = datetime.now() - timedelta(hours=1)
-                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-
-                    end_time = datetime.now()
-                    # Настраиваем задания планировщика
-                    scheduler.add_job(send_price_change_notification_collapse, 'interval', minutes=collapse_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
+    if config_data is not None:
 
 
-        if chat_id not in chat_schedulers and chat_id is not None and market_updates:
-            scheduler = BackgroundScheduler()
-            chat_schedulers[chat_id] = scheduler
-            scheduler.start()
+        for row in config_data:
+            chat_id = row[1]
+            collapse_updates = row[2]
+            collapse_updates_time = row[3]
+            market_updates = row[4]
+            market_updates_time = row[5]
 
-            scheduler = chat_schedulers[chat_id]
+            # if chat_id in chat_schedulers:
+            #     bot.send_message(chat_id, 'Вы уже подписаны на обновления')
 
-            tickers = get_all_tickers(chat_id)
+            if chat_id not in chat_schedulers and chat_id is not None and collapse_updates:
+                scheduler = BackgroundScheduler()
+                chat_schedulers[chat_id] = scheduler
+                scheduler.start()
 
-            if not tickers:
-                bot.send_message(chat_id, 'У вас нет активных тикеров')
-            else:
-                for ticker in tickers:
-                    info = get_info_by_ticker(str(ticker[0]))
-                    figi = info['figi'].values[0:1][0]
-                    name = info['name'].values[0:1][0]
-                    type_of = info['type'].values[0:1][0]
-                    ticker = ticker[0]
+                scheduler = chat_schedulers[chat_id]
 
-                    if market_updates_time == 10:
-                        start_time = datetime.now() - timedelta(minutes=10)
-                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                    elif market_updates_time == 30:
-                        start_time = datetime.now() - timedelta(minutes=30)
-                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-                    elif market_updates_time == 60:
-                        start_time = datetime.now() - timedelta(hours=1)
-                        candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                tickers = get_all_tickers(chat_id)
 
-                    end_time = datetime.now()
-                    # Настраиваем задания планировщика
-                    scheduler.add_job(send_price_change_notification_market_updates, 'interval', minutes=market_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
+                if not tickers:
+                    bot.send_message(chat_id, 'У вас нет активных тикеров')
+                else:
+                    for ticker in tickers:
+                        info = get_info_by_ticker(str(ticker[0]))
+                        figi = info['figi'].values[0:1][0]
+                        name = info['name'].values[0:1][0]
+                        type_of = info['type'].values[0:1][0]
+                        ticker = ticker[0]
+
+                        if collapse_updates_time == 10:
+                            start_time = datetime.now() - timedelta(minutes=10)
+                            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                        elif collapse_updates_time == 30:
+                            start_time = datetime.now() - timedelta(minutes=30)
+                            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                        elif collapse_updates_time == 60:
+                            start_time = datetime.now() - timedelta(hours=1)
+                            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+
+                        end_time = datetime.now()
+                        # Настраиваем задания планировщика
+                        scheduler.add_job(send_price_change_notification_collapse, 'interval', minutes=collapse_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
+
+
+            if chat_id not in chat_schedulers and chat_id is not None and market_updates:
+                scheduler = BackgroundScheduler()
+                chat_schedulers[chat_id] = scheduler
+                scheduler.start()
+
+                scheduler = chat_schedulers[chat_id]
+
+                tickers = get_all_tickers(chat_id)
+
+                if not tickers:
+                    bot.send_message(chat_id, 'У вас нет активных тикеров')
+                else:
+                    for ticker in tickers:
+                        info = get_info_by_ticker(str(ticker[0]))
+                        figi = info['figi'].values[0:1][0]
+                        name = info['name'].values[0:1][0]
+                        type_of = info['type'].values[0:1][0]
+                        ticker = ticker[0]
+
+                        if market_updates_time == 10:
+                            start_time = datetime.now() - timedelta(minutes=10)
+                            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                        elif market_updates_time == 30:
+                            start_time = datetime.now() - timedelta(minutes=30)
+                            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                        elif market_updates_time == 60:
+                            start_time = datetime.now() - timedelta(hours=1)
+                            candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+
+                        end_time = datetime.now()
+                        # Настраиваем задания планировщика
+                        scheduler.add_job(send_price_change_notification_market_updates, 'interval', minutes=market_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
 
     
     chat_id = None
@@ -746,10 +747,11 @@ def configure_scheduler():
         tpsl = row[2]
         rsi = row[3]
         sma = row[4]
-        time = row[5]
-        autom = row[6]
+        alligator = row[5]
+        time = row[6]
+        autom = row[7]
 
-        if tpsl == 0 and rsi == 0 and sma == 0:
+        if tpsl == 0 and rsi == 0 and sma == 0 and alligator == 0:
             return
         
         if chat_id not in strategy_shedulers and chat_id is not None:
@@ -770,6 +772,7 @@ def configure_scheduler():
 user_rsi_data = {}
 user_sma_data = {}
 user_tpsl_data = {}
+user_alligator_data = {}
 
 @bot.message_handler(func=lambda message: message.text == 'Стратегии')
 def show_strategies(message):
@@ -796,6 +799,7 @@ def show_signals(call):
             types.InlineKeyboardButton(text='Take Profit/Stop Loss', callback_data='signal_tpsl'),
             types.InlineKeyboardButton(text='RSI', callback_data='signal_rsi'),
             types.InlineKeyboardButton(text='SMA', callback_data='signal_sma'),
+            types.InlineKeyboardButton(text='Alligator', callback_data='signal_alligator'),
         ]
         inline_keyboard.add(*buttons)
         bot.send_message(chat_id, 'Выберите сигнал для настройки', reply_markup=inline_keyboard)
@@ -805,10 +809,11 @@ def show_signals(call):
 # <==================== ОБРАБОТЧИКИ НАСТРОЙКИ СТРАТЕГИИ ====================>
 
 selected_signals = {}
-available_signals = ['RSI', 'SMA', 'Take Profit/Stop Loss']
+available_signals = ['RSI', 'SMA', 'Take Profit/Stop Loss', 'Alligator']
 tpsl_trigger = False
 rsi_trigger = False
 sma_trigger = False
+alligator_trigger = False
 time = None
 auto_market = None
 
@@ -828,7 +833,7 @@ def show_signals(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'strategy_remove')
 def remove_strategy(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, time, auto_market
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market
     chat_id = call.message.chat.id
     token = get_t_token(chat_id)
     if token is not None:
@@ -838,12 +843,13 @@ def remove_strategy(call):
             scheduler.shutdown()
             del strategy_shedulers[chat_id]
 
-        update_strategy(chat_id, 0, 0, 0, 0, False)
+        update_strategy(chat_id, 0, 0, 0, 0, 0, False)
         
         selected_signals = {}
         tpsl_trigger = False
         rsi_trigger = False
         sma_trigger = False
+        alligator_trigger = False
         time = None
         auto_market = None
 
@@ -854,7 +860,7 @@ def remove_strategy(call):
 # Обработчик выбора сигнала
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
 def select_signal(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger
     chat_id = call.message.chat.id
     signal = call.data.split('_')[1].upper()
 
@@ -881,9 +887,12 @@ def select_signal(call):
     elif signal == 'TAKE PROFIT/STOP LOSS':
         if get_tpsl(chat_id)[2:] == [None, None]:
             bot.send_message(chat_id, "Сигнал Take Profit/Stop Loss не настроен.")
+    elif signal == 'ALLIGATOR':
+        if get_alligator(chat_id)[2:] == [None, None]:
+            bot.send_message(chat_id, "Сигнал Alligator не настроен.")
         else:
             selected_signals[signal] = True
-            tpsl_trigger = True
+            alligator_trigger = True
             bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
 
     # Повторно выводим кнопки для выбора сигналов
@@ -922,12 +931,12 @@ def select_time(call):
 # Обработчик включения автоматической торговли
 @bot.callback_query_handler(func=lambda call: call.data.startswith('auto_'))
 def set_auto_market(call):
-    global auto_market, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, time
+    global auto_market, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time
     chat_id = call.message.chat.id
     auto_market = call.data.split('_')[1] == 'yes'
     
     # Вызов функции обновления стратегии
-    update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, time, auto_market)
+    update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market)
 
     if chat_id in strategy_shedulers:
         scheduler = strategy_shedulers[chat_id]
@@ -947,6 +956,7 @@ def set_auto_market(call):
     tpsl_trigger = False
     rsi_trigger = False
     sma_trigger = False
+    alligator_trigger = False
     time = None
     auto_market = None
 
@@ -958,7 +968,7 @@ def set_auto_market(call):
 # Обработчик кнопки "Отмена"
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel')
 def cancel_strategy(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, time, auto_market
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market
     chat_id = call.message.chat.id
 
     # Сброс всех параметров
@@ -966,6 +976,7 @@ def cancel_strategy(call):
     tpsl_trigger = None
     rsi_trigger = None
     sma_trigger = None
+    alligator_trigger = None
     time = None
     auto_market = None
 
@@ -1106,6 +1117,102 @@ def get_sl_value(message):
     del user_tpsl_data[chat_id]
 
 
+# <==================== ОБРАБОТЧИКИ НАСТРОЙКИ СИГНАЛА ALLIGATOR ====================>
+
+@bot.callback_query_handler(func=lambda call: call.data == 'signal_alligator')
+def alligator_on(call):
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    
+    if token is not None:
+        msg = bot.send_message(chat_id, "Введите период для челюстей (Jaw):")
+        bot.register_next_step_handler(msg, get_alligator_jaw_period)
+
+def get_alligator_jaw_period(message):
+    chat_id = message.chat.id
+    try:
+        jaw_period = int(message.text)
+        user_alligator_data[chat_id] = {'jaw_period': jaw_period}  # Сохраняем период для челюстей
+        bot.send_message(chat_id, f"Вы выбрали период {jaw_period} для челюстей. Теперь введите смещение для челюстей (Jaw shift):")
+        bot.register_next_step_handler(message, get_alligator_jaw_shift)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода челюстей:")
+        bot.register_next_step_handler(msg, get_alligator_jaw_period)
+
+def get_alligator_jaw_shift(message):
+    chat_id = message.chat.id
+    try:
+        jaw_shift = int(message.text)
+        user_alligator_data[chat_id]['jaw_shift'] = jaw_shift  # Сохраняем смещение для челюстей
+        bot.send_message(chat_id, f"Вы выбрали смещение {jaw_shift} для челюстей. Теперь введите период для зубов (Teeth):")
+        bot.register_next_step_handler(message, get_alligator_teeth_period)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для смещения челюстей:")
+        bot.register_next_step_handler(msg, get_alligator_jaw_shift)
+
+def get_alligator_teeth_period(message):
+    chat_id = message.chat.id
+    try:
+        teeth_period = int(message.text)
+        user_alligator_data[chat_id]['teeth_period'] = teeth_period  # Сохраняем период для зубов
+        bot.send_message(chat_id, f"Вы выбрали период {teeth_period} для зубов. Теперь введите смещение для зубов (Teeth shift):")
+        bot.register_next_step_handler(message, get_alligator_teeth_shift)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода зубов:")
+        bot.register_next_step_handler(msg, get_alligator_teeth_period)
+
+def get_alligator_teeth_shift(message):
+    chat_id = message.chat.id
+    try:
+        teeth_shift = int(message.text)
+        user_alligator_data[chat_id]['teeth_shift'] = teeth_shift  # Сохраняем смещение для зубов
+        bot.send_message(chat_id, f"Вы выбрали смещение {teeth_shift} для зубов. Теперь введите период для губ (Lips):")
+        bot.register_next_step_handler(message, get_alligator_lips_period)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для смещения зубов:")
+        bot.register_next_step_handler(msg, get_alligator_teeth_shift)
+
+def get_alligator_lips_period(message):
+    chat_id = message.chat.id
+    try:
+        lips_period = int(message.text)
+        user_alligator_data[chat_id]['lips_period'] = lips_period  # Сохраняем период для губ
+        bot.send_message(chat_id, f"Вы выбрали период {lips_period} для губ. Теперь введите смещение для губ (Lips shift):")
+        bot.register_next_step_handler(message, get_alligator_lips_shift)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода губ:")
+        bot.register_next_step_handler(msg, get_alligator_lips_period)
+
+def get_alligator_lips_shift(message):
+    chat_id = message.chat.id
+    try:
+        lips_shift = int(message.text)
+        user_alligator_data[chat_id]['lips_shift'] = lips_shift  # Сохраняем смещение для губ
+
+        # Получаем все введённые параметры
+        jaw_period = user_alligator_data[chat_id]['jaw_period']
+        jaw_shift = user_alligator_data[chat_id]['jaw_shift']
+        teeth_period = user_alligator_data[chat_id]['teeth_period']
+        teeth_shift = user_alligator_data[chat_id]['teeth_shift']
+        lips_period = user_alligator_data[chat_id]['lips_period']
+        lips_shift = user_alligator_data[chat_id]['lips_shift']
+
+        # Обновляем параметры в базе данных
+        update_signal_alligator(chat_id, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift)
+        
+        # Подтверждение настройки стратегии
+        bot.send_message(chat_id, f"Стратегия Аллигатор настроена с параметрами:\n"
+                                  f"Челюсти - Период: {jaw_period}, Смещение: {jaw_shift}\n"
+                                  f"Зубы - Период: {teeth_period}, Смещение: {teeth_shift}\n"
+                                  f"Губы - Период: {lips_period}, Смещение: {lips_shift}\n")
+
+        # Очищаем временные данные после использования
+        del user_alligator_data[chat_id]
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для смещения губ:")
+        bot.register_next_step_handler(msg, get_alligator_lips_shift)
+
+
 # <=====================================ЗАПУСК СТРАТЕГИИ===============================================>
 def strategy_run(chat_id):
 
@@ -1124,6 +1231,7 @@ def strategy_run(chat_id):
             tpsl = None
             rsi = None
             sma = None
+            alligator = None  # Добавляем переменную для Аллигатора
             time = None
             auto_market = None
 
@@ -1134,8 +1242,9 @@ def strategy_run(chat_id):
                 tpsl = row[2]
                 rsi = row[3]
                 sma = row[4]
-                time = row[5]
-                auto_market = row[6]
+                alligator = row[5]  # Получаем значение для Аллигатора
+                time = row[6]
+                auto_market = row[7]
 
             for ticker in tickers:
 
@@ -1144,6 +1253,7 @@ def strategy_run(chat_id):
                 rsi_signal = None
                 tpsl_signal = None
                 sma_signal = None
+                alligator_signal = None  # Добавляем переменную для сигнала Аллигатора
 
                 figi = get_figi_by_ticker(ticker[0])
 
@@ -1154,7 +1264,6 @@ def strategy_run(chat_id):
 
                     average_position_price = position['average_position_price']
                     current_price_one = position['current_price_one']
-                    #ticker = position['ticker']
                     brokerFee = 0.3
 
                     current_profit = calculate_profit(average_position_price, current_price_one, brokerFee)
@@ -1244,7 +1353,52 @@ def strategy_run(chat_id):
                         # Расчет SMA
                         sma_signal = calculate_sma_strategy(candles, fastLength, slowLength, current_profit)
 
-                
+
+                # Проверяем Аллигатор
+                if alligator == 1:
+
+                    jaw_period = None
+                    jaw_shift = None
+                    teeth_period = None
+                    teeth_shift = None
+                    lips_period = None
+                    lips_shift = None
+
+                    alligator_data = get_alligator(chat_id)
+
+                    for row in alligator_data:
+
+                        jaw_period = row[2]
+                        jaw_shift = row[3]
+                        teeth_period = row[4]
+                        teeth_shift = row[5]
+                        lips_period = row[6]
+                        lips_shift = row[7]
+                    
+
+                    start_time = None
+                    candle_interval = None
+                    time = int(time)
+
+                    CANDLE_CONSTANT = 1
+                    
+                    start_time = datetime.now() - timedelta(minutes=max(jaw_period, teeth_period, lips_period)+CANDLE_CONSTANT)
+                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    
+
+                    end_time = datetime.now()
+
+                    # Получение свечей за указанный период
+                    candles = get_historic_candles(figi, start_time, end_time, candle_interval)
+
+                    if len(create_df(candles.candles)["high"].values) < max(jaw_period, teeth_period, lips_period)+CANDLE_CONSTANT or len(create_df(candles.candles)["low"].values) < max(jaw_period, teeth_period, lips_period)+CANDLE_CONSTANT:
+                        print("MINIMUM")
+
+                    else:
+                        # Расчет Аллигатора
+                        alligator_signal = calculate_alligator_strategy(candles, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift, current_profit)
+
+
                 # Проверяем tpsl
                 if tpsl == 1:
 
@@ -1268,35 +1422,42 @@ def strategy_run(chat_id):
                         tpsl_signal = "hold"
 
                 # TODO: Добавить автоматическую торговлю
-                if rsi_signal == "buy" or sma_signal == "buy" or tpsl_signal == "buy":
+                if rsi_signal == "buy" or sma_signal == "buy" or alligator_signal == "buy" or tpsl_signal == "buy":
                     signal_text = ""
                     if rsi_signal == "buy":
                         signal_text += "RSI "
                     if sma_signal == "buy":
                         signal_text += "SMA "
+                    if alligator_signal == "buy":
+                        signal_text += "Alligator "
                     if tpsl_signal == "buy":
                         signal_text += "TPSL "
                     bot.send_message(chat_id, f"Покупка {ticker[0]} по сигналу {signal_text}")
 
-                elif rsi_signal == "sell" or sma_signal == "sell" or tpsl_signal == "sell":
+                elif rsi_signal == "sell" or sma_signal == "sell" or alligator_signal == "sell" or tpsl_signal == "sell":
                     signal_text = ""
                     if rsi_signal == "sell":
                         signal_text += "RSI "
                     if sma_signal == "sell":
                         signal_text += "SMA "
+                    if alligator_signal == "sell":
+                        signal_text += "Alligator "
                     if tpsl_signal == "sell":
                         signal_text += "TPSL "
                     bot.send_message(chat_id, f"Продаем {ticker[0]} по сигналу {signal_text}")
 
-                elif rsi_signal == "hold" or sma_signal == "hold" or tpsl_signal == "hold":
+                elif rsi_signal == "hold" or sma_signal == "hold" or alligator_signal == "hold" or tpsl_signal == "hold":
                     signal_text = ""
                     if rsi_signal == "hold":
                         signal_text += "RSI "
                     if sma_signal == "hold":
                         signal_text += "SMA "
+                    if alligator_signal == "hold":
+                        signal_text += "Alligator "
                     if tpsl_signal == "hold":
                         signal_text += "TPSL "
                     bot.send_message(chat_id, f"Держим {ticker[0]} по сигналу {signal_text}")
+
 
 
 
