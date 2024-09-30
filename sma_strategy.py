@@ -45,7 +45,7 @@ def crossunder(source1, source2):
     return source1[-2] > source2[-2] and source1[-1] < source2[-1]
 
 # Функция для расчета сигнала по стратегии SMA
-def calculate_sma_strategy(data, fast_length, slow_length, profit, bot, chat_id):
+def calculate_sma_strategy(data, fast_length, slow_length, profit):
     candles = data.candles
     df = create_df(candles)
 

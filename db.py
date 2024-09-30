@@ -151,6 +151,8 @@ def create_table_strategy():
             time TIMESTAMP,
             auto_market BOOLEAN,
                    
+            quantity INTEGER,
+                   
             FOREIGN KEY (chat_id) REFERENCES users (chat_id)
         )
     ''')
@@ -326,17 +328,17 @@ def update_signal_alligator(chat_id, jaw_period, jaw_shift, teeth_period, teeth_
     conn.close()
 
 
-def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market):
+def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity=0):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM strategy WHERE chat_id = ?", (chat_id,))
     row = cursor.fetchone()
     if row is None:
-        cursor.execute("INSERT INTO strategy (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                       (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market))
+        cursor.execute("INSERT INTO strategy (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                       (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity))
     else:
-        cursor.execute("UPDATE strategy SET tpls_trigger = ?, rsi_trigger = ?, sma_trigger = ?, alligator_trigger = ?, time = ?, auto_market = ? WHERE chat_id = ?",
-                       (tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, chat_id))
+        cursor.execute("UPDATE strategy SET tpls_trigger = ?, rsi_trigger = ?, sma_trigger = ?, alligator_trigger = ?, time = ?, auto_market = ?, quantity = ? WHERE chat_id = ?",
+                       (tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity, chat_id))
     conn.commit()
     conn.close()
 
@@ -389,6 +391,7 @@ def get_strategy():
     strategy_data = cursor.fetchall()
     conn.close()
     return strategy_data
+
 
 
 

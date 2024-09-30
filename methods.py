@@ -1,8 +1,8 @@
 from pandas import DataFrame
 from tinkoff.invest import Client, RequestError, HistoricCandle, InstrumentStatus
 from tinkoff.invest.services import InstrumentsService, MarketDataService
-from tinkoff.invest import PortfolioResponse
-
+from tinkoff.invest import PortfolioResponse, CandleInterval
+from datetime import datetime, timedelta
 import credentials
 from config import Config
 
@@ -59,6 +59,36 @@ def get_historic_candles(figi: str, start_time, end_time, interval):
         )
 
         return data
+    
+
+def get_current_price(figi: str, client, type_op: str):
+        
+    if type_op == "best":
+
+        book = client.market_data.get_order_book(figi=figi, depth=50)
+
+        # Быстрая цена
+        #fast_price_sell, fast_price_buy = book.asks[0], book.bids[0]
+
+        # Лучшая цена
+        #best_price_sell, best_price_buy = book.asks[-1], book.bids[-1]
+
+        return book.asks[-1].price, book.bids[-1].price
+
+    else:
+
+        book = client.market_data.get_order_book(figi=figi, depth=50)
+
+        # Быстрая цена
+        #fast_price_sell, fast_price_buy = book.asks[0], book.bids[0]
+
+        # Лучшая цена
+        #best_price_sell, best_price_buy = book.asks[-1], book.bids[-1]
+
+        return book.asks[0].price, book.bids[0].price
+
+        
+
     
 
 
