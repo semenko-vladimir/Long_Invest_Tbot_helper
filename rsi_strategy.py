@@ -42,6 +42,14 @@ def calculate_rsi(data, period):
 
     if len(close_prices) < period:
         return None
+    
+    # Рассичтываем RSI с помощью ta
+    rsi_values = ta.momentum.rsi(pd.Series(close_prices), window=period, fillna=True)
+
+    if not rsi_values.empty:
+        last_rsi = rsi_values.iloc[-1]
+    else:
+        last_rsi = None
 
     deltas = np.diff(close_prices)
 
@@ -60,7 +68,8 @@ def calculate_rsi(data, period):
     rs = avg_gain[-1] / avg_loss[-1]
     rsi = 100 - (100 / (1 + rs))
 
-    return rsi
+    print(f"RSI: {rsi} | Last RSI: {last_rsi}")
+    return last_rsi
 
 def check_rsi_signal(rsi_value, low_level, high_level, profit):
     # Проверяем пересечение уровня перепроданности (сигнал на покупку)

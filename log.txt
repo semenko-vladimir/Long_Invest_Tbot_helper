@@ -1,0 +1,96 @@
+2024-10-03 16:53:11,134 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-03 16:56:01,712 - __main__ - strategy_run - INFO - Automatic trading. Selling ROSN on the signal TPSL . Estimated margin: -3.48
+2024-10-03 16:56:08,891 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 16:56:15,024 - __main__ - strategy_run - INFO - Automatic trading. Selling AFLT on the signal TPSL . Estimated margin: -3.84
+2024-10-03 16:56:17,181 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 16:56:17,344 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 16:56:17,482 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 16:58:03,363 - __main__ - strategy_run - INFO - Automatic trading. Selling GAZP on the signal TPSL . Estimated margin: -1.72
+2024-10-03 16:58:07,839 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 16:58:08,048 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 16:58:08,210 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 16:58:15,004 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 16:58:15,135 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 16:58:15,281 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 16:58:18,480 - __main__ - strategy_run - INFO - Automatic trading. Selling YDEX on the signal TPSL . Estimated margin: -1.0
+2024-10-03 17:00:06,132 - __main__ - strategy_run - INFO - Automatic trading. Purchase TATN on the signal RSI . Sale price: 644.6
+2024-10-03 17:00:08,235 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:00:08,379 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:00:08,546 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:00:15,300 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:00:15,469 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:00:15,610 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:02:05,778 - __main__ - strategy_run - INFO - Automatic trading. Selling TATN on the signal TPSL . Estimated margin: -2.07
+2024-10-03 17:02:07,796 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:02:07,939 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:02:08,103 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:02:14,756 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:02:14,890 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:02:15,027 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:04:06,678 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:04:06,840 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:04:06,987 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:04:13,781 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:04:13,926 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:04:14,064 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:06:07,311 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:06:07,454 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:06:07,590 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:06:14,008 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:06:14,199 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:06:14,353 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:08:06,544 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:08:06,690 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:08:06,825 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:08:13,386 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:08:13,561 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:08:13,698 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:10:00,266 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:10:03,657 - __main__ - strategy_run - INFO - Automatic trading. Purchase GAZP on the signal RSI . Sale price: 133.23
+2024-10-03 17:10:07,003 - __main__ - strategy_run - INFO - Automatic trading. Purchase TATN on the signal RSI . Sale price: 643.1
+2024-10-03 17:10:08,962 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:10:09,136 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:10:09,271 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:10:16,331 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:10:16,485 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:10:16,634 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:10:20,138 - __main__ - strategy_run - INFO - Automatic trading. Purchase YDEX on the signal RSI . Sale price: 3942.5
+2024-10-03 17:12:06,790 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:12:06,952 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:12:07,149 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:12:12,809 - __main__ - strategy_run - INFO - Automatic trading. Purchase AFLT on the signal RSI . Sale price: 52.21
+2024-10-03 17:12:14,792 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:12:14,939 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:12:15,074 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:14:06,876 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:14:07,030 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:14:07,155 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:14:14,202 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:14:14,384 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:16:06,711 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:16:06,850 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:16:06,992 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:16:13,743 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:16:13,885 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:18:06,658 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:18:06,802 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:18:07,014 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:18:13,663 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:18:13,885 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:20:07,636 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:20:07,777 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:20:07,915 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:20:14,807 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:20:14,973 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:22:07,229 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:22:07,391 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:22:07,526 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:22:14,350 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:24:06,913 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:24:07,082 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:24:07,226 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:24:14,470 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:26:06,709 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-03 17:26:06,859 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-03 17:26:06,990 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
+2024-10-03 17:26:14,221 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal

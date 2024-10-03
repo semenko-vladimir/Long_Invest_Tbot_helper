@@ -63,7 +63,9 @@ def create_table_users():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             chat_id INTEGER PRIMARY KEY,
-            t_token TEXT
+            t_token TEXT,
+            sandbox_token TEXT,
+            sandbox_trigger BOOLEAN
         )
     ''')
     conn.commit()
@@ -180,6 +182,48 @@ def create_table_signal_alligator():
     conn.close()
 
 
+def create_table_margin():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS margin (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            margin FLOAT,
+            ticker TEXT,
+            signals TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def create_table_buy():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS buy (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            price FLOAT,
+            ticker TEXT,
+            signals TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def new_margin(margin, ticker, signals):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO margin (margin, ticker, signals) VALUES (?, ?, ?)", (margin, ticker, signals))
+    conn.commit()
+    conn.close()
+
+def new_buy(price, ticker, signals):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO buy (price, ticker, signals) VALUES (?, ?, ?)", (price, ticker, signals))
+    conn.commit()
+    conn.close()
+
 
 def delete_config_table():
     conn = sqlite3.connect('database.db')
@@ -196,10 +240,38 @@ def delete_tpsl_table():
     conn.close()
 
 # Функция для создания юзера
-def create_user(chat_id, t_token):
+def create_user(chat_id, t_token, sandbox_token, sandbox_trigger=0):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (chat_id, t_token) VALUES (?, ?)", (chat_id, t_token))
+    cursor.execute("INSERT INTO users (chat_id, t_token, sandbox_token, sandbox_trigger) VALUES (?, ?, ?, ?)",
+                   (chat_id, t_token, sandbox_token, sandbox_trigger))
+    conn.commit()
+    conn.close()
+
+def get_sandbox_trigger(chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT sandbox_trigger FROM users WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    else:
+        return row[0]
+    
+def get_sandbox_token(chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT sandbox_token FROM users WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    else:
+        return row[0]
+
+def update_sandbox_trigger(chat_id, sandbox_trigger):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET sandbox_trigger = ? WHERE chat_id = ?", (sandbox_trigger, chat_id))
     conn.commit()
     conn.close()
     
@@ -342,6 +414,7 @@ def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_t
     conn.commit()
     conn.close()
 
+
 def get_config():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -391,6 +464,7 @@ def get_strategy():
     strategy_data = cursor.fetchall()
     conn.close()
     return strategy_data
+
 
 
 
