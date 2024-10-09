@@ -3,10 +3,14 @@ import logging
 import telebot
 import sqlite3
 from alligator_strategy import calculate_alligator_strategy
+from bollinger_strategy import calculate_bollinger_strategy
 import credentials
-from db import get_alligator, get_config, get_sandbox_token, get_sandbox_trigger, get_sma, get_strategy, get_t_token, get_tpsl, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse, update_sandbox_trigger, update_signal_alligator, update_signal_rsi, update_signal_sma, update_signal_tpsl, get_rsi, update_strategy, new_margin, new_buy
+from db import get_alligator, get_bollinger, get_config, get_gpt, get_macd, get_sandbox_token, get_sandbox_trigger, get_sma, get_strategy, get_t_token, get_tpsl, insert_ticker, get_all_tickers, delete_ticker, delete_all_tickers, update_config_collapse, update_sandbox_trigger, update_signal_alligator, update_signal_bollinger, update_signal_gpt, update_signal_macd, update_signal_rsi, update_signal_sma, update_signal_tpsl, get_rsi, update_strategy, new_margin, new_buy
 import db
+from gpt_strategy import calculate_gpt_strategy
 from helpers import calculate_profit, cancel_existing_order
+from lstm import calculate_lstm_strategy
+from macd_strategy import calculate_macd_strategy
 from methods import cast_money, create_df, get_current_price, get_historic_candles, get_portfolio, get_figi_by_ticker, get_info_by_ticker, get_price_change_in_current_interval, get_instrument_from_portfolio_by_ticker, get_sandbox_portfolio
 from telebot import types
 from tinkoff.invest import CandleInterval
@@ -181,11 +185,15 @@ def configure_scheduler():
         rsi = row[3]
         sma = row[4]
         alligator = row[5]
-        time = row[6]
-        autom = row[7]
-        quantity = row[8]
+        gpt = row[6]
+        lstm = row[7]
+        bollinger = row[8]
+        macd = row[9]
+        time = row[10]
+        # autom = row[9]
+        # quantity = row[10]
 
-        if tpsl == 0 and rsi == 0 and sma == 0 and alligator == 0:
+        if tpsl == 0 and rsi == 0 and sma == 0 and alligator == 0 and gpt == 0 and lstm == 0 and bollinger == 0 and macd == 0:
             return
         
         if chat_id not in strategy_shedulers and chat_id is not None:
@@ -805,6 +813,8 @@ user_rsi_data = {}
 user_sma_data = {}
 user_tpsl_data = {}
 user_alligator_data = {}
+user_bollinger_data = {}
+user_macd_data = {}
 
 @bot.message_handler(func=lambda message: message.text == 'Стратегии')
 def show_strategies(message):
@@ -1018,6 +1028,9 @@ def show_signals(call):
             types.InlineKeyboardButton(text='RSI', callback_data='signal_rsi'),
             types.InlineKeyboardButton(text='SMA', callback_data='signal_sma'),
             types.InlineKeyboardButton(text='Alligator', callback_data='signal_alligator'),
+            types.InlineKeyboardButton(text='GPT', callback_data='signal_gpt'),
+            types.InlineKeyboardButton(text='Bollinger', callback_data='signal_bollinger'),
+            types.InlineKeyboardButton(text='MACD', callback_data='signal_macd'),
         ]
         inline_keyboard.add(*buttons)
         bot.send_message(chat_id, 'Выберите сигнал для настройки', reply_markup=inline_keyboard)
@@ -1027,14 +1040,19 @@ def show_signals(call):
 # <==================== ОБРАБОТЧИКИ НАСТРОЙКИ СТРАТЕГИИ ====================>
 
 selected_signals = {}
-available_signals = ['RSI', 'SMA', 'Take Profit/Stop Loss', 'Alligator']
+available_signals = ['RSI', 'SMA', 'Take Profit/Stop Loss', 'Alligator', 'GPT', 'LSTM', 'Bollinger', 'MACD']
 tpsl_trigger = False
 rsi_trigger = False
 sma_trigger = False
 alligator_trigger = False
+gpt_trigger = False
+lstm_trigger = False
+bollinger_trigger = False
+macd_trigger = False
 time = None
 auto_market = None
 quantity = None
+joint = None
 
 @bot.callback_query_handler(func=lambda call: call.data == 'strategy_set')
 def show_signals(call):
@@ -1052,7 +1070,7 @@ def show_signals(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'strategy_remove')
 def remove_strategy(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
     chat_id = call.message.chat.id
     token = get_t_token(chat_id)
     if token is not None:
@@ -1062,16 +1080,21 @@ def remove_strategy(call):
             scheduler.shutdown()
             del strategy_shedulers[chat_id]
 
-        update_strategy(chat_id, 0, 0, 0, 0, 0, False, 0)
+        update_strategy(chat_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, False, 0, 0)
         
         selected_signals = {}
         tpsl_trigger = False
         rsi_trigger = False
         sma_trigger = False
         alligator_trigger = False
+        gpt_trigger = False
+        lstm_trigger = False
+        bollinger_trigger = False
+        macd_trigger = False
         time = None
         auto_market = None
         quantity = None
+        joint = None
 
         bot.send_message(chat_id, "Стратегия отключена.")
 
@@ -1080,7 +1103,7 @@ def remove_strategy(call):
 # Обработчик выбора сигнала
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
 def select_signal(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger
     chat_id = call.message.chat.id
     signal = call.data.split('_')[1].upper()
 
@@ -1118,6 +1141,31 @@ def select_signal(call):
             selected_signals[signal] = True
             alligator_trigger = True
             bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+    elif signal == 'GPT':
+        if get_gpt(chat_id)[2:] == None:
+            bot.send_message(chat_id, "Сигнал GPT не настроен.")
+        else:
+            selected_signals[signal] = True
+            gpt_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+    elif signal == 'LSTM':
+            selected_signals[signal] = True
+            lstm_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+    elif signal == 'BOLLINGER':
+        if get_bollinger(chat_id)[2:] == [None, None]:
+            bot.send_message(chat_id, "Сигнал Bollinger не настроен.")
+        else:
+            selected_signals[signal] = True
+            bollinger_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+    elif signal == 'MACD':
+        if get_macd(chat_id)[2:] == [None, None]:
+            bot.send_message(chat_id, "Сигнал MACD не настроен.")
+        else:
+            selected_signals[signal] = True
+            macd_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
 
     # Повторно выводим кнопки для выбора сигналов
     show_signals(call)
@@ -1151,10 +1199,11 @@ def select_time(call):
                types.InlineKeyboardButton('Нет', callback_data='auto_no'))
     bot.send_message(chat_id, "Включить автоматическую торговлю?", reply_markup=markup)
 
+
 # Обработчик включения автоматической торговли
 @bot.callback_query_handler(func=lambda call: call.data.startswith('auto_'))
 def set_auto_market(call):
-    global quantity, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
     chat_id = call.message.chat.id
     auto_market = call.data.split('_')[1] == 'yes'
 
@@ -1163,36 +1212,12 @@ def set_auto_market(call):
         msg = bot.send_message(chat_id, "Введите количество бумаг для покупки/продажи:")
         bot.register_next_step_handler(msg, set_quantity)
     else:
-        # Вызов функции обновления стратегии с учетом введенного количества бумаг
-        update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, 0)
-
-        # Завершение текущего планировщика и создание нового
-        if chat_id in strategy_shedulers:
-            scheduler = strategy_shedulers[chat_id]
-            scheduler.shutdown()
-            del strategy_shedulers[chat_id]
-
-        scheduler = BackgroundScheduler()
-        strategy_shedulers[chat_id] = scheduler
-        scheduler.start()
-
-        scheduler = strategy_shedulers[chat_id]
-        scheduler.add_job(strategy_run, 'interval', minutes=int(time), args=(chat_id,))
-
-        # Сброс переменных стратегии
-        selected_signals = {}
-        tpsl_trigger = False
-        rsi_trigger = False
-        sma_trigger = False
-        alligator_trigger = False
-        time = None
-        auto_market = None
-        quantity = None
-
-        bot.send_message(chat_id, "Стратегия обновлена.")
+        # Обновляем стратегию с joint-параметром в зависимости от выбора пользователя
+        quantity = 0
+        ask_for_joint(chat_id)
 
 def set_quantity(message):
-    global quantity, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity
+    global quantity
     chat_id = message.chat.id
 
     # Проверка на ввод числа
@@ -1203,8 +1228,27 @@ def set_quantity(message):
         bot.register_next_step_handler(msg, set_quantity)
         return
 
-    # Вызов функции обновления стратегии с учетом введенного количества бумаг
-    update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity)
+    # Обновляем стратегию с учетом joint-параметра
+    ask_for_joint(chat_id)
+
+def ask_for_joint(chat_id):
+    # Спрашиваем пользователя, какой логический оператор использовать
+    markup = types.InlineKeyboardMarkup()
+    and_button = types.InlineKeyboardButton("И", callback_data='joint_and')
+    or_button = types.InlineKeyboardButton("ИЛИ", callback_data='joint_or')
+    markup.add(and_button, or_button)
+    
+    bot.send_message(chat_id, "Выберите логический оператор для условий:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data in ['joint_and', 'joint_or'])
+def set_joint(call):
+    global selected_signals, joint, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity
+
+    chat_id = call.message.chat.id
+    joint = call.data == 'joint_and'
+
+    # Вызов функции обновления стратегии с учетом joint-параметра
+    update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint)
 
     # Завершение текущего планировщика и создание нового
     if chat_id in strategy_shedulers:
@@ -1216,7 +1260,6 @@ def set_quantity(message):
     strategy_shedulers[chat_id] = scheduler
     scheduler.start()
 
-    scheduler = strategy_shedulers[chat_id]
     scheduler.add_job(strategy_run, 'interval', minutes=int(time), args=(chat_id,))
 
     # Сброс переменных стратегии
@@ -1225,11 +1268,17 @@ def set_quantity(message):
     rsi_trigger = False
     sma_trigger = False
     alligator_trigger = False
+    gpt_trigger = False
+    lstm_trigger = False
+    bollinger_trigger = False
+    macd_trigger = False
     time = None
     auto_market = None
     quantity = None
+    joint = None
 
     bot.send_message(chat_id, "Стратегия обновлена.")
+
 
 
 
@@ -1237,18 +1286,23 @@ def set_quantity(message):
 # Обработчик кнопки "Отмена"
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel')
 def cancel_strategy(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, time, auto_market, quantity
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
     chat_id = call.message.chat.id
 
     # Сброс всех параметров
     selected_signals.clear()
-    tpsl_trigger = None
-    rsi_trigger = None
-    sma_trigger = None
-    alligator_trigger = None
+    tpsl_trigger = False
+    rsi_trigger = False
+    sma_trigger = False
+    alligator_trigger = False
+    gpt_trigger = False
+    lstm_trigger = False
+    bollinger_trigger = False
+    macd_trigger = False
     time = None
     auto_market = None
     quantity = None
+    joint = None
 
     bot.send_message(chat_id, "Выбор стратегии отменен.")
 
@@ -1357,6 +1411,125 @@ def get_sma_slow(message):
         msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода:")
         bot.register_next_step_handler(msg, get_sma_slow)
 
+# <=====================================НАСТРОЙКА СИГНАЛА BOLLINGER===============================================>
+
+@bot.callback_query_handler(func=lambda call: call.data == 'signal_bollinger')
+def bollinger_on(call):
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    
+    if token is not None:
+        msg = bot.send_message(chat_id, "Введите период для расчета скользящей средней:")
+        bot.register_next_step_handler(msg, get_bollinger_period)
+
+def get_bollinger_period(message):
+    chat_id = message.chat.id
+    try:
+        period = int(message.text)
+        user_bollinger_data[chat_id] = {'period': period}  # Сохраняем период
+        bot.send_message(chat_id, f"Вы выбрали период {period}. Теперь введите количество стандартных отклонений:")
+        bot.register_next_step_handler(message, get_bollinger_stddev)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода:")
+        bot.register_next_step_handler(msg, get_bollinger_period)
+
+def get_bollinger_stddev(message):
+    chat_id = message.chat.id
+    try:
+        stddev = float(message.text)
+        user_bollinger_data[chat_id]['stddev'] = stddev  # Сохраняем количество стандартных отклонений
+        bot.send_message(chat_id, f"Вы выбрали количество стандартных отклонений {stddev}. Теперь выберите тип скользящей средней (SMA или EMA):")
+        bot.register_next_step_handler(message, get_bollinger_ma_type)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для стандартного отклонения:")
+        bot.register_next_step_handler(msg, get_bollinger_stddev)
+
+def get_bollinger_ma_type(message):
+    chat_id = message.chat.id
+    ma_type = message.text.strip().upper()
+    if ma_type in ['SMA', 'EMA']:
+        user_bollinger_data[chat_id]['ma_type'] = str(ma_type).lower()  
+        period = user_bollinger_data[chat_id]['period']
+        stddev = user_bollinger_data[chat_id]['stddev']
+        
+        # Обновление стратегии с параметрами
+        update_signal_bollinger(chat_id, period, stddev, ma_type)
+
+        # Подтверждение настроек стратегии
+        bot.send_message(chat_id, 
+                         f"Стратегия полос Боллинджера настроена с параметрами:\n"
+                         f"Период: {period}\n"
+                         f"Стандартные отклонения: {stddev}\n"
+                         f"Тип скользящей средней: {ma_type}\n"
+                        )
+
+        # Очищаем временные данные
+        del user_bollinger_data[chat_id]
+    else:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите 'SMA' или 'EMA' для типа скользящей средней:")
+        bot.register_next_step_handler(msg, get_bollinger_ma_type)
+
+
+#<=====================================НАСТРОЙКА СИГНАЛА MACD===============================================>
+
+@bot.callback_query_handler(func=lambda call: call.data == 'signal_macd')
+def macd_on(call):
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    
+    if token is not None:
+        msg = bot.send_message(chat_id, "Введите период быстрой EMA:")
+        bot.register_next_step_handler(msg, get_macd_fast)
+
+def get_macd_fast(message):
+    chat_id = message.chat.id
+    try:
+        fast_ema_period = int(message.text)
+        user_macd_data[chat_id] = {'fast_ema': fast_ema_period}
+        bot.send_message(chat_id, f"Вы выбрали период быстрой EMA: {fast_ema_period}. Теперь введите период медленной EMA:")
+        bot.register_next_step_handler(message, get_macd_slow)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода быстрой EMA:")
+        bot.register_next_step_handler(msg, get_macd_fast)
+
+def get_macd_slow(message):
+    chat_id = message.chat.id
+    try:
+        slow_ema_period = int(message.text)
+        user_macd_data[chat_id]['slow_ema'] = slow_ema_period
+        bot.send_message(chat_id, f"Вы выбрали период медленной EMA: {slow_ema_period}. Теперь введите период сигнальной линии:")
+        bot.register_next_step_handler(message, get_macd_signal)
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода медленной EMA:")
+        bot.register_next_step_handler(msg, get_macd_slow)
+
+def get_macd_signal(message):
+    chat_id = message.chat.id
+    try:
+        signal_period = int(message.text)
+        user_macd_data[chat_id]['signal_period'] = signal_period
+        
+        # Сохраняем настройки MACD и активируем стратегию
+        fast_ema = user_macd_data[chat_id]['fast_ema']
+        slow_ema = user_macd_data[chat_id]['slow_ema']
+
+        update_signal_macd(chat_id, fast_ema, slow_ema, signal_period)
+        
+        bot.send_message(chat_id, 
+                         f"Стратегия MACD настроена с параметрами:\n"
+                         f"Период быстрой EMA: {fast_ema}\n"
+                         f"Период медленной EMA: {slow_ema}\n"
+                         f"Период сигнальной линии: {signal_period}")
+        
+        # Очищаем временные данные после использования
+        del user_macd_data[chat_id]
+        
+    except ValueError:
+        msg = bot.send_message(chat_id, "Некорректный ввод. Введите числовое значение для периода сигнальной линии:")
+        bot.register_next_step_handler(msg, get_macd_signal)
+
+
+
 # <=====================================НАСТРОЙКА СИГНАЛА TPSL===============================================>
 
 @bot.callback_query_handler(func=lambda call: call.data == 'signal_tpsl')
@@ -1386,6 +1559,28 @@ def get_sl_value(message):
 
     del user_tpsl_data[chat_id]
 
+# <==================== НАСТРОЙКА СИГНАЛА GPT ====================>
+
+@bot.callback_query_handler(func=lambda call: call.data == 'signal_gpt')
+def gpt_on(call):
+    chat_id = call.message.chat.id
+    token = get_t_token(chat_id)
+    
+    if token is not None:
+        msg = bot.send_message(chat_id, "Введите промпт для GPT:")
+        bot.register_next_step_handler(msg, get_gpt_text)
+
+def get_gpt_text(message):
+    chat_id = message.chat.id
+    gpt_text = message.text
+    
+    gpt_text += "\n A PREREQUISITE. Based on your reasoning, an answer should be given consisting of one word: buy, sell or hold.".upper()
+    gpt_text += "\n A PREREQUISITE. Based on your reasoning, an answer should be given consisting of one word: buy, sell or hold.".upper()
+
+
+    update_signal_gpt(chat_id, gpt_text)
+
+    bot.send_message(chat_id, 'GPT настроен с параметром:\n' + gpt_text)
 
 # <==================== ОБРАБОТЧИКИ НАСТРОЙКИ СИГНАЛА ALLIGATOR ====================>
 
@@ -1513,9 +1708,14 @@ def strategy_run(chat_id):
             rsi = None
             sma = None
             alligator = None  # Добавляем переменную для Аллигатора
+            gpt = None
+            lstm = None
+            bollinger = None
+            macd = None
             time = None
             auto_market = None
             quantity = None
+            joint = None
 
             strategy_data = get_strategy()
 
@@ -1525,9 +1725,14 @@ def strategy_run(chat_id):
                 rsi = row[3]
                 sma = row[4]
                 alligator = row[5]  # Получаем значение для Аллигатора
-                time = row[6]
-                auto_market = row[7]
-                quantity = row[8]
+                gpt = row[6]
+                lstm = row[7]
+                bollinger = row[8]
+                macd = row[9]
+                time = row[10]
+                auto_market = row[11]
+                quantity = row[12]
+                joint = row[13]
 
             for ticker in tickers:
 
@@ -1539,6 +1744,10 @@ def strategy_run(chat_id):
                 tpsl_signal = None
                 sma_signal = None
                 alligator_signal = None  # Добавляем переменную для сигнала Аллигатора
+                gpt_signal = None
+                lstm_signal = None
+                bollinger_signal = None
+                macd_signal = None
 
                 figi = get_figi_by_ticker(ticker[0])
 
@@ -1713,74 +1922,181 @@ def strategy_run(chat_id):
                     else:
 
                         tpsl_signal = "hold"
+
+                if gpt == 1:
+
+                    gpt_text = None
+
+                    gpt_data = get_gpt(chat_id)
+
+                    for row in gpt_data:
+                        gpt_text = row[2]
+
+                    gpt_signal = calculate_gpt_strategy(gpt_text, current_profit, ticker[0])
+
+                if lstm == 1:
+
+                    start_time = None
+                    candle_interval = None
+                    time = int(time)
+
+                    CANDLE_CONSTANT = 60
+                    
+                    start_time = datetime.now() - timedelta(minutes=time+CANDLE_CONSTANT)
+                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    end_time = datetime.now()
+
+                    # Получение свечей за указанный период
+                    candles = get_historic_candles(figi, start_time, end_time, candle_interval)
+
+                    # if len(create_df(candles.candles)["close"].values) < time+CANDLE_CONSTANT:
+                    #     logger.info("NOT enough candles for the SMA signal")
+                    #     print("MINIMUM")
+                    
+                    # else:
+                    # Расчет LSTM
+                    lstm_signal = calculate_lstm_strategy(candles, ticker[0], current_profit)
+
+                if bollinger == 1:
+
+                    bollinger_data = get_bollinger(chat_id)
+
+                    for row in bollinger_data:
+                        bollinger_period = row[2]
+                        bollinger_std = row[3]
+                        type_ma = row[4]
+
+                    
+                    start_time = None
+                    candle_interval = None
+                    time = int(time)
+
+                    CANDLE_CONSTANT = 1
+                    
+                    start_time = datetime.now() - timedelta(minutes=bollinger_period+CANDLE_CONSTANT)
+                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    end_time = datetime.now()
+
+                    # Получение свечей за указанный период
+                    candles = get_historic_candles(figi, start_time, end_time, candle_interval)
+
+                    if len(create_df(candles.candles)["close"].values) < bollinger_period+CANDLE_CONSTANT:
+                        logger.info("NOT enough candles for the Bollinger signal")
+                        print("MINIMUM")
+
+                    else:
+                        # Расчет Bollinger
+                        bollinger_signal = calculate_bollinger_strategy(candles, bollinger_period, bollinger_std, type_ma, current_profit)
+
                 
+                if macd == 1:
 
-                # Настройка автоматической торговли
-                if auto_market == 1:
+                    macd_data = get_macd(chat_id)
 
-                    if rsi_signal == "buy" or sma_signal == "buy" or alligator_signal == "buy" or tpsl_signal == "buy":
-                        signal_text = ""
-                        if rsi_signal == "buy":
-                            signal_text += "RSI "
-                        if sma_signal == "buy":
-                            signal_text += "SMA "
-                        if alligator_signal == "buy":
-                            signal_text += "Alligator "
-                        if tpsl_signal == "buy":
-                            signal_text += "TPSL "
-                        
+                    for row in macd_data:
+
+                        macd_fast = row[2]
+                        macd_slow = row[3]
+                        macd_signal_length = row[4]
+
+                    
+                    start_time = None
+                    candle_interval = None
+                    time = int(time)
+
+                    CANDLE_CONSTANT = 1
+                    
+                    start_time = datetime.now() - timedelta(minutes=max(macd_fast, macd_slow, macd_signal_length)+CANDLE_CONSTANT)
+                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+
+                    end_time = datetime.now()
+
+                    # Получение свечей за указанный период
+                    candles = get_historic_candles(figi, start_time, end_time, candle_interval)
+
+                    if len(create_df(candles.candles)["high"].values) < max(macd_fast, macd_slow, macd_signal_length)+CANDLE_CONSTANT:
+                        logger.info("NOT enough candles for the MACD signal")
+                        print("MINIMUM")
+
+                    else:
+
+                        # Расчет MACD
+                        macd_signal = calculate_macd_strategy(candles, macd_fast, macd_slow, macd_signal_length, current_profit)
+
+
+                buy_signals = [
+                    rsi_signal == "buy",
+                    sma_signal == "buy",
+                    alligator_signal == "buy",
+                    tpsl_signal == "buy",
+                    gpt_signal == "buy",
+                    lstm_signal == "buy",
+                    bollinger_signal == "buy",
+                    macd_signal == "buy"
+                ]
+                sell_signals = [
+                    rsi_signal == "sell",
+                    sma_signal == "sell",
+                    alligator_signal == "sell",
+                    tpsl_signal == "sell",
+                    gpt_signal == "sell",
+                    lstm_signal == "sell",
+                    bollinger_signal == "sell",
+                    macd_signal == "sell"
+                ]
+
+                # Логика для объединения сигналов
+                buy_condition = all(buy_signals) if joint else any(buy_signals)
+                sell_condition = all(sell_signals) if joint else any(sell_signals)
+
+                signal_text = ""
+
+                if buy_condition:
+                    if rsi_signal == "buy": signal_text += "RSI "
+                    if sma_signal == "buy": signal_text += "SMA "
+                    if alligator_signal == "buy": signal_text += "Alligator "
+                    if tpsl_signal == "buy": signal_text += "TPSL "
+                    if gpt_signal == "buy": signal_text += "GPT "
+                    if lstm_signal == "buy": signal_text += "LSTM "
+                    if bollinger_signal == "buy": signal_text += "Bollinger "
+                    if macd_signal == "buy": signal_text += "MACD "
+
+                    if auto_market:
+                        # Автоматическая покупка
                         cancel_existing_order(token, figi, sandbox_method)
                         result, price = place_order(token, figi, quantity, 'buy', sandbox_method)
                         if result:
                             bot.send_message(chat_id, f"Автоматическая торговля. Покупка {ticker[0]} по сигналу {signal_text}")
                             logger.info(f"Automatic trading. Purchase {ticker[0]} on the signal {signal_text}. Sale price: {price}")
                             new_buy(price, ticker[0], signal_text)
+                    else:
+                        # Рекомендация на покупку
+                        logger.info(f"Recommended to purchase {ticker[0]} on the signal {signal_text}")
+                        bot.send_message(chat_id, f"Рекомендуется покупка {ticker[0]} по сигналу {signal_text}")
 
-                    elif rsi_signal == "sell" or sma_signal == "sell" or alligator_signal == "sell" or tpsl_signal == "sell":
-                        signal_text = ""
-                        if rsi_signal == "sell":
-                            signal_text += "RSI "
-                        if sma_signal == "sell":
-                            signal_text += "SMA "
-                        if alligator_signal == "sell":
-                            signal_text += "Alligator "
-                        if tpsl_signal == "sell":
-                            signal_text += "TPSL "
+                elif sell_condition:
+                    if rsi_signal == "sell": signal_text += "RSI "
+                    if sma_signal == "sell": signal_text += "SMA "
+                    if alligator_signal == "sell": signal_text += "Alligator "
+                    if tpsl_signal == "sell": signal_text += "TPSL "
+                    if gpt_signal == "sell": signal_text += "GPT "
+                    if lstm_signal == "sell": signal_text += "LSTM "
+                    if bollinger_signal == "sell": signal_text += "Bollinger "
+                    if macd_signal == "sell": signal_text += "MACD "
 
+                    if auto_market:
+                        # Автоматическая продажа
                         cancel_existing_order(token, figi, sandbox_method)
                         result, _ = place_order(token, figi, quantity, 'sell', sandbox_method)
                         if result:
                             bot.send_message(chat_id, f"Продаем {ticker[0]} по сигналу {signal_text}")
                             logger.info(f"Automatic trading. Selling {ticker[0]} on the signal {signal_text}. Estimated margin: {round(current_profit, 2)}")
                             new_margin(round(current_profit, 2), ticker[0], signal_text)
-                    
-
-                else:
-                    if rsi_signal == "buy" or sma_signal == "buy" or alligator_signal == "buy" or tpsl_signal == "buy":
-                        signal_text = ""
-                        if rsi_signal == "buy":
-                            signal_text += "RSI "
-                        if sma_signal == "buy":
-                            signal_text += "SMA "
-                        if alligator_signal == "buy":
-                            signal_text += "Alligator "
-                        if tpsl_signal == "buy":
-                            signal_text += "TPSL "
-                        logger.info(f"Recommended to purchase {ticker[0]} on the signal {signal_text}")
-                        bot.send_message(chat_id, f"Рекомендуется покупка {ticker[0]} по сигналу {signal_text}")
-
-                    elif rsi_signal == "sell" or sma_signal == "sell" or alligator_signal == "sell" or tpsl_signal == "sell":
-                        signal_text = ""
-                        if rsi_signal == "sell":
-                            signal_text += "RSI "
-                        if sma_signal == "sell":
-                            signal_text += "SMA "
-                        if alligator_signal == "sell":
-                            signal_text += "Alligator "
-                        if tpsl_signal == "sell":
-                            signal_text += "TPSL "
+                    else:
+                        # Рекомендация на продажу
                         logger.info(f"Recommended to sell {ticker[0]} on the signal {signal_text}")
-                        bot.send_message(chat_id, f"Продаем {ticker[0]} по сигналу {signal_text}")
+                        bot.send_message(chat_id, f"Рекомендуется продажа {ticker[0]} по сигналу {signal_text}")
+
 
                     # elif rsi_signal == "hold" or sma_signal == "hold" or alligator_signal == "hold" or tpsl_signal == "hold":
                     #     signal_text = ""

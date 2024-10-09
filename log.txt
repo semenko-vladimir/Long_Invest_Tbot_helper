@@ -94,3 +94,40 @@
 2024-10-03 17:26:06,859 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
 2024-10-03 17:26:06,990 - __main__ - strategy_run - INFO - NOT enough candles for the Alligator signal
 2024-10-03 17:26:14,221 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-05 14:40:24,208 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-05 14:45:53,322 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-05 14:50:27,758 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-05 14:59:49,360 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-05 15:04:36,116 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-05 15:08:15,419 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-05 15:15:06,346 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-05 15:20:54,819 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 14:13:25,898 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 14:18:07,467 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 14:23:41,186 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 14:48:02,935 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 14:53:17,042 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 14:55:39,430 - __main__ - strategy_run - INFO - NOT enough candles for the SMA signal
+2024-10-06 14:56:12,413 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 15:04:46,709 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 15:12:04,424 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 15:52:31,175 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-06 15:55:21,997 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 13:33:00,827 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 13:43:21,893 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 13:48:14,457 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 15:33:41,474 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 15:38:57,104 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 15:46:35,970 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 15:49:52,655 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:01:09,294 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:07:10,975 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:11:27,354 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:15:43,657 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:19:14,355 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:23:49,796 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:27:53,658 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-08 16:30:02,041 - __main__ - strategy_run - INFO - NOT enough candles for the MACD signal
+2024-10-09 12:21:37,308 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-09 12:38:42,820 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-09 12:41:19,183 - __main__ - strategy_run - INFO - Recommended to purchase ROSN on the signal MACD 
