@@ -15,6 +15,34 @@ def calculate_profit(average_position_price, current_price_one, brokerFee=0.3):
 from tinkoff.invest import Client, PositionsResponse, InstrumentIdType, GetOrdersResponse
 from tinkoff.invest.services import InstrumentsService, SandboxService
 from methods import cast_money
+from datetime import datetime, timedelta
+import pytz
+
+def format_date(utc_date):
+    
+    local_timezone = pytz.timezone("Europe/Moscow")
+    local_time = utc_date.astimezone(local_timezone)
+    
+    return local_time.strftime("%d-%m-%Y %H:%M")
+
+def get_dividends_data(token: str, period, figi):
+
+    with Client(token) as client:
+
+        instruments_service: InstrumentsService = client.instruments
+
+        data = instruments_service.get_dividends(figi=figi, from_=datetime.now(), to=datetime.now() + timedelta(days=period)).dividends
+
+        if len(data) > 0:
+            return {
+                'dividend_net': cast_money(data[0].dividend_net),
+                'payment_date': format_date(data[0].payment_date),
+                'declared_date': format_date(data[0].declared_date),
+                'last_buy_date': format_date(data[0].last_buy_date),
+                'record_date': format_date(data[0].record_date),
+                'yield_value': cast_money(data[0].yield_value)
+            }
+
 
 def get_balance(token: str, client, sandbox_method):
 

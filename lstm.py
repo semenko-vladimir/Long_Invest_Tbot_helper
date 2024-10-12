@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 from tinkoff.invest import Client, CandleInterval
 from datetime import datetime, timedelta
 import credentials
-from methods import create_df, get_figi_by_ticker
+from db import db_get_figi
+from methods import create_df
 
 plt.style.use('fivethirtyeight')
 
@@ -108,11 +109,11 @@ def train_lstm_model(df):
     return model, scaler
 
 # Функция для вычисления стратегии LSTM
-def calculate_lstm_strategy(candles, ticker, profit):
+def calculate_lstm_strategy(candles, figi, profit):
 
     # Загрузка данных по акции
     token = credentials.TOKEN
-    figi = get_figi_by_ticker(ticker)
+
     df = load_stock_data_tinkoff(token, figi, '2020-01-01', '2024-01-01')
 
     # Проверка данных

@@ -262,6 +262,25 @@ def create_table_buy():
     conn.commit()
     conn.close()
 
+def create_table_instruments():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS instruments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            ticker TEXT,
+            figi TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (chat_id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+import sqlite3
+
+
 def new_margin(margin, ticker, signals):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -341,40 +360,47 @@ def get_t_token(chat_id):
         return t_token[0]
     
 # Функция для добавления нового тикера
-def insert_ticker(user_id, ticker):
+def insert_instrument(user_id, ticker, figi):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM tickers WHERE user_id = ? AND ticker = ?", (user_id, ticker))
+    cursor.execute("SELECT * FROM instruments WHERE user_id = ? AND ticker = ?", (user_id, ticker))
     if cursor.fetchone():
-        return "У вас уже есть этот тикер"
+        return "У вас уже есть данный инструмент"
     else:
-        cursor.execute("INSERT INTO tickers (user_id, ticker) VALUES (?, ?)", (user_id, ticker))
+        cursor.execute("INSERT INTO instruments (user_id, ticker, figi) VALUES (?, ?, ?)", (user_id, ticker, figi))
         conn.commit()
         conn.close()
-        return "Тикер добавлен"
+        return f"Инструмент {ticker} добавлен"
     
-def delete_ticker(user_id, ticker):
+def delete_instrument(user_id, ticker):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM tickers WHERE user_id = ? AND ticker = ?", (user_id, ticker))
+    
+    cursor.execute("DELETE FROM instruments WHERE user_id = ? AND ticker = ?", (user_id, ticker))
+    conn.commit()
+    
     conn.commit()
     conn.close()
-    
+
     
 def get_all_tickers(user_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT ticker FROM tickers WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT ticker FROM instruments WHERE user_id = ?", (user_id,))
     tickers = cursor.fetchall()
     conn.close()
     return tickers
 
-def delete_all_tickers(user_id):
+def delete_all_instruments(user_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM tickers WHERE user_id = ?", (user_id,))
+    
+    cursor.execute("DELETE FROM instruments WHERE user_id = ?", (user_id,))
+    conn.commit()
+    
     conn.commit()
     conn.close()
+
 
 def update_config_collapse(chat_id, collapse_updates_time, collapse_updates, market_updates_time, market_updates):
     conn = sqlite3.connect('database.db')
@@ -583,12 +609,58 @@ def get_strategy():
     conn.close()
     return strategy_data
 
+def get_users():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users")
+    user_data = cursor.fetchall()
+    conn.close()
+    return user_data
+
+def db_get_figi(chat_id, ticker):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    # Ищем id тикера по его значению
+    cursor.execute("SELECT figi FROM instruments WHERE ticker = ? AND user_id = ?", (ticker, chat_id))
+    figi = cursor.fetchall()
+    conn.close()
+    return figi[0][0]
+
+
+# insert_instrument(1231123, "ROSN", "BBG004731354")
+# insert_ticker(757528922, "ROSN")
+# insert_ticker(757528922, "GAZP")
+# insert_ticker(757528922, "TATN")
+# insert_ticker(757528922, "KMAZ")
+# insert_ticker(757528922, "TCSG")
+# insert_ticker(757528922, "AFLT")
+# insert_ticker(757528922, "BANE")
+# insert_ticker(757528922, "YDEX")
+# insert_figi(1231123, "ROSN", "BBG004731354")
+
+
+
+# create_table_instruments()
+# create_table_figi()
+
+# conn = sqlite3.connect('database.db')
+# cursor = conn.cursor()
+
+# # Удаляем все строки из таблицы figi
+# cursor.execute("DELETE FROM figi")
+# conn.commit()
+
+# print("Все строки из таблицы figi были удалены.")
+
+# conn.close()
+
 
 #create_table_strategy()
 
 # conn = sqlite3.connect('database.db')
 # cursor = conn.cursor()
-# cursor.execute("DROP TABLE IF EXISTS strategy")
+# cursor.execute("DROP TABLE IF EXISTS tickers")
 # conn.commit()
 # conn.close()
 

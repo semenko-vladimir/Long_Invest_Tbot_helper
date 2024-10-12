@@ -230,6 +230,8 @@ def get_portfolio(token: str):
 
         position_ticker = get_ticker_by_figi(position.figi, position.instrument_type)
 
+        if position_ticker is None:
+            position_ticker = "Нет информации"
         #position_info = get_info_by_figi(position.figi)
 
         position_type = ""
@@ -312,6 +314,9 @@ def get_sandbox_portfolio(token: str):
     for position in portfolio.positions:
 
         position_ticker = get_ticker_by_figi(position.figi, position.instrument_type)
+
+        if position_ticker is None:
+            position_ticker = "Нет информации"
 
         #position_info = get_info_by_figi(position.figi)
 

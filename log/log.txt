@@ -1,0 +1,18 @@
+2024-10-12 18:41:35,049 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-12 18:43:36,204 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:43:37,751 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:43:39,440 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:43:40,492 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:43:42,181 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:45:01,740 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-12 18:47:03,051 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:47:04,804 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:47:06,381 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:47:07,962 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:47:09,767 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:55:47,990 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-12 18:57:42,480 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-12 18:59:43,612 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:59:45,269 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 18:59:46,865 - __main__ - strategy_run - INFO - NOT enough candles for the RSI signal
+2024-10-12 19:05:02,993 - __main__ - configure_scheduler - INFO - The strategy has been added to the scheduler
