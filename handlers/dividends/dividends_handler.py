@@ -31,12 +31,12 @@ def process_dividends_period(message, token):
 
                     text += (
                         f'\nТикер: {ticker[0]}\n'
-                        f'Величина дивидента на 1 ценную бумагу (включая валюту): {data["dividend_net"]}\n'
+                        f'Величина дивидента на 1 ценную бумагу (включая валюту): {data["dividend_net"]} руб.\n'
                         f'Дата фактических выплат: {data["payment_date"]}\n'
                         f'Дата объявления дивидендов: {data["declared_date"]}\n'
                         f'Последний день (включительно) покупки для получения выплаты: {data["last_buy_date"]}\n'
                         f'Дата фиксации реестра: {data["record_date"]}\n'
-                        f'Величина доходности: {data["yield_value"]}\n'
+                        f'Величина доходности: {data["yield_value"]}%\n'
                     )
 
             if text == 'Дивиденды:\n':

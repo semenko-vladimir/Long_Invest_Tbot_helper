@@ -7,7 +7,9 @@ from handlers.instruments.instruments_handler import instruments_handler
 from handlers.dividends.dividends_handler import dividends_handler
 from handlers.market.market_handler import market_handler
 from handlers.notifications.notification_handler import notification_handler
-from handlers.strategy.strategy_handler import strategy_handler
+from handlers.bot.bot_handler import bot_handler
+from handlers.signals.signals_handler import show_signals_handler
+from handlers.mls.mls_handler import mls_handler
 from log.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -26,9 +28,11 @@ def start(message):
         portfolio_button = types.KeyboardButton('Получить портфолио')
         tickers_button = types.KeyboardButton('Инструменты')
         notifications_button = types.KeyboardButton('Уведомления')
-        strategies_button = types.KeyboardButton('Стратегии')
+        strategies_button = types.KeyboardButton('Торговый робот')
+        signals_button = types.KeyboardButton('Настройка сигналов')
         market_button = types.KeyboardButton('Состояние рынка')
         dividents_button = types.KeyboardButton('Дивиденды')
+        long_strategy_button = types.KeyboardButton('Middle/Long сигналы')
 
         keyboard.row(portfolio_button)
 
@@ -38,9 +42,13 @@ def start(message):
 
         keyboard.row(market_button)
 
+        keyboard.row(signals_button)
+
         keyboard.row(strategies_button)
 
         keyboard.row(dividents_button)
+
+        keyboard.row(long_strategy_button)
         
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 

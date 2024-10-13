@@ -20,8 +20,6 @@ def setup_logger(name=__name__, log_file='./log/log.txt', level=logging.INFO):
         except Exception as e:
             print(f"Ошибка при создании FileHandler: {e}")
 
-        print(log_file)  # Вывод имени файла лога
-
         console_handler = logging.StreamHandler()
         console_handler.setLevel(level)
 
