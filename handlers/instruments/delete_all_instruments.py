@@ -1,5 +1,5 @@
-from db import delete_all_instruments, get_t_token
-from bot import bot
+from db.db import delete_all_instruments, get_t_token
+from bot.bot import bot
 
 @bot.callback_query_handler(func=lambda call: call.data == 'delete_all_instruments')
 def delete_all_instruments_handler(call):

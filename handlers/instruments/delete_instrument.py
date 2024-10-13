@@ -1,6 +1,6 @@
-from db import delete_instrument, get_all_tickers, get_t_token
+from db.db import delete_instrument, get_all_tickers, get_t_token
 from telebot import types
-from bot import bot
+from bot.bot import bot
 
 @bot.callback_query_handler(func=lambda call: call.data == 'delete_instrument')
 def delete_instrument_handler(call):

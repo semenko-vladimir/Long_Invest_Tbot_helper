@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
-from bot import bot
+from bot.bot import bot
 from telebot import types
-from db import get_all_tickers, get_t_token
-from methods import get_info_by_ticker, get_price_change_in_current_interval
+from db.db import get_all_tickers, get_t_token
+from utils.methods import get_info_by_ticker, get_price_change_in_current_interval
 from tinkoff.invest import CandleInterval
 
 @bot.callback_query_handler(func=lambda call: call.data == 'get_market_change')

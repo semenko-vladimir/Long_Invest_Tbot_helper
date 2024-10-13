@@ -1,6 +1,6 @@
-from db import get_t_token
+from db.db import get_t_token
 from telebot import types
-from bot import bot
+from bot.bot import bot
 
 from handlers.instruments.add_instrument import add_instrument_handler
 from handlers.instruments.delete_instrument import delete_instrument_handler

@@ -1,6 +1,6 @@
-from db import db_get_figi, get_all_tickers, get_t_token
-from bot import bot
-from helpers import get_dividends_data
+from db.db import db_get_figi, get_all_tickers, get_t_token
+from bot.bot import bot
+from utils.methods import get_dividends_data
 
 @bot.message_handler(func=lambda message: message.text == 'Дивиденды')
 def dividends_handler(message):

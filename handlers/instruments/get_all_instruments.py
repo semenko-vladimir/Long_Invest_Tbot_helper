@@ -1,5 +1,5 @@
-from db import get_all_tickers, get_t_token
-from bot import bot
+from db.db import get_all_tickers, get_t_token
+from bot.bot import bot
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'get_all_instruments')

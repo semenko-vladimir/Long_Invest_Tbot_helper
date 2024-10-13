@@ -1,6 +1,6 @@
-from db import get_t_token, insert_instrument
-from bot import bot
-from methods import get_figi_by_ticker
+from db.db import get_t_token, insert_instrument
+from bot.bot import bot
+from utils.methods import get_figi_by_ticker
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'add_instrument')

@@ -1,6 +1,6 @@
-from bot import bot
-from db import get_t_token
-from methods import get_portfolio
+from bot.bot import bot
+from db.db import get_t_token
+from utils.methods import get_portfolio
 
 @bot.message_handler(func=lambda message: message.text == 'Получить портфолио')
 def get_portfolio_handler(message):
