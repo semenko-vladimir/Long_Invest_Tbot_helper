@@ -25,3 +25,29 @@ time = None
 auto_market = None
 quantity = None
 joint = None
+
+
+# Данные для mls
+mls_interval = None
+
+# Данные для RSI
+rsi_values = None
+
+# Данные для SMA
+fast_sma = None
+slow_sma = None
+
+# Данные для ALLIGATOR
+jaw_sma = None
+teeth_sma = None
+lips_sma = None
+
+# Данные для BOLLINGER
+upper_band = None
+middle_band = None
+lower_band = None
+
+# Данные для MACD
+macd = None
+macd_line = None
+signal_line = None

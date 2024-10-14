@@ -41,3 +41,4 @@
 
 
 2024-10-13 20:34:25,195 - config.schedulers_config - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-14 15:34:51,638 - handlers.mls.mls_alligator - calculate_mls_alligator - INFO - NOT enough candles for the Alligator signal

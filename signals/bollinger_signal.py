@@ -4,6 +4,7 @@ import ta
 from utils.helpers import create_df
 from signals.sma_signal import sma
 from signals.rsi_signal import ema
+import store.store as store
 
 def calculate_bollinger_strategy(data, period, stddev, ma_type, profit):
     """
@@ -40,7 +41,11 @@ def calculate_bollinger_strategy(data, period, stddev, ma_type, profit):
     # Вычисляем верхнюю и нижнюю полосы
     upper_band = middle_band + (rolling_std * stddev)
     lower_band = middle_band - (rolling_std * stddev)
-    
+
+    store.lower_band = lower_band
+    store.middle_band = middle_band
+    store.upper_band = upper_band
+
     # Получаем последнюю цену и значение полос для принятия решения
     current_price = close_prices[-1]
     current_upper_band = upper_band[-1]

@@ -1,7 +1,7 @@
 import numpy as np
 from tinkoff.invest import HistoricCandle
 from utils.helpers import create_df
-
+import store.store as store
 '''
 Общий алгоритм расчета RSI для периода N выглядит следующим образом:
 
@@ -33,6 +33,7 @@ def ema(prices, length):
     return ema_values.to_numpy()
 
 def calculate_rsi(data, period):
+
     period = int(period)
     candles = data.candles  # Извлекаем список свечей из объекта ответа
 
@@ -45,6 +46,7 @@ def calculate_rsi(data, period):
     
     # Рассичтываем RSI с помощью ta
     rsi_values = ta.momentum.rsi(pd.Series(close_prices), window=period, fillna=True)
+    store.rsi_values = rsi_values
 
     if not rsi_values.empty:
         last_rsi = rsi_values.iloc[-1]

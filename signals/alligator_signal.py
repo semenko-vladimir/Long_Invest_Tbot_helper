@@ -21,6 +21,7 @@
 import numpy as np
 from utils.helpers import create_df
 from signals.sma_signal import sma, crossover, crossunder
+import store.store as store
 
 # Функция для расчета стратегии Аллигатор
 # Функция для расчета стратегии Аллигатор
@@ -40,6 +41,10 @@ def calculate_alligator_strategy(data, jaw_period, jaw_shift, teeth_period, teet
     jaw_sma = np.roll(jaw_sma, jaw_shift)
     teeth_sma = np.roll(teeth_sma, teeth_shift)
     lips_sma = np.roll(lips_sma, lips_shift)
+
+    store.jaw_sma = jaw_sma
+    store.teeth_sma = teeth_sma
+    store.lips_sma = lips_sma
 
     # Проверяем пересечения с учетом положения линий
     # Покупка при пересечении губ с зубами и зубов с челюстями снизу вверх

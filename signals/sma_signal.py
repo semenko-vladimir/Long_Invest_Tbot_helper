@@ -2,8 +2,8 @@ import numpy as np
 from utils.helpers import create_df
 import pandas as pd
 import ta
-import os
 import matplotlib.pyplot as plt
+import store.store as store
 
 
 '''
@@ -54,6 +54,9 @@ def calculate_sma_strategy(data, fast_length, slow_length, profit):
     # Рассчитываем быструю и медленную SMA
     fast_sma = sma(close_prices, fast_length)
     slow_sma = sma(close_prices, slow_length)
+
+    store.fast_sma = fast_sma
+    store.slow_sma = slow_sma
 
     # Проверяем пересечения
     if crossover(fast_sma, slow_sma):

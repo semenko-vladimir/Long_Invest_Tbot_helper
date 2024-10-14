@@ -299,6 +299,10 @@ def strategy_run(chat_id):
 
                 if bollinger == 1:
 
+                    bollinger_period = None
+                    bollinger_std = None
+                    type_ma = None
+
                     bollinger_data = get_bollinger(chat_id)
 
                     for row in bollinger_data:
@@ -330,6 +334,10 @@ def strategy_run(chat_id):
 
                 
                 if macd == 1:
+
+                    macd_fast = None
+                    macd_slow = None
+                    macd_signal_length = None
 
                     macd_data = get_macd(chat_id)
 

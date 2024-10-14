@@ -1,6 +1,7 @@
 import pandas as pd
 import ta  
 from utils.helpers import create_df
+import store.store as store
 
 def calculate_macd_strategy(data, fast_length, slow_length, signal_length, profit):
     """
@@ -27,6 +28,9 @@ def calculate_macd_strategy(data, fast_length, slow_length, signal_length, profi
     # Получаем линии MACD и сигнальную линию
     macd_line = macd_values.macd().values
     signal_line = ta.trend.ema_indicator(pd.Series(macd_line), window=signal_length, fillna=True).to_numpy()
+
+    store.signal_line = signal_line
+    store.macd_line = macd_line
 
     # Проверяем, что длины массивов совпадают
     if len(macd_line) != len(signal_line):
