@@ -1,5 +1,5 @@
 from bot.bot import bot
-from db.db import db_get_figi, get_all_tickers, get_alligator, get_bollinger, get_gpt, get_macd, get_rsi, get_sandbox_token, get_sandbox_trigger, get_sma, get_strategy, get_t_token, get_tpsl, new_buy, new_margin
+from db.db import db_get_figi, get_all_tickers, get_alligator, get_bollinger, get_gpt, get_macd, get_rsi, get_sandbox_token, get_sandbox_trigger, get_sma, get_ema, get_strategy, get_t_token, get_tpsl, new_buy, new_margin
 from utils.helpers import calculate_profit
 from orders.orders import cancel_existing_order, place_order
 from log.logger import setup_logger
@@ -16,6 +16,7 @@ from signals.lstm_signal import calculate_lstm_strategy
 from signals.macd_signal import calculate_macd_strategy
 from signals.rsi_signal import calculate_rsi, check_rsi_signal
 from signals.sma_signal import calculate_sma_strategy
+from signals.ema_signal import calculate_ema_strategy
 
 logger = setup_logger(__name__)
 
@@ -47,6 +48,7 @@ def strategy_run(chat_id):
             tpsl = None
             rsi = None
             sma = None
+            ema = None
             alligator = None  # Добавляем переменную для Аллигатора
             gpt = None
             lstm = None
@@ -64,15 +66,16 @@ def strategy_run(chat_id):
                 tpsl = row[2]
                 rsi = row[3]
                 sma = row[4]
-                alligator = row[5]  # Получаем значение для Аллигатора
-                gpt = row[6]
-                lstm = row[7]
-                bollinger = row[8]
-                macd = row[9]
-                time = row[10]
-                auto_market = row[11]
-                quantity = row[12]
-                joint = row[13]
+                ema = row[5]
+                alligator = row[6]  # Получаем значение для Аллигатора
+                gpt = row[7]
+                lstm = row[8]
+                bollinger = row[9]
+                macd = row[10]
+                time = row[11]
+                auto_market = row[12]
+                quantity = row[13]
+                joint = row[14]
 
             for ticker in tickers:
 
@@ -83,6 +86,7 @@ def strategy_run(chat_id):
                 rsi_signal = None
                 tpsl_signal = None
                 sma_signal = None
+                ema_signal = None
                 alligator_signal = None  # Добавляем переменную для сигнала Аллигатора
                 gpt_signal = None
                 lstm_signal = None
@@ -193,6 +197,44 @@ def strategy_run(chat_id):
                     else:
                         # Расчет SMA
                         sma_signal = calculate_sma_strategy(candles, fastLength, slowLength, current_profit)
+
+                
+                # Проверяем sma
+                if ema == 1:
+
+                    fastLength = None
+                    slowLength = None
+
+                    ema_data = get_ema(chat_id)
+
+                    for row in ema_data:
+
+                        fastLength = row[2]
+                        slowLength = row[3]
+                    
+
+                    start_time = None
+                    candle_interval = None
+                    time = int(time)
+
+                    CANDLE_CONSTANT = 1
+                    
+                    start_time = datetime.now() - timedelta(minutes=slowLength+CANDLE_CONSTANT)
+                    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    
+
+                    end_time = datetime.now()
+
+                    # Получение свечей за указаный период
+                    candles = get_historic_candles(figi, start_time, end_time, candle_interval)
+
+                    if len(create_df(candles.candles)["close"].values) < slowLength+CANDLE_CONSTANT:
+                        logger.info("NOT enough candles for the EMA signal")
+                        print("MINIMUM")
+
+                    else:
+                        # Расчет EMA
+                        ema_signal = calculate_ema_strategy(candles, fastLength, slowLength, current_profit)
 
 
                 # Проверяем Аллигатор
@@ -375,6 +417,7 @@ def strategy_run(chat_id):
                 buy_signals = [
                     rsi_signal == "buy",
                     sma_signal == "buy",
+                    ema_signal == "buy",
                     alligator_signal == "buy",
                     tpsl_signal == "buy",
                     gpt_signal == "buy",
@@ -385,6 +428,7 @@ def strategy_run(chat_id):
                 sell_signals = [
                     rsi_signal == "sell",
                     sma_signal == "sell",
+                    ema_signal == "sell",
                     alligator_signal == "sell",
                     tpsl_signal == "sell",
                     gpt_signal == "sell",
@@ -402,6 +446,7 @@ def strategy_run(chat_id):
                 if buy_condition:
                     if rsi_signal == "buy": signal_text += "RSI "
                     if sma_signal == "buy": signal_text += "SMA "
+                    if ema_signal == "buy": signal_text += "EMA "
                     if alligator_signal == "buy": signal_text += "Alligator "
                     if tpsl_signal == "buy": signal_text += "TPSL "
                     if gpt_signal == "buy": signal_text += "GPT "
@@ -425,6 +470,7 @@ def strategy_run(chat_id):
                 elif sell_condition:
                     if rsi_signal == "sell": signal_text += "RSI "
                     if sma_signal == "sell": signal_text += "SMA "
+                    if ema_signal == "sell": signal_text += "EMA "
                     if alligator_signal == "sell": signal_text += "Alligator "
                     if tpsl_signal == "sell": signal_text += "TPSL "
                     if gpt_signal == "sell": signal_text += "GPT "

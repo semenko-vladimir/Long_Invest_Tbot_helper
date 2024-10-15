@@ -2,7 +2,6 @@ import numpy as np
 from utils.helpers import create_df
 import pandas as pd
 import ta
-import matplotlib.pyplot as plt
 import store.store as store
 
 

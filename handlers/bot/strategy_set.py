@@ -1,10 +1,10 @@
-from db.db import get_alligator, get_bollinger, get_gpt, get_macd, get_rsi, get_sma, get_t_token, get_tpsl, update_strategy
+from db.db import get_alligator, get_bollinger, get_ema, get_gpt, get_macd, get_rsi, get_sma, get_t_token, get_tpsl, update_strategy
 from telebot import types
 from bot.bot import bot
 from store.store import available_signals
 from apscheduler.schedulers.background import BackgroundScheduler
 from config.schedulers_config import configure_scheduler
-from store.store import strategy_shedulers, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
+from store.store import strategy_shedulers, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
 from strategy.strategy_run import strategy_run
 
 
@@ -25,7 +25,7 @@ def set_signals(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
 def select_signal(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger
     chat_id = call.message.chat.id
     signal = call.data.split('_')[1].upper()
 
@@ -48,6 +48,13 @@ def select_signal(call):
         else:
             selected_signals[signal] = True
             sma_trigger = True
+            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+    elif signal == 'EMA':
+        if get_ema(chat_id)[2:] == [None, None]:
+            bot.send_message(chat_id, "Сигнал EMA не настроен.")
+        else:
+            selected_signals[signal] = True
+            ema_trigger = True
             bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
     elif signal == 'TAKE PROFIT/STOP LOSS':
         if get_tpsl(chat_id)[2:] == [None, None]:
@@ -125,7 +132,7 @@ def select_time(call):
 # Обработчик включения автоматической торговли
 @bot.callback_query_handler(func=lambda call: call.data.startswith('auto_'))
 def set_auto_market(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
     chat_id = call.message.chat.id
     auto_market = call.data.split('_')[1] == 'yes'
 
@@ -164,13 +171,13 @@ def ask_for_joint(chat_id):
 
 @bot.callback_query_handler(func=lambda call: call.data in ['joint_and', 'joint_or'])
 def set_joint(call):
-    global selected_signals, joint, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity
+    global selected_signals, joint, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity
 
     chat_id = call.message.chat.id
     joint = call.data == 'joint_and'
 
     # Вызов функции обновления стратегии с учетом joint-параметра
-    update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint)
+    update_strategy(chat_id, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, ema_trigger, time, auto_market, quantity, joint)
 
     # Завершение текущего планировщика и создание нового
     if chat_id in strategy_shedulers:
@@ -194,6 +201,7 @@ def set_joint(call):
     lstm_trigger = False
     bollinger_trigger = False
     macd_trigger = False
+    ema_trigger = False
     time = None
     auto_market = None
     quantity = None
@@ -205,7 +213,7 @@ def set_joint(call):
 # Обработчик кнопки "Отмена"
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel')
 def cancel_strategy(call):
-    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
+    global selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
     chat_id = call.message.chat.id
 
     # Сброс всех параметров
@@ -218,6 +226,7 @@ def cancel_strategy(call):
     lstm_trigger = False
     bollinger_trigger = False
     macd_trigger = False
+    ema_trigger = False
     time = None
     auto_market = None
     quantity = None

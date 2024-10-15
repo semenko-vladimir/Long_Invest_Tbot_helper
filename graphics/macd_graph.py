@@ -1,29 +1,38 @@
 import matplotlib
 matplotlib.use('Agg')
-
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from mplfinance.original_flavor import candlestick_ohlc
 import os
+import pandas as pd
 from bot.bot import bot
 import store.store as store
 
 def plot_macd(chat_id, df):
     """
-    Функция для построения графика MACD с сигнальной линией и отправки его в Telegram.
+    Функция для построения свечного графика цены и индикатора MACD, и отправки его в Telegram.
     
     :param chat_id: Идентификатор чата в Telegram, куда нужно отправить график.
-    :param df: DataFrame с колонками 'time' для оси X.
+    :param df: DataFrame с колонками 'time', 'open', 'high', 'low', 'close' для построения свечного графика цены.
     """
 
     macd_line = store.macd_line
     signal_line = store.signal_line
 
+    # Конвертация столбца 'time' в формат для matplotlib
+    df['time'] = pd.to_datetime(df['time'])
+    df['time'] = df['time'].map(mdates.date2num)
+
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
 
-    # График цены закрытия
-    ax1.plot(df['time'], df['close'], label='Close Price', color='blue')
-    ax1.set_title('Price Chart')
+    # Свечной график цены
+    ohlc = df[['time', 'open', 'high', 'low', 'close']].values
+    candlestick_ohlc(ax1, ohlc, width=0.8, colorup='green', colordown='red')
+    
+    ax1.set_title('Price Chart with Candlesticks')
     ax1.set_ylabel('Price')
-    ax1.legend(loc='upper left')
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    fig.autofmt_xdate()
 
     # График MACD и сигнальной линии
     ax2.plot(df['time'], macd_line, label='MACD Line', color='orange')
@@ -39,7 +48,7 @@ def plot_macd(chat_id, df):
     ax2.legend(loc='upper left')
 
     # Сохраняем график во временный файл
-    file_path = 'macd_chart.png'
+    file_path = 'macd_candlestick_chart.png'
     plt.savefig(file_path)
     plt.close(fig)
 

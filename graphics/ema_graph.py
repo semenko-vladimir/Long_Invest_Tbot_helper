@@ -8,23 +8,23 @@ import pandas as pd
 from bot.bot import bot
 import store.store as store
 
-def plot_sma(chat_id, df):
+def plot_ema(chat_id, df):
     """
-    Функция для построения свечного графика цены и сигналов SMA, и отправки его в Telegram.
+    Функция для построения свечного графика цены и сигналов EMA, и отправки его в Telegram.
 
     :param chat_id: Идентификатор чата в Telegram, куда нужно отправить график.
-    :param df: DataFrame с колонками 'time', 'open', 'high', 'low', 'close' для построения свечного графика цены.
+    :param df: DataFrame с колонками 'date', 'open', 'high', 'low', 'close' для построения свечного графика цены.
     """
 
-    fast_sma = store.fast_sma
-    slow_sma = store.slow_sma
+    fast_ema = store.fast_ema
+    slow_ema = store.slow_ema
 
     # Конвертация столбца 'time' в формат для matplotlib
     df['time'] = pd.to_datetime(df['time'])
     df['time'] = df['time'].map(mdates.date2num)
 
     fig, ax = plt.subplots(figsize=(14, 7))
-    ax.set_title('Stock Price with SMA')
+    ax.set_title('Stock Price with EMA')
     ax.set_xlabel('Date')
     ax.set_ylabel('Price')
 
@@ -34,9 +34,9 @@ def plot_sma(chat_id, df):
     # Параметры свечного графика (увеличена ширина свечей)
     candlestick_ohlc(ax, ohlc, width=0.8, colorup='green', colordown='red')
 
-    # Добавление графиков SMA
-    ax.plot(df['time'], fast_sma, label='Fast SMA', color='orange', linestyle='--')
-    ax.plot(df['time'], slow_sma, label='Slow SMA', color='blue', linestyle='--')
+    # Добавление графиков EMA
+    ax.plot(df['time'], fast_ema, label='Fast EMA', color='orange', linestyle='--')
+    ax.plot(df['time'], slow_ema, label='Slow EMA', color='blue', linestyle='--')
 
     # Форматирование дат на оси X
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -46,7 +46,7 @@ def plot_sma(chat_id, df):
     ax.legend(loc='upper left')
 
     # Сохранение графика во временный файл
-    file_path = 'sma_candlestick_chart.png'
+    file_path = 'ema_candlestick_chart.png'
     plt.savefig(file_path)
     plt.close(fig)  # Закрываем график, чтобы освободить ресурсы
 

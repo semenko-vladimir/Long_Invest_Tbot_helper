@@ -150,6 +150,21 @@ def create_table_signal_sma():
     conn.commit()
     conn.close()
 
+def create_table_signal_ema():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS signal_ema (
+            id INTEGER PRIMARY KEY,
+            chat_id INTEGER,
+            fastLength INTEGER,
+            slowLength INTEGER,
+            FOREIGN KEY (chat_id) REFERENCES users (chat_id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
 def create_table_signal_bollinger():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -195,6 +210,7 @@ def create_table_strategy():
             tpls_trigger BOOLEAN,
             rsi_trigger BOOLEAN,
             sma_trigger BOOLEAN,
+            ema_trigger BOOLEAN,
             alligator_trigger BOOLEAN,
             gpt_trigger BOOLEAN,
             lstm_trigger BOOLEAN,
@@ -458,6 +474,20 @@ def update_signal_sma(chat_id, fastLength, slowLength):
     conn.commit()
     conn.close()
 
+def update_signal_ema(chat_id, fastLength, slowLength):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM signal_ema WHERE chat_id = ?", (chat_id,))
+    row = cursor.fetchone()
+    if row is None:
+        cursor.execute("INSERT INTO signal_ema (chat_id, fastLength, slowLength) VALUES (?, ?, ?)",
+                       (chat_id, fastLength, slowLength))
+    else:
+        cursor.execute("UPDATE signal_ema SET fastLength = ?, slowLength = ? WHERE chat_id = ?",
+                       (fastLength, slowLength, chat_id))
+    conn.commit()
+    conn.close()
+
 def update_signal_bollinger(chat_id, period, deviation, type_ma):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -521,17 +551,17 @@ def update_signal_gpt(chat_id, text):
     conn.close()
 
 
-def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint):
+def update_strategy(chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, ema_trigger, time, auto_market, quantity, joint):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM strategy WHERE chat_id = ?", (chat_id,))
     row = cursor.fetchone()
     if row is None:
-        cursor.execute("INSERT INTO strategy (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                       (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint))
+        cursor.execute("INSERT INTO strategy (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, ema_trigger, time, auto_market, quantity, joint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (chat_id, tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, ema_trigger, time, auto_market, quantity, joint))
     else:
-        cursor.execute("UPDATE strategy SET tpls_trigger = ?, rsi_trigger = ?, sma_trigger = ?, alligator_trigger = ?, gpt_trigger = ?, lstm_trigger = ?, bollinger_trigger = ?, macd_trigger = ?, time = ?, auto_market = ?, quantity = ?, joint = ? WHERE chat_id = ?",
-                       (tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint, chat_id))
+        cursor.execute("UPDATE strategy SET tpls_trigger = ?, rsi_trigger = ?, sma_trigger = ?, alligator_trigger = ?, gpt_trigger = ?, lstm_trigger = ?, bollinger_trigger = ?, macd_trigger = ?, ema_trigger = ?, time = ?, auto_market = ?, quantity = ?, joint = ? WHERE chat_id = ?",
+                       (tpls_trigger, rsi_trigger, sma_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, ema_trigger, time, auto_market, quantity, joint, chat_id))
     conn.commit()
     conn.close()
 
@@ -568,6 +598,14 @@ def get_sma(chat_id):
     sma_data = cursor.fetchall()
     conn.close()
     return sma_data
+
+def get_ema(chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM signal_sma WHERE chat_id = ?", (chat_id,))
+    ema_data = cursor.fetchall()
+    conn.close()
+    return ema_data
 
 def get_alligator(chat_id):
     conn = sqlite3.connect('database.db')
@@ -628,6 +666,7 @@ def db_get_figi(chat_id, ticker):
     return figi[0][0]
 
 
+
 # insert_instrument(1231123, "ROSN", "BBG004731354")
 # insert_ticker(757528922, "ROSN")
 # insert_ticker(757528922, "GAZP")
@@ -656,11 +695,11 @@ def db_get_figi(chat_id, ticker):
 # conn.close()
 
 
-#create_table_strategy()
+# create_table_strategy()
 
 # conn = sqlite3.connect('database.db')
 # cursor = conn.cursor()
-# cursor.execute("DROP TABLE IF EXISTS tickers")
+# cursor.execute("DROP TABLE IF EXISTS strategy")
 # conn.commit()
 # conn.close()
 

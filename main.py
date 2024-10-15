@@ -10,6 +10,7 @@ from handlers.notifications.notification_handler import notification_handler
 from handlers.bot.bot_handler import bot_handler
 from handlers.signals.signals_handler import show_signals_handler
 from handlers.mls.mls_handler import mls_handler
+from handlers.knowledge_base.knowledge_base_handler import knowledge_base_handler
 from log.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -33,6 +34,7 @@ def start(message):
         market_button = types.KeyboardButton('Состояние рынка')
         dividents_button = types.KeyboardButton('Дивиденды')
         long_strategy_button = types.KeyboardButton('Middle/Long сигналы')
+        knowledge_button = types.KeyboardButton('База знаний')
 
         keyboard.row(portfolio_button)
 
@@ -49,6 +51,8 @@ def start(message):
         keyboard.row(dividents_button)
 
         keyboard.row(long_strategy_button)
+
+        keyboard.row(knowledge_button)
         
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 

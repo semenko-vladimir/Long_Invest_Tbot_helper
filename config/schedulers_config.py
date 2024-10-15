@@ -113,16 +113,17 @@ def configure_scheduler():
         tpsl = row[2]
         rsi = row[3]
         sma = row[4]
-        alligator = row[5]
-        gpt = row[6]
-        lstm = row[7]
-        bollinger = row[8]
-        macd = row[9]
-        time = row[10]
+        ema = row[5]
+        alligator = row[6]
+        gpt = row[7]
+        lstm = row[8]
+        bollinger = row[9]
+        macd = row[10]
+        time = row[11]
         # autom = row[9]
         # quantity = row[10]
 
-        if tpsl == 0 and rsi == 0 and sma == 0 and alligator == 0 and gpt == 0 and lstm == 0 and bollinger == 0 and macd == 0:
+        if tpsl == 0 and rsi == 0 and sma == 0 and alligator == 0 and gpt == 0 and lstm == 0 and bollinger == 0 and macd == 0 and ema == 0:
             return
         
         if chat_id not in strategy_shedulers and chat_id is not None:

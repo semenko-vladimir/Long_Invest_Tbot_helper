@@ -4,6 +4,7 @@ from bot.bot import bot
 
 from handlers.signals.rsi_handler import rsi_handler
 from handlers.signals.sma_handler import sma_handler
+from handlers.signals.ema_handler import ema_handler
 from handlers.signals.bollinger_handler import bollinger_handler
 from handlers.signals.macd_handler import macd_handler
 from handlers.signals.tpsl_handler import tpsl_handler
@@ -19,6 +20,7 @@ def show_signals_handler(message):
             types.InlineKeyboardButton(text='Take Profit/Stop Loss', callback_data='signal_tpsl'),
             types.InlineKeyboardButton(text='RSI', callback_data='signal_rsi'),
             types.InlineKeyboardButton(text='SMA', callback_data='signal_sma'),
+            types.InlineKeyboardButton(text='EMA', callback_data='signal_ema'),
             types.InlineKeyboardButton(text='Alligator', callback_data='signal_alligator'),
             types.InlineKeyboardButton(text='GPT', callback_data='signal_gpt'),
             types.InlineKeyboardButton(text='Bollinger', callback_data='signal_bollinger'),

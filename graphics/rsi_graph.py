@@ -3,30 +3,38 @@ matplotlib.use('Agg')
 
 import os
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from mplfinance.original_flavor import candlestick_ohlc
+import pandas as pd
 from bot.bot import bot
 import store
 import store.store as store
 
 def plot_rsi(chat_id, df, low_level, high_level):
     """
-    Функция для построения графика цены и RSI и отправки его в Telegram.
+    Функция для построения свечного графика цены и RSI и отправки его в Telegram.
     
     :param chat_id: Идентификатор чата в Telegram, куда нужно отправить график.
-    :param df: DataFrame с колонками 'date' и 'close' для построения графика цены.
-    :param rsi_values: Массив или список значений RSI.
+    :param df: DataFrame с колонками 'time', 'open', 'high', 'low', 'close' для построения графика цены.
     :param low_level: Нижний уровень для сигнала перепроданности.
     :param high_level: Верхний уровень для сигнала перекупленности.
     """
 
     rsi_values = store.rsi_values
 
+    # Конвертация столбца 'time' в формат для matplotlib
+    df['time'] = pd.to_datetime(df['time'])
+    df['time'] = df['time'].map(mdates.date2num)
+
+    # Создаем список данных для candlestick_ohlc
+    ohlc = df[['time', 'open', 'high', 'low', 'close']].values
+
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
 
-    # График цены
-    ax1.plot(df['time'], df['close'], label='Close Price', color='blue')
-    ax1.set_title('Stock Close Price')
+    # Свечной график
+    candlestick_ohlc(ax1, ohlc, width=0.8, colorup='green', colordown='red')
+    ax1.set_title('Stock Price Chart')
     ax1.set_ylabel('Price')
-    ax1.legend(loc='upper left')
 
     # График RSI
     ax2.plot(df['time'], rsi_values, label='RSI', color='purple')
@@ -37,8 +45,12 @@ def plot_rsi(chat_id, df, low_level, high_level):
     ax2.set_ylabel('RSI')
     ax2.legend(loc='upper left')
 
+    # Форматирование дат на оси X
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    fig.autofmt_xdate()
+
     # Сохраняем график во временный файл
-    file_path = 'rsi_chart.png'
+    file_path = 'rsi_candlestick_chart.png'
     plt.savefig(file_path)
     plt.close(fig)  # Закрываем график, чтобы освободить ресурсы
 
@@ -48,5 +60,3 @@ def plot_rsi(chat_id, df, low_level, high_level):
 
     # Удаляем файл после отправки (необязательно)
     os.remove(file_path)
-
-    

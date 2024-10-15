@@ -42,3 +42,9 @@
 
 2024-10-13 20:34:25,195 - config.schedulers_config - configure_scheduler - INFO - The strategy has been added to the scheduler
 2024-10-14 15:34:51,638 - handlers.mls.mls_alligator - calculate_mls_alligator - INFO - NOT enough candles for the Alligator signal
+2024-10-15 13:40:21,755 - config.schedulers_config - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-15 13:43:04,437 - config.schedulers_config - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-15 13:45:06,050 - strategy.strategy_run - strategy_run - INFO - NOT enough candles for the EMA signal
+2024-10-15 13:45:24,099 - config.schedulers_config - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-15 13:48:50,751 - config.schedulers_config - configure_scheduler - INFO - The strategy has been added to the scheduler
+2024-10-15 13:52:51,085 - handlers.mls.mls_ema - calculate_mls_ema - INFO - NOT enough candles for the EMA signal
