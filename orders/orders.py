@@ -2,11 +2,15 @@ from datetime import datetime
 import uuid
 from tinkoff.invest import Client, RequestError, OrderDirection, OrderType, GetOrdersResponse
 from tinkoff.invest.services import SandboxService
+from db.db import delete_order, get_orders, new_buy, new_margin, new_order
+from log.logger import setup_logger
 from utils.methods import calc_avaliable_lots, check_enough_currency, get_current_price
-from utils.helpers import cast_money
+from utils.helpers import cast_money, format_date
 
+logger = setup_logger(__name__)
+from bot.bot import bot
 
-def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_method: str):
+def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_method: str, ticker, bm_value, signal, chat_id):
 
     if sandbox_method:
 
@@ -22,29 +26,32 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
 
                     if (avaliable_lots > 0):
                         print(f"Позиция {figi} уже в портфеле, ждем сигнала к продаже...")
-                        return False, 0
+                        return 
                     
                     # best or fast
                     price_sell, price_buy = get_current_price(figi, client, 'fast')
 
                     if check_enough_currency(token, figi, client, price_buy, quantity, sandbox_method):
+                        
+                        order_id = str(uuid.uuid4())
 
                         r = sb.post_sandbox_order(
                             figi=figi,
                             quantity=quantity,
                             price=price_buy,
                             account_id=account_id,
-                            order_id=str(uuid.uuid4()),
+                            order_id=order_id,
                             direction=OrderDirection.ORDER_DIRECTION_BUY,
                             order_type=OrderType.ORDER_TYPE_LIMIT,
                         )
 
+                        new_order(order_id, ticker, signal, cast_money(price_buy), operation, chat_id)
                         print(r)
-                        print(f"Покупаем по цене {cast_money(price_buy)}")
-                        return True, cast_money(price_buy)
+                        print(f"Создаем заявку на покупку по цене {cast_money(price_buy)}")
+                    #     return True, cast_money(price_buy)
                     
-                    else:
-                        return False, 0
+                    # else:
+                    #     return False, 0
 
             except RequestError as e:
                 print("Сработало в buy sandbox")
@@ -62,15 +69,16 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
 
                     if (avaliable_lots == 0):
                         print(f"Позиции {figi} в портфеле нет. Ждем сигнала к покупке...")
-                        return False, 0
+                        return 
                     
                     
                     # best or fast
                     price_sell, price_buy = get_current_price(figi, client, 'fast')
 
+                    order_id = str(uuid.uuid4())
 
                     r = sb.post_sandbox_order(
-                        order_id=str(uuid.uuid4()),
+                        order_id=order_id,
                         figi=figi,
                         price=price_sell,
                         quantity=quantity,
@@ -79,9 +87,11 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                         order_type=OrderType.ORDER_TYPE_LIMIT,
                     )
 
+                    new_order(order_id, ticker, signal, bm_value, operation, chat_id)
+
                     print(r)
-                    print(f"Продаем по цене {cast_money(price_sell)}")
-                    return True, cast_money(price_sell)
+                    print(f"Создаем заявку на продажу по цене {cast_money(price_sell)}")
+                    # return True, cast_money(price_sell)
 
             except RequestError as e:
                 print("Сработало в sell sandbox")
@@ -99,28 +109,33 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
 
                     if (avaliable_lots > 0):
                         print(f"Позиция {figi} уже в портфеле, ждем сигнала к продаже...")
-                        return False, 0
+                        return 
                     
                     price_sell, price_buy = get_current_price(figi, client, 'stock')
 
                     if check_enough_currency(token, figi, client, price_buy, quantity, False):
+                        
+                        order_id = str(uuid.uuid4())
 
                         r = client.orders.post_order(
-                            order_id=str(datetime.utcnow().timestamp()),
+                            order_id=order_id,
                             figi=figi,
                             price=price_buy,
                             quantity=quantity,
                             account_id=account_id,
                             direction=OrderDirection.ORDER_DIRECTION_BUY,
                             order_type=OrderType.ORDER_TYPE_LIMIT,
+                            #str(datetime.utcnow().timestamp())
                         )
+
+                        new_order(order_id, ticker, signal, cast_money(price_buy), operation, chat_id)
 
                         print(r)
                         print(f"Покупаем по цене {cast_money(price_buy)}")
-                        return True, cast_money(price_buy)
+                    #     return True, cast_money(price_buy)
                     
-                    else:
-                        return False, 0
+                    # else:
+                    #     return False, 0
 
             except RequestError as e:
                 print(str(e))
@@ -135,26 +150,30 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
 
                     if (avaliable_lots == 0):
                         print(f"Позиции {figi} в портфеле нет. Ждем сигнала к покупке...")
-                        return False, 0
+                        return 
                     
                     
                     # best or fast
                     price_sell, price_buy = get_current_price(figi, client, 'fast')
-
+                    
+                    order_id = str(uuid.uuid4())
 
                     r = client.orders.post_order(
-                        order_id=str(datetime.utcnow().timestamp()),
+                        order_id=order_id,
                         figi=figi,
                         price=price_sell,
                         quantity=quantity,
                         account_id=account_id,
                         direction=OrderDirection.ORDER_DIRECTION_SELL,
                         order_type=OrderType.ORDER_TYPE_LIMIT,
+                        #str(datetime.utcnow().timestamp())
                     )
+
+                    new_order(order_id, ticker, signal, bm_value, operation, chat_id)
 
                     print(r)
                     print(f"Продаем по цене {cast_money(price_sell)}")
-                    return True, cast_money(price_sell)
+                    # return True, cast_money(price_sell)
 
             except RequestError as e:
                 print(str(e))
@@ -198,3 +217,88 @@ def cancel_existing_order(token: str, figi: str, sandbox_method: bool):
                 print(f"Заявка {order.order_id} успешно отменена.")
             except Exception as e:
                 print(f"Ошибка при отмене заявки {order.order_id}: {e}")
+
+
+def get_order_by_figi(token: str, figi: str, sandbox_method: str):
+
+    with Client(token) as client:
+        if sandbox_method:
+            # Для режима песочницы
+            sb: SandboxService = client.sandbox
+            accounts = sb.get_sandbox_accounts()
+            account_id = accounts.accounts[0].id
+            orders: GetOrdersResponse = sb.get_sandbox_orders(account_id=account_id)
+        else:
+            # Для реальных торгов
+            accounts = client.users.get_accounts()
+            account_id = accounts.accounts[0].id
+            orders: GetOrdersResponse = client.orders.get_orders(account_id=account_id)
+
+
+        # Проверяем, есть ли активные заявки
+        if len(orders.orders) == 0:
+            return True
+
+        # Находим заявки по figi
+        existing_orders = [order for order in orders.orders if order.figi == figi]
+
+        if not existing_orders:
+            return True
+
+        return False
+    
+
+def check_orders(token: str, chat_id, sandbox_method: bool):
+
+    orders = None
+
+    local_time = datetime.now()
+
+    with Client(token) as client:
+        if sandbox_method:
+            # Для режима песочницы
+            sb: SandboxService = client.sandbox
+            accounts = sb.get_sandbox_accounts()
+            account_id = accounts.accounts[0].id
+            orders: GetOrdersResponse = sb.get_sandbox_orders(account_id=account_id)
+        else:
+            # Для реальных торгов
+            accounts = client.users.get_accounts()
+            account_id = accounts.accounts[0].id
+            orders: GetOrdersResponse = client.orders.get_orders(account_id=account_id)
+
+
+        # Проверяем, есть ли активные заявки
+        if len(orders.orders) == 0:
+            return
+        
+
+    orders_db = get_orders(chat_id)
+
+    if len(orders_db) == 0:
+        return
+
+    for row in orders_db:
+        _id = row[0]
+        order_id = row[1]
+        ticker = row[2]
+        signal = row[3]
+        bm_value = row[4]
+        operation_type = row[5]
+
+        # Находим заявку по order_id
+        existing_order = [order for order in orders.orders if order.order_id == order_id]
+
+        if not existing_order:
+
+            delete_order(order_id)
+
+            if operation_type == "buy":
+                new_buy(bm_value, ticker, signal, format_date(local_time), chat_id)
+                bot.send_message(chat_id, f"Автоматическая торговля. Покупка {ticker} по сигналу {signal}")
+                logger.info(f"Automatic trading. Purchase {ticker} on the signal {signal}. Sale price: {bm_value}")
+
+            elif operation_type == "sell":
+                new_margin(bm_value, ticker, signal, format_date(local_time), chat_id)
+                bot.send_message(chat_id, f"Продаем {ticker} по сигналу {signal}")
+                logger.info(f"Automatic trading. Selling {ticker} on the signal {signal}. Estimated margin: {bm_value}")

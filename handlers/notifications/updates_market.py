@@ -2,7 +2,7 @@ from db.db import get_all_tickers, get_config, get_t_token, update_config_collap
 from bot.bot import bot
 from telebot import types
 from store.store import chat_schedulers
-from config.schedulers_config import configure_scheduler
+from config.schedulers_config import configure_market_scheduler
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'user_add_market_updates')
@@ -58,7 +58,7 @@ def percent_handler(call):
 
     update_config_collapse(chat_id, 0, False, time, True)
     print("РАБОТАЮТ ОБНОВЛЕНИЯ РЫНКА")
-    configure_scheduler()
+    configure_market_scheduler()
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'remove_market_updates')

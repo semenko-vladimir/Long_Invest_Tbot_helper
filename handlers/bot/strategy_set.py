@@ -3,7 +3,6 @@ from telebot import types
 from bot.bot import bot
 from store.store import available_signals
 from apscheduler.schedulers.background import BackgroundScheduler
-from config.schedulers_config import configure_scheduler
 from store.store import strategy_shedulers, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
 from strategy.strategy_run import strategy_run
 

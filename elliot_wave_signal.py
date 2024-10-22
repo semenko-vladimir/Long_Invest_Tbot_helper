@@ -72,12 +72,6 @@ def isMin(df,i):
 def isMax(df,i):
     return df["FlowMinMax"].iat[i] == 1
 
-# def hash(wave):
-#     s = ""
-
-#     for digit in wave:
-#         s += str(digit) + "."
-#     return s
 
 def distance(x1,y1,x2,y2):  
      dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)  
@@ -85,7 +79,6 @@ def distance(x1,y1,x2,y2):
 
 def isElliottWave(df,value,i0,i1,i2,i3,i4,i5,ia,ib,ic):
     result = None
-    # print(".")
 
     if not isMin(df,i0) or not isMin(df,i2) or not isMin(df,i4) or not isMin(df,ia) or not isMin(df,ic):
         return result
@@ -109,17 +102,10 @@ def isElliottWave(df,value,i0,i1,i2,i3,i4,i5,ia,ib,ic):
     if not df[value].iat[i3] > df[value].iat[i2]:
         return result
 
-    # w1Len = np.abs(df[value].iat[i1]-df[value].iat[i0])
-    # w2Len = np.abs(df[value].iat[i1]-df[value].iat[i2])
     w1Len = distance(i0,df[value].iat[i0],i1,df[value].iat[i1])
-    # w2Len = calculateDistance(i1,df[value].iat[i1],i2,df[value].iat[i2])
-    # if not w2Len < 2*w1Len:
-    #     return result
 
     if not df[value].iat[i2] > df[value].iat[i0]:
         return result
-
-    # result = [i0,i1,i2,i3]
 
     if not df[value].iat[i3] > df[value].iat[i4]:
         return result
@@ -127,14 +113,11 @@ def isElliottWave(df,value,i0,i1,i2,i3,i4,i5,ia,ib,ic):
     if not df[value].iat[i4] > df[value].iat[i2]:
         return result
 
-    # w3Len = np.abs(df[value].iat[i3]-df[value].iat[i2])
     w3Len = distance(i2,df[value].iat[i2],i3,df[value].iat[i3])
-    # w4Len = np.abs(df[value].iat[i4]-df[value].iat[i3])
 
     if not df[value].iat[i4] > df[value].iat[i1]:
         return result
 
-    # result = [i0,i1,i2,i3,i4]
 
     if not df[value].iat[i5] > df[value].iat[i4]:
         return result
@@ -142,13 +125,11 @@ def isElliottWave(df,value,i0,i1,i2,i3,i4,i5,ia,ib,ic):
     if not df[value].iat[i5] > df[value].iat[i3]:
         return result
 
-    # w5Len = np.abs(df[value].iat[i5]-df[value].iat[i4])
     w5Len = distance(i4,df[value].iat[i4],i5,df[value].iat[i5])
 
     if (w3Len < w1Len and w3Len < w5Len):
         return result
 
-    # uptrend
     result = [i0,i1,i2,i3,i4,i5]
 
     isi5TheTop = df[value].iat[i5] > df[value].iat[ia]  and df[value].iat[i5] > df[value].iat[ib]  and df[value].iat[i5] > df[value].iat[ic]
@@ -157,15 +138,6 @@ def isElliottWave(df,value,i0,i1,i2,i3,i4,i5,ia,ib,ic):
 
     if not df[value].iat[i5] > df[value].iat[ia]:
         return result
-    
-    # waLen = calculateDistance(i5,df[value].iat[i5],ia,df[value].iat[ia])
-    # wcLen = calculateDistance(ib,df[value].iat[ib],ic,df[value].iat[ic])
-
-    # if waLen > wcLen:
-    #     return result
-
-    # if not (df[value].iat[i3] >= df[value].iat[ia] and df[value].iat[ia] >= df[value].iat[i4]):
-    #     return result
 
     if not df[value].iat[i5] > df[value].iat[ib]:
         return result

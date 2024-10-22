@@ -1,6 +1,6 @@
 from bot.bot import bot
 from telebot import types
-from config.schedulers_config import configure_scheduler
+from config.schedulers_config import configure_schedulers
 from db.db import get_t_token
 from handlers.portfolio.portfolio_handler import get_portfolio_handler
 from handlers.instruments.instruments_handler import instruments_handler
@@ -11,6 +11,7 @@ from handlers.bot.bot_handler import bot_handler
 from handlers.signals.signals_handler import show_signals_handler
 from handlers.mls.mls_handler import mls_handler
 from handlers.knowledge_base.knowledge_base_handler import knowledge_base_handler
+from handlers.statistics.statistics_handler import statistics_handler
 from log.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -34,7 +35,9 @@ def start(message):
         market_button = types.KeyboardButton('Состояние рынка')
         dividents_button = types.KeyboardButton('Дивиденды')
         long_strategy_button = types.KeyboardButton('Middle/Long сигналы')
+        statistics_button = types.KeyboardButton('Статистика')
         knowledge_button = types.KeyboardButton('База знаний')
+
 
         keyboard.row(portfolio_button)
 
@@ -53,12 +56,14 @@ def start(message):
         keyboard.row(long_strategy_button)
 
         keyboard.row(knowledge_button)
+
+        keyboard.row(statistics_button)
         
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 
 
 # Настройка конфигуратора планировщика
-configure_scheduler()
+configure_schedulers()
 print("Конфигуратор успешно настроен")
 # Запускаем бота
 bot.polling()

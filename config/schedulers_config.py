@@ -11,7 +11,7 @@ from strategy.strategy_run import strategy_run
 
 logger = setup_logger(__name__)
 
-def configure_scheduler():
+def configure_market_scheduler():
 
     chat_id = None
     
@@ -66,6 +66,7 @@ def configure_scheduler():
 
                         end_time = datetime.now()
                         # Настраиваем задания планировщика
+                        print("Уведомления добавлены")
                         scheduler.add_job(send_price_change_notification_collapse, 'interval', minutes=collapse_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
 
 
@@ -100,9 +101,12 @@ def configure_scheduler():
 
                         end_time = datetime.now()
                         # Настраиваем задания планировщика
+                        print("Уведомления добавлены")
                         scheduler.add_job(send_price_change_notification_market_updates, 'interval', minutes=market_updates_time, args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker))
 
     
+
+def configure_strategy_scheduler():
     chat_id = None
     time = None
 
@@ -136,3 +140,7 @@ def configure_scheduler():
             scheduler.add_job(strategy_run, 'interval', minutes=int(time), args=(chat_id,))
             #print("Стратегия добавлена в планировщик")
             logger.info("The strategy has been added to the scheduler")
+
+def configure_schedulers():
+    configure_market_scheduler()
+    configure_strategy_scheduler()

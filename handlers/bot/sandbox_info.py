@@ -111,7 +111,7 @@ def get_sandbox(call):
 
         for position in positions:
             text += (
-                f"Тикер: {position['ticker']}\n"
+                f"\nТикер: {position['ticker']}\n"
                 f"Figi: {position['figi']}\n"
                 f"Тип: {position['type']}\n"
                 f"Количество: {position['quantity']}\n"

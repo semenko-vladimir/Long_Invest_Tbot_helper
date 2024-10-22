@@ -258,7 +258,9 @@ def create_table_margin():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             margin FLOAT,
             ticker TEXT,
-            signals TEXT
+            signal TEXT,
+            time DATETIME,
+            chat_id INTEGER
         )
     ''')
     conn.commit()
@@ -272,7 +274,9 @@ def create_table_buy():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             price FLOAT,
             ticker TEXT,
-            signals TEXT
+            signal TEXT,
+            time DATETIME,
+            chat_id INTEGER
         )
     ''')
     conn.commit()
@@ -294,20 +298,38 @@ def create_table_instruments():
     conn.close()
 
 
-import sqlite3
-
-
-def new_margin(margin, ticker, signals):
+def create_table_orders():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO margin (margin, ticker, signals) VALUES (?, ?, ?)", (margin, ticker, signals))
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER,
+            ticker TEXT,
+            signal TEXT,
+            bm_value FLOAT,
+            operation_type TEXT,
+            user_id INTEGER
+        )
+    ''')
     conn.commit()
     conn.close()
 
-def new_buy(price, ticker, signals):
+
+import sqlite3
+
+
+def new_margin(margin, ticker, signal, time, chat_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO buy (price, ticker, signals) VALUES (?, ?, ?)", (price, ticker, signals))
+    cursor.execute("INSERT INTO margin (margin, ticker, signal, time, chat_id) VALUES (?, ?, ?, ?, ?)", (margin, ticker, signal, time, chat_id))
+    conn.commit()
+    conn.close()
+
+def new_buy(price, ticker, signal, time, chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO buy (price, ticker, signal, time, chat_id) VALUES (?, ?, ?, ?, ?)", (price, ticker, signal, time, chat_id))
     conn.commit()
     conn.close()
 
@@ -665,7 +687,90 @@ def db_get_figi(chat_id, ticker):
     conn.close()
     return figi[0][0]
 
+def get_buy(chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM buy WHERE chat_id = ?", (chat_id,))
+    buy_data = cursor.fetchall()
+    conn.close()
+    return buy_data
 
+def get_margin(chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM margin WHERE chat_id = ?", (chat_id,))
+    margin = cursor.fetchall()
+    conn.close()
+    return margin
+
+def new_order(order_id, ticker, signal, bm_value, operation_type, user_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO orders (order_id, ticker, signal, bm_value, operation_type, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (order_id, ticker, signal, bm_value, operation_type, user_id))
+    conn.commit()
+    conn.close()
+
+def delete_order(order_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        DELETE FROM orders
+        WHERE order_id = ?
+    ''', (order_id,))
+    conn.commit()
+    conn.close()
+
+def get_orders(chat_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT * FROM orders
+        WHERE user_id = ?
+    ''', (chat_id,))
+    orders = cursor.fetchall()
+    conn.close()
+    return orders
+
+# create_table_orders()
+
+# from datetime import datetime, timedelta
+# import pytz
+
+# moscow_tz = pytz.timezone('Europe/Moscow')
+
+# # Фиктивные данные для 3 дней
+# chat_id = 757528922
+# tickers = ['GAZP', 'TATN', 'ROSN']
+# signals = ['RSI ', 'TPSL ', 'RSI MACD ']
+
+# # Создадим фиктивные данные для покупок
+# for i in range(3):  # 3 дня
+#     for hour in range(8, 24, 4):  # Разные часы в течение дня
+#         # Дата и время с временным сдвигом на i дней
+#         time = (datetime.now(moscow_tz) - timedelta(days=i)).replace(hour=hour, minute=0, second=0, microsecond=0)
+#         time_str = time.strftime('%d-%m-%Y %H:%M')
+        
+#         # Добавляем фиктивные покупки
+#         price = round(100 + i * 10 + hour * 0.5, 2)  # Примерная цена
+#         ticker = tickers[i % len(tickers)]
+#         signal = signals[i % len(signals)]
+#         new_buy(price, ticker, signal, time_str, chat_id)
+
+# # Создадим фиктивные данные для маржи
+# for i in range(3):  # 3 дня
+#     for hour in range(10, 22, 3):  # Разные часы в течение дня
+#         # Дата и время с временным сдвигом на i дней
+#         time = (datetime.now(moscow_tz) - timedelta(days=i)).replace(hour=hour, minute=0, second=0, microsecond=0)
+#         time_str = time.strftime('%d-%m-%Y %H:%M')
+        
+#         # Добавляем фиктивную маржу
+#         margin = round((-1)**i * (1 + i + hour * 0.1), 2)  # Пример маржи (положительная и отрицательная)
+#         ticker = tickers[i % len(tickers)]
+#         signal = signals[i % len(signals)]
+#         new_margin(margin, ticker, signal, time_str, chat_id)
 
 # insert_instrument(1231123, "ROSN", "BBG004731354")
 # insert_ticker(757528922, "ROSN")
@@ -699,10 +804,33 @@ def db_get_figi(chat_id, ticker):
 
 # conn = sqlite3.connect('database.db')
 # cursor = conn.cursor()
-# cursor.execute("DROP TABLE IF EXISTS strategy")
+# cursor.execute("DROP TABLE IF EXISTS orders")
 # conn.commit()
 # conn.close()
 
+# create_table_margin()
+# create_table_buy()
+
+# new_buy(100, "GAZP", "RSI", "17-10-2024 00:15", 757528922)
+# new_margin(-2, "GAZP", "RSI", "17-10-2024 00:15", 757528922)
+
+# create_table_margin()
+
+# conn = sqlite3.connect('database.db')
+# cursor = conn.cursor()
+# cursor.execute("DELETE FROM buy WHERE id NOT IN (24, 25)")
+# conn.commit()
+# conn.close()
+
+# conn = sqlite3.connect('database.db')
+# cursor = conn.cursor()
+# cursor.execute("DELETE FROM users")
+# conn.commit()
+# conn.close()
+
+
+
+# create_user(757528922, 't.Uw4EyMoJpCET932NTtFz4Pw11hGy-zJlVr55AMGJaIVbQIq5YuJoO6EFqxPNm44gvsWIip9BFXo6yyuaUo5gbQ', 't.FQwfYXk8R3DE49SEmTBIwtPOWVmOfVQtpTn-eruGflXC6T4QNrZ_DZZcT-8oTgfZiA622kLbb1oyDAIotxXGdQ', 0)
 
 
 

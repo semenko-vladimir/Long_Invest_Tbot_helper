@@ -1,7 +1,7 @@
 from bot.bot import bot
 from db.db import db_get_figi, get_all_tickers, get_alligator, get_bollinger, get_gpt, get_macd, get_rsi, get_sandbox_token, get_sandbox_trigger, get_sma, get_ema, get_strategy, get_t_token, get_tpsl, new_buy, new_margin
-from utils.helpers import calculate_profit
-from orders.orders import cancel_existing_order, place_order
+from utils.helpers import calculate_profit, format_date
+from orders.orders import cancel_existing_order, check_orders, place_order
 from log.logger import setup_logger
 from utils.helpers import cast_money, create_df
 from utils.methods import get_current_price, get_historic_candles, get_instrument_from_portfolio_by_ticker
@@ -191,7 +191,7 @@ def strategy_run(chat_id):
                     candles = get_historic_candles(figi, start_time, end_time, candle_interval)
 
                     if len(create_df(candles.candles)["close"].values) < slowLength+CANDLE_CONSTANT:
-                        logger.info("NOT enough candles for the SMA signal")
+                        logger.info(f"NOT enough candles for the SMA signal {ticker[0]}")
                         print("MINIMUM")
 
                     else:
@@ -229,7 +229,7 @@ def strategy_run(chat_id):
                     candles = get_historic_candles(figi, start_time, end_time, candle_interval)
 
                     if len(create_df(candles.candles)["close"].values) < slowLength+CANDLE_CONSTANT:
-                        logger.info("NOT enough candles for the EMA signal")
+                        logger.info(f"NOT enough candles for the EMA signal {ticker[0]}")
                         print("MINIMUM")
 
                     else:
@@ -457,11 +457,8 @@ def strategy_run(chat_id):
                     if auto_market:
                         # Автоматическая покупка
                         cancel_existing_order(token, figi, sandbox_method)
-                        result, price = place_order(token, figi, quantity, 'buy', sandbox_method)
-                        if result:
-                            bot.send_message(chat_id, f"Автоматическая торговля. Покупка {ticker[0]} по сигналу {signal_text}")
-                            logger.info(f"Automatic trading. Purchase {ticker[0]} on the signal {signal_text}. Sale price: {price}")
-                            new_buy(price, ticker[0], signal_text)
+                        place_order(token, figi, quantity, 'buy', sandbox_method, ticker[0], 0, signal_text, chat_id)
+                        check_orders(token, chat_id, sandbox_method)
                     else:
                         # Рекомендация на покупку
                         logger.info(f"Recommended to purchase {ticker[0]} on the signal {signal_text}")
@@ -472,7 +469,8 @@ def strategy_run(chat_id):
                     if sma_signal == "sell": signal_text += "SMA "
                     if ema_signal == "sell": signal_text += "EMA "
                     if alligator_signal == "sell": signal_text += "Alligator "
-                    if tpsl_signal == "sell": signal_text += "TPSL "
+                    if tpsl_signal == "sell":
+                        signal_text += "TPSL "
                     if gpt_signal == "sell": signal_text += "GPT "
                     if lstm_signal == "sell": signal_text += "LSTM "
                     if bollinger_signal == "sell": signal_text += "Bollinger "
@@ -480,12 +478,12 @@ def strategy_run(chat_id):
 
                     if auto_market:
                         # Автоматическая продажа
+                        # Отмена заявки по бумаге, если она существует
                         cancel_existing_order(token, figi, sandbox_method)
-                        result, _ = place_order(token, figi, quantity, 'sell', sandbox_method)
-                        if result:
-                            bot.send_message(chat_id, f"Продаем {ticker[0]} по сигналу {signal_text}")
-                            logger.info(f"Automatic trading. Selling {ticker[0]} on the signal {signal_text}. Estimated margin: {round(current_profit, 2)}")
-                            new_margin(round(current_profit, 2), ticker[0], signal_text)
+                        # Размещение заявки
+                        place_order(token, figi, quantity, 'sell', sandbox_method, ticker[0], round(current_profit, 2), signal_text, chat_id)
+                        # Проверка заявок
+                        check_orders(token, chat_id, sandbox_method)
                     else:
                         # Рекомендация на продажу
                         logger.info(f"Recommended to sell {ticker[0]} on the signal {signal_text}")
