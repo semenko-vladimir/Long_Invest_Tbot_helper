@@ -2,8 +2,6 @@ import sqlite3
 import os
 
 # Функция для создания БД
-# TODO: Сделать проверку на существование БД. Дополнить фукнционал созданием всех
-# TODO: таблиц.
 def create_db(name):
     conn = sqlite3.connect(name)
     conn.close()
