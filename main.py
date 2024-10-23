@@ -1,5 +1,6 @@
 from bot.bot import bot
 from telebot import types
+from config.db_config import configure_database
 from config.schedulers_config import configure_schedulers
 from db.db import get_t_token
 from handlers.portfolio.portfolio_handler import get_portfolio_handler
@@ -64,6 +65,7 @@ def start(message):
 
 # Настройка конфигуратора планировщика
 configure_schedulers()
+configure_database()
 print("Конфигуратор успешно настроен")
 # Запускаем бота
 bot.polling()

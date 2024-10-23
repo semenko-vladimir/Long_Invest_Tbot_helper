@@ -7,9 +7,10 @@ from keras.api.layers import Dense, LSTM
 import matplotlib.pyplot as plt
 from tinkoff.invest import Client, CandleInterval
 from datetime import datetime, timedelta
-import credentials
 from db.db import db_get_figi
 from utils.helpers import create_df
+from dotenv import load_dotenv
+import os
 
 plt.style.use('fivethirtyeight')
 
@@ -111,8 +112,9 @@ def train_lstm_model(df):
 # Функция для вычисления стратегии LSTM
 def calculate_lstm_strategy(candles, figi, profit):
 
-    # Загрузка данных по акции
-    token = credentials.TOKEN
+    load_dotenv()
+
+    token = os.getenv('TOKEN')
 
     df = load_stock_data_tinkoff(token, figi, '2020-01-01', '2024-01-01')
 

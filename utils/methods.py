@@ -3,9 +3,11 @@ from tinkoff.invest import Client, RequestError, InstrumentStatus, PositionsResp
 from tinkoff.invest.services import InstrumentsService
 from tinkoff.invest import PortfolioResponse
 from datetime import datetime, timedelta
-import credentials
 from utils.helpers import cast_money, create_df, format_date
 from tinkoff.invest import InstrumentIdType
+from dotenv import load_dotenv
+import os
+
 
 
 def get_price_change_in_current_interval(figi, start_time, end_time, candle_interval):
@@ -47,7 +49,11 @@ def get_price_change_in_current_interval(figi, start_time, end_time, candle_inte
 
 
 def get_historic_candles(figi: str, start_time, end_time, interval):
-    with Client(credentials.TOKEN) as client:
+
+    load_dotenv()
+    TOKEN = os.getenv('TOKEN')
+
+    with Client(TOKEN) as client:
         market_data = client.market_data
 
         data = market_data.get_candles(
@@ -89,7 +95,11 @@ def get_current_price(figi: str, client, type_op: str):
 
 
 def get_figi_by_ticker(ticker: str):
-    with Client(credentials.TOKEN) as client:
+
+    load_dotenv()
+    TOKEN = os.getenv('TOKEN')
+
+    with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         for method in ["shares", "bonds", "etfs", "currencies", "futures"]:
@@ -103,7 +113,11 @@ def get_figi_by_ticker(ticker: str):
         return None
     
 def get_ticker_by_figi(figi: str, instrument_type: str):
-    with Client(credentials.TOKEN) as client:
+
+    load_dotenv()
+    TOKEN = os.getenv('TOKEN')
+
+    with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         # Карта методов для различных типов инструментов
@@ -129,7 +143,7 @@ def get_ticker_by_figi(figi: str, instrument_type: str):
         return None
 
 def get_share_info_by_ticker(ticker: str):
-    with Client(credentials.TOKEN) as client:
+    with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         data = DataFrame(instruments.shares(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments,
@@ -140,7 +154,11 @@ def get_share_info_by_ticker(ticker: str):
 
 
 def get_info_by_ticker(ticker: str):
-    with Client(credentials.TOKEN) as client:
+
+    load_dotenv()
+    TOKEN = os.getenv('TOKEN')
+
+    with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         l = []
@@ -165,7 +183,11 @@ def get_info_by_ticker(ticker: str):
         return df
     
 def get_info_by_figi(figi: str):
-    with Client(credentials.TOKEN) as client:
+    
+    load_dotenv()
+    TOKEN = os.getenv('TOKEN')
+
+    with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         l = []

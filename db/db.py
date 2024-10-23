@@ -352,9 +352,17 @@ def delete_tpsl_table():
 def create_user(chat_id, t_token, sandbox_token, sandbox_trigger=0):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (chat_id, t_token, sandbox_token, sandbox_trigger) VALUES (?, ?, ?, ?)",
-                   (chat_id, t_token, sandbox_token, sandbox_trigger))
-    conn.commit()
+
+    cursor.execute("SELECT chat_id FROM users WHERE chat_id = ?", (chat_id,))
+    result = cursor.fetchone()
+
+    if result is None:
+        cursor.execute(
+            "INSERT INTO users (chat_id, t_token, sandbox_token, sandbox_trigger) VALUES (?, ?, ?, ?)",
+            (chat_id, t_token, sandbox_token, sandbox_trigger)
+        )
+        conn.commit()
+
     conn.close()
 
 def get_sandbox_trigger(chat_id):
@@ -831,6 +839,5 @@ def get_orders(chat_id):
 
 
 # create_user(757528922, 't.Uw4EyMoJpCET932NTtFz4Pw11hGy-zJlVr55AMGJaIVbQIq5YuJoO6EFqxPNm44gvsWIip9BFXo6yyuaUo5gbQ', 't.FQwfYXk8R3DE49SEmTBIwtPOWVmOfVQtpTn-eruGflXC6T4QNrZ_DZZcT-8oTgfZiA622kLbb1oyDAIotxXGdQ', 0)
-
 
 
