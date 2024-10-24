@@ -16,5 +16,7 @@ def market_handler(message):
             types.InlineKeyboardButton(text='Получить рост рынка по тикерам', callback_data='get_market_growth'),
             types.InlineKeyboardButton(text='Получить изменение состояния рынка по тикерам', callback_data='get_market_change'),
         ]
-        inline_keyboard.add(*buttons)
+        for button in buttons:
+            inline_keyboard.add(button)
+        
         bot.send_message(chat_id, 'Выберите действие', reply_markup=inline_keyboard)

@@ -579,3 +579,5 @@
 2024-10-23 15:04:20,092 - strategy.strategy_run - strategy_run - INFO - Recommended to purchase ROSN on the signal SMA 
 2024-10-23 15:04:22,862 - strategy.strategy_run - strategy_run - INFO - NOT enough candles for the SMA signal AFLT
 2024-10-23 15:04:23,048 - strategy.strategy_run - strategy_run - INFO - NOT enough candles for the EMA signal AFLT
+2024-10-23 15:28:47,487 - config.schedulers_config - setup_strategy_scheduler - INFO - The strategy for chat 757528922 has been added to the scheduler.
+2024-10-24 12:07:34,882 - config.schedulers_config - setup_strategy_scheduler - INFO - The strategy for chat 757528922 has been added to the scheduler.
