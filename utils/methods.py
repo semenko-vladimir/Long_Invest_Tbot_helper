@@ -143,6 +143,10 @@ def get_ticker_by_figi(figi: str, instrument_type: str):
         return None
 
 def get_share_info_by_ticker(ticker: str):
+
+    load_dotenv()
+    TOKEN = os.getenv('TOKEN')
+
     with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
