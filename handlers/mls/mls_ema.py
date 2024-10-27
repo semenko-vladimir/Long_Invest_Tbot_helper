@@ -115,9 +115,11 @@ def calculate_mls_ema(call):
         
         else:
 
+            
             ema_signal = calculate_ema_strategy(candles, fastLength, slowLength, current_profit)
-
-            bot.send_message(chat_id, f'{ticker} - {ema_signal}')
+            
+            if ema_signal != 'hold':
+                bot.send_message(chat_id, f'{ticker} - {ema_signal}')
 
             df = create_df(candles.candles)
             plot_ema(chat_id, df)

@@ -62,10 +62,10 @@ def start(message):
         
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 
-
-# Настройка конфигуратора планировщика
-configure_schedulers()
-configure_database()
-print("Конфигуратор успешно настроен")
-# Запускаем бота
-bot.polling()
+if __name__ == '__main__':
+    # Настройка конфигуратора планировщика
+    configure_schedulers()
+    configure_database()
+    print("Конфигуратор успешно настроен")
+    # Запускаем бота
+    bot.polling()

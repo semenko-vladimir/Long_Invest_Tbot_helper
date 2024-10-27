@@ -122,7 +122,8 @@ def calculate_mls_macd(call):
             # Расчет MACD
             macd_signal = calculate_macd_strategy(candles, macd_fast, macd_slow, macd_signal_length, current_profit)
 
-            bot.send_message(chat_id, f'{ticker} - {macd_signal}')
+            if macd_signal != 'hold':
+                bot.send_message(chat_id, f'{ticker} - {macd_signal}')
 
             df = create_df(candles.candles)
             plot_macd(chat_id, df)

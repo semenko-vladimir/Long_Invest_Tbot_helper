@@ -122,10 +122,11 @@ def calculate_mls_rsi(call):
 
             if rsi_value is None:
                 return
-
+            
             rsi_signal = check_rsi_signal(rsi_value, lowLevel, highLevel, current_profit)
 
-            bot.send_message(chat_id, f'{ticker} - {rsi_signal}')
+            if rsi_signal != 'hold':
+                bot.send_message(chat_id, f'{ticker} - {rsi_signal}')
 
             df = create_df(candles.candles)
             plot_rsi(chat_id, df, lowLevel, highLevel)

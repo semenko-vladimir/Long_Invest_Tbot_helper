@@ -118,9 +118,12 @@ def calculate_mls_bollinger(call):
 
         else:
             # Расчет Bollinger
-            bollinger_signal = calculate_bollinger_strategy(candles, bollinger_period, bollinger_std, type_ma, current_profit)
 
-            bot.send_message(chat_id, f'{ticker} - {bollinger_signal}')
+
+            bollinger_signal = calculate_bollinger_strategy(candles, bollinger_period, bollinger_std, type_ma, current_profit)
+            
+            if bollinger_signal != 'hold':
+                bot.send_message(chat_id, f'{ticker} - {bollinger_signal}')
 
             df = create_df(candles.candles)
             plot_bollinger(chat_id, df)

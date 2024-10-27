@@ -128,7 +128,8 @@ def calculate_mls_alligator(call):
 
             alligator_signal = calculate_alligator_strategy(candles, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift, current_profit)
 
-            bot.send_message(chat_id, f'{ticker} - {alligator_signal}')
+            if alligator_signal != 'hold':
+                bot.send_message(chat_id, f'{ticker} - {alligator_signal}')
 
             df = create_df(candles.candles)
             plot_alligator(chat_id, df)
