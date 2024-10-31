@@ -1,5 +1,6 @@
 database.db
 .env
+venv
 log/log.txt
-**/__pycache__/
-**/*.pyc
+__pycache__/
+*.pyc

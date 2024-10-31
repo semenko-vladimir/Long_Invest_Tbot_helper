@@ -1,7 +1,7 @@
 import logging
 import os
 
-def setup_logger(name=__name__, log_file='./log/log.txt', level=logging.INFO):
+def setup_logger(name=__name__, log_file='./app/log/log.txt', level=logging.INFO):
 
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
