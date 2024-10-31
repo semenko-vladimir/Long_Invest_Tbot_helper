@@ -1,0 +1,10 @@
+services:
+  main_bot:
+    build:
+      context: .
+    container_name: bot
+    env_file:
+      - .env
+    restart: on-failure
+    volumes: 
+      - ./app:/app
