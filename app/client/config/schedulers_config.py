@@ -1,0 +1,285 @@
+from app.backend.api_client import ApiClient
+from app.client.handlers.notifications.send import send_price_change_notification
+from app.client.log.logger import setup_logger
+from app.client.utils.methods import get_info_by_ticker
+from app.client.store.store import chat_schedulers, strategy_shedulers
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.client.bot.bot import bot
+from datetime import datetime, timedelta
+from tinkoff.invest import CandleInterval
+from app.client.strategy.strategy_run import strategy_run
+from dotenv import load_dotenv
+import os
+import re
+
+# Создаем экземпляр API-клиента
+api_client = ApiClient()
+
+logger = setup_logger(__name__)
+
+# Функция для получения токенов из переменных окружения
+def get_tokens():
+    """
+    Получает токены из переменных окружения.
+    
+    Returns:
+        dict: Словарь с токенами
+    """
+    load_dotenv()
+    return {
+        "token": os.getenv('TOKEN'),
+        "sandbox_token": os.getenv('SANDBOX_TOKEN')
+    }
+
+
+def configure_market_scheduler():
+    """
+    Настраивает планировщики для уведомлений о падениях и обновлениях рынка.
+
+    Функция получает конфигурационные данные через API-клиент и настраивает 
+    планировщики для отправки уведомлений о падениях и обновлениях рынка.
+    Если активированы обновления, и нет активных инструментов, уведомление 
+    об этом отправляется пользователю. 
+
+    - Если включены обновления о падениях рынка, настраивается соответствующий 
+      планировщик.
+    - Если включены обновления рынка, настраивается соответствующий планировщик.
+    """
+    try:
+        # Получаем конфигурацию через API-клиент
+        config_data = api_client.get_config()
+        
+        if not config_data:
+            logger.error("Configuration data not found")
+            return
+        
+        # Получаем chat_id из конфигурации
+        chat_id = config_data.get('chat_id')
+        
+        if not chat_id:
+            logger.error("Chat ID is not available")
+            return
+        
+        # Получаем настройки уведомлений
+        collapse_updates = config_data.get('collapse_updates', False)
+        collapse_updates_time = config_data.get('collapse_updates_time', '60')
+        market_updates = config_data.get('market_updates', False)
+        market_updates_time = config_data.get('market_updates_time', '60')
+        
+        # Преобразуем строковые значения времени в числа
+        try:
+            collapse_updates_time = int(collapse_updates_time)
+        except (ValueError, TypeError):
+            collapse_updates_time = 60
+            
+        try:
+            market_updates_time = int(market_updates_time)
+        except (ValueError, TypeError):
+            market_updates_time = 60
+        
+        if chat_id and chat_id not in chat_schedulers:
+            # Получаем список всех инструментов
+            instruments = api_client.get_all_instruments()
+            
+            if not instruments:
+                # bot.send_message(chat_id, 'У вас нет активных инструментов')
+                return
+            
+            # Настраиваем планировщики в зависимости от настроек
+            if collapse_updates:
+                setup_scheduler(chat_id, instruments, collapse_updates_time, send_price_change_notification, "Падения рынка")
+            
+            if market_updates:
+                setup_scheduler(chat_id, instruments, market_updates_time, send_price_change_notification, "Обновления рынка")
+    
+    except Exception as e:
+        logger.error(f"Error configuring market scheduler: {str(e)}")
+
+
+def setup_scheduler(chat_id, instruments, update_time, notification_func, update_type):
+    """
+    Настраивает планировщик для отправки уведомлений по конкретному типу обновлений.
+    
+    Args:
+        chat_id: ID чата, в который нужно отправить уведомления
+        instruments: Список инструментов, по которым нужно отправлять уведомления
+        update_time: Интервал времени, с которым нужно отправлять уведомления
+        notification_func: Функция, которая будет вызвана для отправки уведомления
+        update_type: Тип уведомления ('Падения рынка' или 'Обновления рынка')
+    """
+    try:
+        scheduler = BackgroundScheduler()
+        chat_schedulers[chat_id] = scheduler
+        scheduler.start()
+        
+        for instrument in instruments:
+            ticker = instrument.get('ticker')
+            figi = instrument.get('figi')
+            
+            # Получаем дополнительную информацию об инструменте
+            info = get_info_by_ticker(ticker)
+            name = info['name'].values[0:1][0]
+            type_of = info['type'].values[0:1][0]
+            
+            # Вычисляем временной интервал
+            start_time, candle_interval = calculate_start_time_and_interval(update_time)
+            end_time = datetime.now()
+            
+            logger.info(f"{update_type} уведомления добавлены для {ticker}")
+            
+            # Добавляем задачу в планировщик
+            scheduler.add_job(
+                notification_func, 
+                'interval', 
+                minutes=update_time, 
+                args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker)
+            )
+    
+    except Exception as e:
+        logger.error(f"Error setting up scheduler: {str(e)}")
+
+
+def calculate_start_time_and_interval(update_time):
+    """
+    Вычисляет начальное время и интервал свечи для выбранного периода.
+    
+    Args:
+        update_time: Интервал времени, с которым нужно отправлять уведомления
+        
+    Returns:
+        tuple: (start_time, candle_interval)
+    """
+    start_time = datetime.now() - timedelta(minutes=update_time if update_time <= 60 else 10)
+    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
+    return start_time, candle_interval
+
+
+def configure_strategy_scheduler():
+    """
+    Настраивает планировщик стратегий.
+    
+    Собирает информацию о всех активных стратегиях и настраивает планировщик.
+    """
+    try:
+        # Получаем настройки стратегий через API-клиент
+        strategy_signals = api_client.get_strategy_signals()
+        strategy_settings = api_client.get_strategy_settings()
+        
+        if not strategy_signals or not strategy_settings:
+            logger.error("Strategy configuration not found")
+            return
+        
+        # Получаем chat_id из конфигурации
+        config_data = api_client.get_config()
+        chat_id = config_data.get('chat_id')
+        
+        if not chat_id:
+            logger.error("Chat ID is not available")
+            return
+        
+        # Определяем активные стратегии
+        active_strategies = {
+            "tpsl": strategy_signals.get('tpls_trigger', 0),
+            "rsi": strategy_signals.get('rsi_trigger', 0),
+            "sma": strategy_signals.get('sma_trigger', 0),
+            "ema": strategy_signals.get('ema_trigger', 0),
+            "alligator": strategy_signals.get('alligator_trigger', 0),
+            "gpt": strategy_signals.get('gpt_trigger', 0),
+            "lstm": strategy_signals.get('lstm_trigger', 0),
+            "bollinger": strategy_signals.get('bollinger_trigger', 0),
+            "macd": strategy_signals.get('macd_trigger', 0),
+        }
+        
+        # Получаем интервал времени для запуска стратегий
+        time_interval = strategy_settings.get('time', 60)
+        
+        # Проверяем, активна ли хотя бы одна стратегия
+        if not is_any_strategy_active(active_strategies):
+            logger.info("No active strategies found")
+            return
+        
+        # Настраиваем планировщик для запуска стратегий
+        if chat_id and chat_id not in strategy_shedulers:
+            setup_strategy_scheduler(chat_id, time_interval)
+    
+    except Exception as e:
+        logger.error(f"Error configuring strategy scheduler: {str(e)}")
+
+
+def is_any_strategy_active(strategies):
+    """
+    Проверяет, активна ли хотя бы одна стратегия.
+    
+    Args:
+        strategies: Словарь с активными стратегиями
+        
+    Returns:
+        bool: True, если хотя бы одна стратегия активна, иначе False
+    """
+    return any(strategy == 1 for strategy in strategies.values())
+
+
+def setup_strategy_scheduler(chat_id, time_interval):
+    """
+    Настраивает планировщик для запуска стратегий.
+    
+    Args:
+        chat_id: ID чата
+        time_interval: Интервал времени для запуска стратегий
+    """
+    try:
+        scheduler = BackgroundScheduler()
+        strategy_shedulers[chat_id] = scheduler
+        scheduler.start()
+        
+        # Преобразуем time_interval в число минут
+        minutes = parse_time_interval(time_interval)
+        
+        # Добавляем задачу в планировщик
+        scheduler.add_job(strategy_run, 'interval', minutes=minutes)
+        logger.info(f"Стратегия запущена для чата {chat_id}")
+    
+    except Exception as e:
+        logger.error(f"Error setting up strategy scheduler: {str(e)}")
+
+
+def parse_time_interval(time_interval):
+    """
+    Преобразует строку времени в число минут.
+    
+    Args:
+        time_interval: Строка времени (например, '60', '09:00')
+        
+    Returns:
+        int: Число минут
+    """
+    # Если time_interval уже число, просто возвращаем его
+    if isinstance(time_interval, int):
+        return time_interval
+    
+    # Если time_interval строка, пробуем преобразовать в число
+    if isinstance(time_interval, str):
+        # Проверяем, является ли строка числом
+        if time_interval.isdigit():
+            return int(time_interval)
+        
+        # Проверяем, является ли строка временем в формате HH:MM
+        time_match = re.match(r'^(\d{1,2}):(\d{2})$', time_interval)
+        if time_match:
+            hours = int(time_match.group(1))
+            minutes = int(time_match.group(2))
+            return hours * 60 + minutes
+    
+    # По умолчанию возвращаем 60 минут
+    return 60
+
+
+def configure_schedulers():
+    """
+    Настраивает все планировщики.
+    
+    Собирает информацию о всех чатах, настраивает планировщик для отправки 
+    уведомлений о падениях рынка и для запуска стратегий.
+    """
+    configure_market_scheduler()
+    configure_strategy_scheduler()
