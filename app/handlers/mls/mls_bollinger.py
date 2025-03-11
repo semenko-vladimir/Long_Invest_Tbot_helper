@@ -113,13 +113,9 @@ def calculate_mls_bollinger(call):
         candles = get_historic_candles(figi, start_time, end_time, candle_interval)
 
         if len(create_df(candles.candles)["close"].values) < bollinger_period+CANDLE_CONSTANT:
-            logger.info("NOT enough candles for the Bollinger signal")
-            print("MINIMUM")
-
+            logger.info("Не достаточно свечей для расчета сигнала Bollinger") 
         else:
             # Расчет Bollinger
-
-
             bollinger_signal = calculate_bollinger_strategy(candles, bollinger_period, bollinger_std, type_ma, current_profit)
             
             if bollinger_signal != 'hold':

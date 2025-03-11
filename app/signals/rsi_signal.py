@@ -34,6 +34,13 @@ def ema(prices, length):
 
 def calculate_rsi(data, period):
 
+    """
+    Вычисляет Relative Strength Index (RSI) для списка свечей, полученных из HistoricCandle.
+
+    :param data: объект HistoricCandle, содержащий список свечей
+    :param period: период, для которого нужно вычислить RSI
+    :return: последнее значение RSI или None, если список свечей имеет длину меньше period
+    """
     period = int(period)
     candles = data.candles  # Извлекаем список свечей из объекта ответа
 
@@ -44,7 +51,6 @@ def calculate_rsi(data, period):
     if len(close_prices) < period:
         return None
     
-    # Рассичтываем RSI с помощью ta
     rsi_values = ta.momentum.rsi(pd.Series(close_prices), window=period, fillna=True)
     store.rsi_values = rsi_values
 
@@ -74,6 +80,18 @@ def calculate_rsi(data, period):
     return last_rsi
 
 def check_rsi_signal(rsi_value, low_level, high_level, profit):
+    """
+    Проверяет сигнал RSI для определения действия торговли.
+
+    :param rsi_value: текущее значение RSI
+    :param low_level: уровень перепроданности для сигнала на покупку
+    :param high_level: уровень перекупленности для сигнала на продажу
+    :param profit: текущая прибыль, используется для подтверждения сигнала на продажу
+    :return: 'buy', если RSI ниже уровня перепроданности;
+             'sell', если RSI выше уровня перекупленности и есть прибыль;
+             'hold', если ни одно из условий не выполнено
+    """
+
     # Проверяем пересечение уровня перепроданности (сигнал на покупку)
     if rsi_value < low_level:
         return 'buy'

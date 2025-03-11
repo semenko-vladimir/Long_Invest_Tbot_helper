@@ -1,3 +1,4 @@
+import sys
 from bot.bot import bot
 from telebot import types
 from config.db_config import configure_database
@@ -21,8 +22,14 @@ logger = setup_logger(__name__)
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
 def start(message):
+    """
+    Обработчик команды /start
+
+    Если пользователь зарегистрирован, то бот отправляет ему сообщение с клавиатурой
+    содержащей кнопки для различных функций бота
+    """
     chat_id = message.chat.id
-    print(chat_id)
+    logger.info(f"Пользователь {chat_id} запустил бота")
     token = get_t_token(chat_id)
     if token is None:
         bot.send_message(message.chat.id, 'Вы не зарегистрированы в системе')
@@ -35,7 +42,7 @@ def start(message):
         signals_button = types.KeyboardButton('Настройка сигналов')
         market_button = types.KeyboardButton('Состояние рынка')
         dividents_button = types.KeyboardButton('Дивиденды')
-        long_strategy_button = types.KeyboardButton('Middle/Long сигналы')
+        long_strategy_button = types.KeyboardButton('Middle/Long сигналы(Графики)')
         statistics_button = types.KeyboardButton('Статистика')
         knowledge_button = types.KeyboardButton('База знаний')
 
@@ -63,8 +70,9 @@ def start(message):
         bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
 
 if __name__ == '__main__':
-    configure_database()
+    if not configure_database():
+        logger.error("База данных не настроена. Проверьте переменные окружения!")
+        sys.exit(1)
     configure_schedulers()
     print("Конфигуратор успешно настроен")
-    # Запускаем бота
     bot.polling()

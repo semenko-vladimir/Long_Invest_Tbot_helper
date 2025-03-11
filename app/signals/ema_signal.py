@@ -29,8 +29,17 @@ def ema(prices, length):
     
     return ema_values.to_numpy()  # Возвращаем в виде массива NumPy
 
-# Функция для расчета сигнала по стратегии EMA
 def calculate_ema_strategy(data, fast_length, slow_length, profit):
+    """
+    Вычисление EMA и генерация торгового сигнала.
+    
+    :param data: Данные о свечах.
+    :param fast_length: Период для быстрой EMA.
+    :param slow_length: Период для медленной EMA.
+    :param profit: Текущая прибыль.
+    :return: Торговый сигнал ('buy', 'sell', 'hold').
+    """
+    
     candles = data.candles
     df = create_df(candles)
     

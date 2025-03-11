@@ -110,9 +110,7 @@ def calculate_mls_ema(call):
         candles = get_historic_candles(figi, start_time, end_time, candle_interval)
                     
         if len(create_df(candles.candles)["close"].values) < slowLength+CANDLE_CONSTANT:
-            logger.info("NOT enough candles for the EMA signal")
-            print("MINIMUM")
-        
+            logger.info("Недостаточно свечей для расчета сигнала EMA")        
         else:
 
             

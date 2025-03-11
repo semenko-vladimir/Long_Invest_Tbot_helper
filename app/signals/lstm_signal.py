@@ -7,15 +7,27 @@ from keras.api.layers import Dense, LSTM
 import matplotlib.pyplot as plt
 from tinkoff.invest import Client, CandleInterval
 from datetime import datetime, timedelta
+from log.logger import setup_logger
 from db.db import db_get_figi
 from utils.helpers import create_df
 from dotenv import load_dotenv
 import os
 
 plt.style.use('fivethirtyeight')
+logger = setup_logger(__name__)
 
 # Загрузка данных через Tinkoff Invest API с разбивкой на меньшие интервалы
 def load_stock_data_tinkoff(token, figi, start_date, end_date):
+    """
+    Загружает исторические данные по инструменту с FIGI = figi с разбивкой 
+    на меньшие интервалы (не более 1 года) с помощью Tinkoff Invest API.
+
+    start_date и end_date - даты начала и конца периода, 
+    соответственно, в формате 'YYYY-MM-DD'.
+
+    Возвращает pandas.DataFrame, индексированный датами, 
+    со столбцами date и close.
+    """
     with Client(token) as client:
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d')
@@ -44,6 +56,14 @@ def load_stock_data_tinkoff(token, figi, start_date, end_date):
 # Обучение модели LSTM
 def train_lstm_model(df):
     # Подготовка данных для обучения модели
+    """
+    Обучает модель LSTM на данных из pandas.DataFrame df.
+
+    df должен иметь индекс даты и столбец 'close' с ценами закрытия.
+
+    Возвращает обученную модель LSTM и scaler, используемый для масштабирования данных.
+    """
+    
     data = df.filter(['close'])
     dataset = data.values
     training_data_len = math.ceil(len(dataset) * 0.8)
@@ -94,24 +114,33 @@ def train_lstm_model(df):
 
     # Оценка модели
     rmse = np.sqrt(np.mean(((predictions - y_test)**2)))
-    print(f"RMSE: {rmse}")
+    logger.info(f"RMSE: {rmse}")
 
     # Визуализация результатов
-    valid['Predictions'] = predictions
-    plt.figure(figsize=(16,8))
-    plt.title('Model')
-    plt.xlabel('Date', fontsize=18)
-    plt.ylabel('Close Price RUB', fontsize=18)
-    plt.plot(train['close'])
-    plt.plot(valid[['close', 'Predictions']])
-    plt.legend(['Train', 'Val', 'Predictions'], loc='lower right')
-    plt.show()
+    # valid['Predictions'] = predictions
+    # plt.figure(figsize=(16,8))
+    # plt.title('Model')
+    # plt.xlabel('Date', fontsize=18)
+    # plt.ylabel('Close Price RUB', fontsize=18)
+    # plt.plot(train['close'])
+    # plt.plot(valid[['close', 'Predictions']])
+    # plt.legend(['Train', 'Val', 'Predictions'], loc='lower right')
+    # plt.show()
 
     return model, scaler
 
 # Функция для вычисления стратегии LSTM
 def calculate_lstm_strategy(candles, figi, profit):
 
+    """
+    Функция для вычисления стратегии LSTM (Long Short-Term Memory).
+
+    :param candles: исторические данные ( HistoricCandle ) для расчета стратегии
+    :param figi: FIGI инструмента
+    :param profit: прибыль для определения момента для продажи
+
+    :return: 'buy', 'sell' или 'hold', в зависимости от стратегии
+    """
     load_dotenv()
 
     token = os.getenv('TOKEN')

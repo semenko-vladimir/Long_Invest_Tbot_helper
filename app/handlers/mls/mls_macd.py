@@ -114,7 +114,7 @@ def calculate_mls_macd(call):
         candles = get_historic_candles(figi, start_time, end_time, candle_interval)
 
         if len(create_df(candles.candles)["high"].values) < max(macd_fast, macd_slow, macd_signal_length)+CANDLE_CONSTANT:
-                        logger.info("NOT enough candles for the MACD signal")
+                        logger.info("Недостаточно свечей для расчета сигнала MACD")
                         print("MINIMUM")
 
         else:

@@ -5,3 +5,5 @@ log/log.txt
 __pycache__/
 *.pyc
 log.txt
+logs.log
+TODO.txt

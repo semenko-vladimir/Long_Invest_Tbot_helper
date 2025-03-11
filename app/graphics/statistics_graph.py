@@ -10,6 +10,14 @@ import pytz
 from bot.bot import bot
 
 def statistics_graph(buy, margin, chat_id):
+    """
+    Функция для формирования статистики по покупкам и продажам.
+    
+    Args:
+        buy (list): Список покупок.
+        margin (list): Список продаж.
+        chat_id (int): Id чата, в который будет отправлена статистика.
+    """
     if len(buy) > 0:
         # Преобразуем данные в DataFrame для удобства работы
         buy_df = pd.DataFrame(buy, columns=['id', 'price', 'ticker', 'signal', 'time', 'chat_id'])
@@ -166,9 +174,6 @@ def statistics_graph(buy, margin, chat_id):
         with open(file_path, 'rb') as photo:
             bot.send_photo(chat_id, photo)
         os.remove(file_path)
-
-
-
 
         # 7. Гистограмма маржи по сигналам
         margin_df['margin_type'] = ['Положительная' if m > 0 else 'Отрицательная' for m in margin_df['margin']]

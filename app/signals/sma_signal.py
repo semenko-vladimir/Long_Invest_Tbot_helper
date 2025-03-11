@@ -45,6 +45,15 @@ def crossunder(source1, source2):
 
 # Функция для расчета сигнала по стратегии SMA
 def calculate_sma_strategy(data, fast_length, slow_length, profit):
+    """
+    Вычисление сигнала по стратегии SMA.
+
+    :param data: Данные о свечах.
+    :param fast_length: Период для быстрой SMA.
+    :param slow_length: Период для медленной SMA.
+    :param profit: Текущая прибыль.
+    :return: Торговый сигнал ('buy', 'sell', 'hold').
+    """
     candles = data.candles
     df = create_df(candles)
 

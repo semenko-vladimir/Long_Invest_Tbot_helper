@@ -12,6 +12,21 @@ from strategy.strategy_run import strategy_run
 logger = setup_logger(__name__)
 
 def configure_market_scheduler():
+
+    """
+    Настраивает планировщики для уведомлений о падениях и обновлениях рынка.
+
+    Функция получает конфигурационные данные из базы данных и настраивает 
+    планировщики для отправки уведомлений о падениях и обновлениях рынка 
+    для каждого чата, указанного в данных конфигурации. Если для чата 
+    активированы обновления, и он не имеет активных тикеров, уведомление 
+    об этом отправляется пользователю. 
+
+    - Если включены обновления о падениях рынка, настраивается соответствующий 
+      планировщик.
+    - Если включены обновления рынка, настраивается соответствующий планировщик.
+    """
+
     config_data = get_config()
     
     if not config_data:
@@ -37,7 +52,18 @@ def configure_market_scheduler():
 
 
 def setup_scheduler(chat_id, tickers, update_time, notification_func, update_type):
-    """Настройка планировщика для уведомлений"""
+
+    """
+    Настраивает планировщик для отправки уведомлений по конкретному типу обновлений (падения рынка или обновления рынка)
+    для каждого тикера, указанного в списке 'tickers'.
+
+    - chat_id: id чата, в который нужно отправить уведомления
+    - tickers: список тикеров, по которым нужно отправлять уведомления
+    - update_time: интервал времени, с которым нужно отправлять уведомления
+    - notification_func: функция, которая будет вызвана для отправки уведомления
+    - update_type: тип уведомления ('Падения рынка' или 'Обновления рынка')
+    """
+
     scheduler = BackgroundScheduler()
     chat_schedulers[chat_id] = scheduler
     scheduler.start()
@@ -52,7 +78,7 @@ def setup_scheduler(chat_id, tickers, update_time, notification_func, update_typ
         start_time, candle_interval = calculate_start_time_and_interval(update_time)
         end_time = datetime.now()
 
-        print(f"{update_type} уведомления добавлены для {ticker_symbol}")
+        logger.info(f"{update_type} уведомления добавлены для {ticker_symbol}")
         scheduler.add_job(
             notification_func, 
             'interval', 
@@ -62,13 +88,31 @@ def setup_scheduler(chat_id, tickers, update_time, notification_func, update_typ
 
 
 def calculate_start_time_and_interval(update_time):
-    """Рассчитывает начальное время и интервал свечей на основе времени обновлений"""
+    """
+    Вычисляет начальное время и интервал свечи для выбранного периода
+
+    - update_time: интервал времени, с которым нужно отправлять уведомления
+
+    Returns:
+        start_time: начальное время
+        candle_interval: интервал свечи
+    """
     start_time = datetime.now() - timedelta(minutes=update_time if update_time <= 60 else 10)
     candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
     return start_time, candle_interval
     
 
 def configure_strategy_scheduler():
+    """
+    Функция настройки планировщика стратегий, собирает информацию о всех
+    активных стратегиях и настраивает планировщик для каждого чата.
+    
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
     strategy_data = get_strategy()
     
     for row in strategy_data:
@@ -105,8 +149,19 @@ def setup_strategy_scheduler(chat_id, time_interval):
     scheduler.start()
 
     scheduler.add_job(strategy_run, 'interval', minutes=int(time_interval), args=(chat_id,))
-    logger.info(f"The strategy for chat {chat_id} has been added to the scheduler.")
+    logger.info(f"Стратегия запущена для чата {chat_id}")
 
 def configure_schedulers():
+    """
+    Функция настройки планировщиков, собирает информацию о всех чатах,
+    настраивает планировщик для отправки уведомлений о падениях рынка
+    и для запуска стратегий.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
     configure_market_scheduler()
     configure_strategy_scheduler()

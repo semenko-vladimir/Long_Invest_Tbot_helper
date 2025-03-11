@@ -49,7 +49,7 @@ def strategy_run(chat_id):
             rsi = None
             sma = None
             ema = None
-            alligator = None  # Добавляем переменную для Аллигатора
+            alligator = None  
             gpt = None
             lstm = None
             bollinger = None

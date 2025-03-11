@@ -4,6 +4,14 @@ from g4f.client import Client
 
 def calculate_gpt_strategy(text, profit, ticker):
 
+    """
+    Рассчитывает стратегию GPT на основе текста, прибыли и тикера.
+
+    :param text: текст, на основе которого будет рассчитана стратегия
+    :param profit: прибыль в %
+    :param ticker: тикер
+    :return: рассчитанная стратегия (str, может быть buy, sell, hold)
+    """
     response = None
 
     text += "\nТекущая прибыль в %: " + str(profit)

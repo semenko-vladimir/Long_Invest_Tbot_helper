@@ -23,9 +23,24 @@ from utils.helpers import create_df
 from signals.sma_signal import sma, crossover, crossunder
 import store.store as store
 
-# Функция для расчета стратегии Аллигатор
-# Функция для расчета стратегии Аллигатор
 def calculate_alligator_strategy(data, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift, profit):
+    """
+    Функция для расчета стратегии Аллигатора (Alligator) Bill Williams.
+    Она использует три скользящие средние: челюсти, зубы и губы, 
+    которые демонстрируют возможное местонахождение цены при отсутствии фундаментальных новостей.
+
+    :param data: исторические данные ( HistoricCandle ) для расчета стратегии
+    :param jaw_period: период для расчета Челюстей
+    :param jaw_shift: сдвиг Челюстей
+    :param teeth_period: период для расчета Зубов
+    :param teeth_shift: сдвиг Зубов
+    :param lips_period: период для расчета Губ
+    :param lips_shift: сдвиг Губ
+    :param profit: прибыль для определения момента для продажи
+
+    :return: 'buy', 'sell' или 'hold', в зависимости от стратегии
+    """
+    
     candles = data.candles
     df = create_df(candles)
 

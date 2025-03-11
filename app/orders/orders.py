@@ -11,6 +11,23 @@ logger = setup_logger(__name__)
 from bot.bot import bot
 
 def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_method: str, ticker, bm_value, signal, chat_id):
+    """
+    Метод для выставления заявки на покупку или продажу актива.
+
+    :param token: токен для доступа к API
+    :param figi: уникальный идентификатор финансового инструмента (FIGI)
+    :param quantity: количество лотов
+    :param operation: тип операции ("buy" или "sell")
+    :param sandbox_method: флаг, указывающий режим работы:
+        - True: Песочница (sandbox).
+        - False: Реальный рынок.
+    :param ticker: тикер актива
+    :param bm_value: значение бенчмарка
+    :param signal: значение сигнала
+    :param chat_id: id чата в телеграмме
+
+    :return: None
+    """
 
     if sandbox_method:
 
@@ -46,16 +63,15 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                         )
 
                         new_order(order_id, ticker, signal, cast_money(price_buy), operation, chat_id)
-                        print(r)
-                        print(f"Создаем заявку на покупку по цене {cast_money(price_buy)}")
+                        logger.info(r)
+                        logger.info(f"Создаем заявку на покупку по цене {cast_money(price_buy)}")
                     #     return True, cast_money(price_buy)
                     
                     # else:
                     #     return False, 0
 
             except RequestError as e:
-                print("Сработало в buy sandbox")
-                print(str(e))
+                logger.error(str(e))
 
         if operation == "sell":
             try:
@@ -89,13 +105,12 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
 
                     new_order(order_id, ticker, signal, bm_value, operation, chat_id)
 
-                    print(r)
-                    print(f"Создаем заявку на продажу по цене {cast_money(price_sell)}")
+                    logger.info(r)
+                    logger.info(f"Создаем заявку на продажу по цене {cast_money(price_sell)}")
                     # return True, cast_money(price_sell)
 
             except RequestError as e:
-                print("Сработало в sell sandbox")
-                print(str(e))
+                logger.error(str(e))
 
         
     else:
@@ -108,7 +123,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     avaliable_lots = calc_avaliable_lots(token, figi, client, False)
 
                     if (avaliable_lots > 0):
-                        print(f"Позиция {figi} уже в портфеле, ждем сигнала к продаже...")
+                        logger.info(f"Позиция {figi} уже в портфеле, ждем сигнала к продаже...")
                         return 
                     
                     price_sell, price_buy = get_current_price(figi, client, 'stock')
@@ -130,15 +145,15 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
 
                         new_order(order_id, ticker, signal, cast_money(price_buy), operation, chat_id)
 
-                        print(r)
-                        print(f"Покупаем по цене {cast_money(price_buy)}")
+                        logger.info(r)
+                        logger.info(f"Покупаем по цене {cast_money(price_buy)}")
                     #     return True, cast_money(price_buy)
                     
                     # else:
                     #     return False, 0
 
             except RequestError as e:
-                print(str(e))
+                logger.error(str(e))
 
         if operation == "sell":
             try:
@@ -149,7 +164,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     avaliable_lots = calc_avaliable_lots(token, figi, client, False)
 
                     if (avaliable_lots == 0):
-                        print(f"Позиции {figi} в портфеле нет. Ждем сигнала к покупке...")
+                        logger.info(f"Позиции {figi} в портфеле нет. Ждем сигнала к покупке...")
                         return 
                     
                     
@@ -171,15 +186,27 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
 
                     new_order(order_id, ticker, signal, bm_value, operation, chat_id)
 
-                    print(r)
-                    print(f"Продаем по цене {cast_money(price_sell)}")
+                    logger.info(r)
+                    logger.info(f"Продаем по цене {cast_money(price_sell)}")
                     # return True, cast_money(price_sell)
 
             except RequestError as e:
-                print(str(e))
+                logger.error(str(e))
 
 
 def cancel_existing_order(token: str, figi: str, sandbox_method: bool):
+    """
+    Отменяет существующие заявки на инструмент с указанным figi в режиме песочницы или на реальном рынке.
+
+    :param token: Токен для доступа к API Tinkoff Invest.
+    :param figi: Уникальный идентификатор финансового инструмента (FIGI).
+    :param sandbox_method: Флаг, указывающий режим работы:
+        - True: Песочница (sandbox).
+        - False: Реальный рынок.
+
+    :return: None
+    """
+    
     with Client(token) as client:
         if sandbox_method:
             # Для режима песочницы
@@ -195,32 +222,43 @@ def cancel_existing_order(token: str, figi: str, sandbox_method: bool):
         
         # Проверяем, есть ли активные заявки
         if len(orders.orders) == 0:
-            print("Нет активных заявок.")
+            logger.info("Нет активных заявок.")
             return
 
         # Находим заявки по figi
         existing_orders = [order for order in orders.orders if order.figi == figi]
 
         if not existing_orders:
-            print(f"Нет активных заявок для инструмента с figi: {figi}")
+            logger.info(f"Нет активных заявок для инструмента с figi: {figi}")
             return
 
         # Отменяем каждую заявку
         for order in existing_orders:
-            print(f"Отмена заявки: {order.order_id}, цена {cast_money(order.initial_order_price)}")
+            logger.warning(f"Отмена заявки: {order.order_id}, цена {cast_money(order.initial_order_price)}")
             try:
                 if sandbox_method:
                     sb.cancel_sandbox_order(account_id=account_id, order_id=order.order_id)
                 else:
                     client.orders.cancel_order(account_id=account_id, order_id=order.order_id)
                 
-                print(f"Заявка {order.order_id} успешно отменена.")
+                logger.info(f"Заявка {order.order_id} успешно отменена.")
             except Exception as e:
-                print(f"Ошибка при отмене заявки {order.order_id}: {e}")
+                logger.error(f"Ошибка при отмене заявки {order.order_id}: {e}")
 
 
 def get_order_by_figi(token: str, figi: str, sandbox_method: str):
 
+    """
+    Проверяет, есть ли активные заявки на инструмент с указанным figi в режиме песочницы или на реальном рынке.
+
+    :param token: Токен для доступа к API Tinkoff Invest.
+    :param figi: Уникальный идентификатор финансового инструмента (FIGI).
+    :param sandbox_method: Флаг, указывающий режим работы:
+        - True: Песочница (sandbox).
+        - False: Реальный рынок.
+
+    :return: True, если заявок на инструмент с указанным figi нет, иначе False.
+    """
     with Client(token) as client:
         if sandbox_method:
             # Для режима песочницы
@@ -250,6 +288,17 @@ def get_order_by_figi(token: str, figi: str, sandbox_method: str):
 
 def check_orders(token: str, chat_id, sandbox_method: bool):
 
+    """
+    Проверяет, есть ли активные заявки на инструмент с указанным figi в режиме песочницы или на реальном рынке.
+
+    :param token: Токен для доступа к API Tinkoff Invest.
+    :param figi: Уникальный идентификатор финансового инструмента (FIGI).
+    :param sandbox_method: Флаг, указывающий режим работы:
+        - True: Песочница (sandbox).
+        - False: Реальный рынок.
+
+    :return: None
+    """
     orders = None
 
     local_time = datetime.now()

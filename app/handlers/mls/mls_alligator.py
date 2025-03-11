@@ -121,9 +121,7 @@ def calculate_mls_alligator(call):
         candles = get_historic_candles(figi, start_time, end_time, candle_interval)
 
         if len(create_df(candles.candles)["high"].values) < max(jaw_period, teeth_period, lips_period)+CANDLE_CONSTANT or len(create_df(candles.candles)["low"].values) < max(jaw_period, teeth_period, lips_period)+CANDLE_CONSTANT:
-            logger.info("NOT enough candles for the Alligator signal")
-            print("MINIMUM")
-        
+            logger.info("Недостаточно свечей для расчета сигнала Alligator")        
         else:
 
             alligator_signal = calculate_alligator_strategy(candles, jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift, current_profit)

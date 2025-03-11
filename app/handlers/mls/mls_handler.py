@@ -8,7 +8,7 @@ from handlers.mls.mls_bollinger import mls_bollinger_handler
 from handlers.mls.mls_macd import mls_macd_handler
 from handlers.mls.mls_ema import mls_ema_handler
 
-@bot.message_handler(func=lambda message: message.text == 'Middle/Long сигналы')
+@bot.message_handler(func=lambda message: message.text == 'Middle/Long сигналы(Графики)')
 def mls_handler(message):
     chat_id = message.chat.id
     token = get_t_token(chat_id)

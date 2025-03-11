@@ -25,7 +25,7 @@ def knowledge_base_handler(message):
             types.InlineKeyboardButton(text='Состояние рынка', callback_data='base_market'),
             types.InlineKeyboardButton(text='Дивиденды', callback_data='base_dividends'),
             types.InlineKeyboardButton(text='Торговый робот', callback_data='base_bot'),
-            types.InlineKeyboardButton(text='Middle/Long сигналы', callback_data='base_mls'),
+            types.InlineKeyboardButton(text='Middle/Long сигналы(Графики)', callback_data='base_mls'),
             types.InlineKeyboardButton(text='Сигналы и их настройка', callback_data='base_signals'),
         ]
 

@@ -112,7 +112,7 @@ def calculate_mls_rsi(call):
         candles = get_historic_candles(figi, start_time, end_time, candle_interval)
                     
         if len(create_df(candles.candles)["close"].values) < period+CANDLE_CONSTANT:
-            logger.info("NOT enough candles for the RSI signal")
+            logger.info("Недостаточно свечей для расчета сигнала RSI")
             print("MINIMUM")
         
         else:
