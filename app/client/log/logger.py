@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import datetime
 
-def setup_logger(name=__name__, log_file='./app/log/logs.log', level=logging.INFO):
+def setup_logger(name=__name__, log_file='./app/client/log/logs.log', level=logging.INFO):
     
     """
     Функция для настройки логгера.

@@ -8,11 +8,14 @@ class MarginBase(BaseModel):
     margin: float
     ticker: str
     signal: str
-    time: Optional[datetime] = None
+    time: str
 
 
-class MarginCreate(MarginBase):
-    pass
+class MarginCreate(BaseModel):
+    margin: float  
+    ticker: str
+    signal: str
+    time: str
 
 
 class MarginResponse(MarginBase):
@@ -27,11 +30,14 @@ class BuyBase(BaseModel):
     price: float
     ticker: str
     signal: str
-    time: Optional[datetime] = None
+    time: str
 
 
-class BuyCreate(BuyBase):
-    pass
+class BuyCreate(BaseModel):
+    price: float
+    ticker: str
+    signal: str
+    time: str
 
 
 class BuyResponse(BuyBase):
@@ -65,7 +71,7 @@ class InstrumentResponse(InstrumentBase):
 
 # Order schemas
 class OrderBase(BaseModel):
-    order_id: int
+    order_id: str
     ticker: str
     signal: str
     bm_value: float
@@ -77,7 +83,7 @@ class OrderCreate(OrderBase):
 
 
 class OrderUpdate(OrderBase):
-    order_id: Optional[int] = None
+    order_id: Optional[str] = None
     ticker: Optional[str] = None
     signal: Optional[str] = None
     bm_value: Optional[float] = None

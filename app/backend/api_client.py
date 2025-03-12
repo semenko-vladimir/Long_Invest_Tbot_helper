@@ -1,5 +1,7 @@
 import requests
 from typing import List, Dict, Any, Optional, Union
+from datetime import datetime
+
 
 
 class ApiClient:
@@ -747,7 +749,7 @@ class ApiClient:
         response = requests.delete(f"{self.api_url}/trading/orders/{order_id}")
         return response.json()
     
-    def delete_order_by_order_id(self, order_id: int) -> Dict[str, Any]:
+    def delete_order_by_order_id(self, order_id: str) -> Dict[str, Any]:
         """
         Удаляет заказ по order_id.
         

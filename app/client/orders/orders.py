@@ -352,18 +352,18 @@ def check_orders(token: str, chat_id=None, sandbox_method: bool=False):
         operation_type = order.get('operation_type')
 
         # Находим заявку по order_id
-        existing_order = [o for o in orders.orders if o.order_id == order_id]
+        existing_order = [o for o in orders.orders if str(o.order_id) == order_id]
 
         if not existing_order:
             # Удаляем ордер через API клиент
-            api_client.delete_order(order_id)
+            api_client.delete_order_by_order_id(order_id)
 
             if operation_type == "buy":
                 # Создаем новую покупку через API клиент
                 api_client.add_buy(
-                    price=bm_value,
-                    ticker=ticker,
-                    signal=signal,
+                    price=float(bm_value),
+                    ticker=str(ticker),
+                    signal=str(signal),
                     time=format_date(local_time)
                 )
                 
@@ -379,9 +379,9 @@ def check_orders(token: str, chat_id=None, sandbox_method: bool=False):
             elif operation_type == "sell":
                 # Создаем новую маржу через API клиент
                 api_client.add_margin(
-                    margin=bm_value,
-                    ticker=ticker,
-                    signal=signal,
+                    margin=float(bm_value),
+                    ticker=str(ticker),
+                    signal=str(signal),
                     time=format_date(local_time)
                 )
                 

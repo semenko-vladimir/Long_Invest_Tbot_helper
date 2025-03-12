@@ -11,7 +11,7 @@ class Margin(Base):
     margin = Column(Float)
     ticker = Column(String)
     signal = Column(String)
-    time = Column(DateTime, default=datetime.utcnow)
+    time = Column(String)
 
 
 class Buy(Base):
@@ -21,7 +21,7 @@ class Buy(Base):
     price = Column(Float)
     ticker = Column(String)
     signal = Column(String)
-    time = Column(DateTime, default=datetime.utcnow)
+    time = Column(String)
 
 
 class Instrument(Base):
@@ -36,7 +36,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, unique=True)
+    order_id = Column(String, unique=True)
     ticker = Column(String)
     signal = Column(String)
     bm_value = Column(Float)

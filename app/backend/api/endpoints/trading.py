@@ -44,8 +44,6 @@ def create_margin(margin: MarginCreate, db: Session = Depends(get_db)):
     Create a new margin entry.
     """
     db_margin = Margin(**margin.dict())
-    if not db_margin.time:
-        db_margin.time = datetime.utcnow()
     db.add(db_margin)
     db.commit()
     db.refresh(db_margin)
@@ -81,8 +79,6 @@ def create_buy(buy: BuyCreate, db: Session = Depends(get_db)):
     Create a new buy entry.
     """
     db_buy = Buy(**buy.dict())
-    if not db_buy.time:
-        db_buy.time = datetime.utcnow()
     db.add(db_buy)
     db.commit()
     db.refresh(db_buy)
@@ -233,7 +229,7 @@ def read_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/orders/order_id/{order_id}", response_model=OrderResponse)
-def read_order_by_order_id(order_id: int, db: Session = Depends(get_db)):
+def read_order_by_order_id(order_id: str, db: Session = Depends(get_db)):
     """
     Get a specific order entry by order_id.
     """
@@ -290,7 +286,7 @@ def delete_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/orders/order_id/{order_id}", response_model=OrderResponse)
-def delete_order_by_order_id(order_id: int, db: Session = Depends(get_db)):
+def delete_order_by_order_id(order_id: str, db: Session = Depends(get_db)):
     """
     Delete an order entry by order_id.
     """

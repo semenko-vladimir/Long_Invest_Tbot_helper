@@ -6,7 +6,7 @@ from telebot import types
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Добавляем родительскую директорию в sys.path, чтобы можно было импортировать модули из app
+# Добавление родительской директории в sys.path, чтобы можно было импортировать модули из app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
