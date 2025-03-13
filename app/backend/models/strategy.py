@@ -15,7 +15,6 @@ class StrategySignals(Base):
     lstm_trigger = Column(Boolean, default=False)
     bollinger_trigger = Column(Boolean, default=False)
     macd_trigger = Column(Boolean, default=False)
-    joint = Column(Boolean, default=False)
 
 
 class StrategySettings(Base):
@@ -25,3 +24,5 @@ class StrategySettings(Base):
     time = Column(String)  # Using String instead of DateTime for time-only values
     auto_market = Column(Boolean, default=False)
     quantity = Column(Integer, default=1)
+    joint = Column(Boolean, default=False)
+    sandbox_trigger = Column(Boolean, default=False)

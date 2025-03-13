@@ -1,6 +1,6 @@
 # Хранение планировщиков задач
-strategy_shedulers = {}
-chat_schedulers = {}
+strategy_scheduler = None
+market_scheduler = None
 
 # Словарь для хранения промежуточных данных сигналов
 user_rsi_data = {}

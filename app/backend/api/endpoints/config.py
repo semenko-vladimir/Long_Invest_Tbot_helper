@@ -3,71 +3,71 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.backend.models.database import get_db
-from app.backend.models.config import Config
-from app.backend.schemas.config import ConfigCreate, ConfigUpdate, ConfigResponse
+from app.backend.models.config import SchedulerConfig
+from app.backend.schemas.config import SchedulerConfigCreate, SchedulerConfigUpdate, SchedulerConfigResponse
+from app.backend.models.strategy import StrategySettings
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ConfigResponse])
+@router.get("/", response_model=List[SchedulerConfigResponse])
 def read_configs(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
 ):
     """
-    Retrieve all config entries.
+    Retrieve all scheduler config entries.
     """
-    configs = db.query(Config).offset(skip).limit(limit).all()
+    configs = db.query(SchedulerConfig).offset(skip).limit(limit).all()
     return configs
 
 
-@router.get("/{config_id}", response_model=ConfigResponse)
+@router.get("/{config_id}", response_model=SchedulerConfigResponse)
 def read_config(config_id: int, db: Session = Depends(get_db)):
     """
-    Get a specific config entry by ID.
+    Get a specific scheduler config entry by ID.
     """
-    config = db.query(Config).filter(Config.id == config_id).first()
+    config = db.query(SchedulerConfig).filter(SchedulerConfig.id == config_id).first()
     if config is None:
-        raise HTTPException(status_code=404, detail="Config not found")
+        raise HTTPException(status_code=404, detail="Scheduler config not found")
     return config
 
 
-@router.get("/key/{key}", response_model=ConfigResponse)
+@router.get("/key/{key}", response_model=SchedulerConfigResponse)
 def read_config_by_key(key: str, db: Session = Depends(get_db)):
     """
-    Get a specific config entry by key.
+    Get a specific scheduler config entry by key.
     
-    Note: This endpoint is kept for backward compatibility,
-    but the Config model no longer has a 'key' attribute.
+    Note: This endpoint is kept for backward compatibility.
     It will always return the first config entry if it exists.
     """
-    config = db.query(Config).first()
+    config = db.query(SchedulerConfig).first()
     if config is None:
-        raise HTTPException(status_code=404, detail="Config not found")
+        raise HTTPException(status_code=404, detail="Scheduler config not found")
     return config
 
 
-@router.post("/", response_model=ConfigResponse)
-def create_config(config: ConfigCreate, db: Session = Depends(get_db)):
+@router.post("/", response_model=SchedulerConfigResponse)
+def create_config(config: SchedulerConfigCreate, db: Session = Depends(get_db)):
     """
-    Create a new config entry.
+    Create a new scheduler config entry.
     """
-    db_config = Config(**config.dict())
+    db_config = SchedulerConfig(**config.dict())
     db.add(db_config)
     db.commit()
     db.refresh(db_config)
     return db_config
 
 
-@router.put("/{config_id}", response_model=ConfigResponse)
+@router.put("/{config_id}", response_model=SchedulerConfigResponse)
 def update_config(
-    config_id: int, config: ConfigUpdate, db: Session = Depends(get_db)
+    config_id: int, config: SchedulerConfigUpdate, db: Session = Depends(get_db)
 ):
     """
-    Update a config entry.
+    Update a scheduler config entry.
     """
-    db_config = db.query(Config).filter(Config.id == config_id).first()
+    db_config = db.query(SchedulerConfig).filter(SchedulerConfig.id == config_id).first()
     if db_config is None:
-        raise HTTPException(status_code=404, detail="Config not found")
+        raise HTTPException(status_code=404, detail="Scheduler config not found")
     
     update_data = config.dict(exclude_unset=True)
     for key, value in update_data.items():
@@ -78,34 +78,34 @@ def update_config(
     return db_config
 
 
-@router.delete("/{config_id}", response_model=ConfigResponse)
+@router.delete("/{config_id}", response_model=SchedulerConfigResponse)
 def delete_config(config_id: int, db: Session = Depends(get_db)):
     """
-    Delete a config entry.
+    Delete a scheduler config entry.
     """
-    db_config = db.query(Config).filter(Config.id == config_id).first()
+    db_config = db.query(SchedulerConfig).filter(SchedulerConfig.id == config_id).first()
     if db_config is None:
-        raise HTTPException(status_code=404, detail="Config not found")
+        raise HTTPException(status_code=404, detail="Scheduler config not found")
     
     db.delete(db_config)
     db.commit()
     return db_config
 
 
-@router.put("/collapse-updates/", response_model=ConfigResponse)
+@router.put("/collapse-updates/", response_model=SchedulerConfigResponse)
 def update_collapse_config(
-    config: ConfigUpdate,
+    config: SchedulerConfigUpdate,
     db: Session = Depends(get_db)
 ):
     """
     Update collapse updates configuration.
     """
     # Try to find existing config
-    db_config = db.query(Config).first()
+    db_config = db.query(SchedulerConfig).first()
     
     if db_config is None:
         # Create new config if it doesn't exist
-        db_config = Config(
+        db_config = SchedulerConfig(
             collapse_updates=config.collapse_updates,
             collapse_updates_time=config.collapse_updates_time,
             market_updates=config.market_updates,
@@ -133,13 +133,13 @@ def get_sandbox_trigger(db: Session = Depends(get_db)):
     """
     Get sandbox trigger value.
     """
-    config = db.query(Config).first()
-    if config is None:
+    settings = db.query(StrategySettings).first()
+    if settings is None:
         return False
-    return config.sandbox_trigger
+    return settings.sandbox_trigger
 
 
-@router.put("/sandbox-trigger/", response_model=ConfigResponse)
+@router.put("/sandbox-trigger/", response_model=dict)
 def set_sandbox_trigger(data: dict, db: Session = Depends(get_db)):
     """
     Set sandbox trigger value.
@@ -149,23 +149,23 @@ def set_sandbox_trigger(data: dict, db: Session = Depends(get_db)):
     
     value = data["value"]
     
-    # Try to find existing config
-    config = db.query(Config).first()
+    # Try to find existing strategy settings
+    settings = db.query(StrategySettings).first()
     
-    if config is None:
-        # If no config exists, create a new one
-        config = Config(
+    if settings is None:
+        # If no settings exist, create new ones
+        settings = StrategySettings(
             sandbox_trigger=value,
-            collapse_updates=False,
-            collapse_updates_time="60",
-            market_updates=False,
-            market_updates_time="60"
+            time="60",
+            auto_market=False,
+            quantity=1,
+            joint=False
         )
-        db.add(config)
+        db.add(settings)
     else:
-        # Update the existing config
-        config.sandbox_trigger = value
+        # Update the existing settings
+        settings.sandbox_trigger = value
     
     db.commit()
-    db.refresh(config)
-    return config
+    db.refresh(settings)
+    return {"id": settings.id, "sandbox_trigger": settings.sandbox_trigger}

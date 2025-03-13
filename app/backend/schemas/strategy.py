@@ -13,7 +13,6 @@ class StrategySignalsBase(BaseModel):
     lstm_trigger: Optional[bool] = None
     bollinger_trigger: Optional[bool] = None
     macd_trigger: Optional[bool] = None
-    joint: Optional[bool] = None
 
 
 class StrategySignalsCreate(StrategySignalsBase):
@@ -26,7 +25,6 @@ class StrategySignalsCreate(StrategySignalsBase):
     lstm_trigger: bool
     bollinger_trigger: bool
     macd_trigger: bool
-    joint: bool
 
 
 class StrategySignalsUpdate(StrategySignalsBase):
@@ -45,12 +43,16 @@ class StrategySettingsBase(BaseModel):
     time: Optional[str] = None
     auto_market: Optional[bool] = None
     quantity: Optional[int] = None
+    joint: Optional[bool] = None
+    sandbox_trigger: Optional[bool] = None
 
 
 class StrategySettingsCreate(StrategySettingsBase):
     time: str
     auto_market: bool
     quantity: int
+    joint: bool
+    sandbox_trigger: bool
 
 
 class StrategySettingsUpdate(StrategySettingsBase):

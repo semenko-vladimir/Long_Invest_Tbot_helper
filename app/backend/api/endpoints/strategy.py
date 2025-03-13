@@ -135,7 +135,7 @@ def update_strategy_signals_by_first(
     required_fields = [
         "tpls_trigger", "rsi_trigger", "sma_trigger", "alligator_trigger",
         "gpt_trigger", "lstm_trigger", "bollinger_trigger", "macd_trigger",
-        "ema_trigger", "joint"
+        "ema_trigger"
     ]
     
     for field in required_fields:
@@ -155,7 +155,6 @@ def update_strategy_signals_by_first(
     bollinger_trigger = data["bollinger_trigger"]
     macd_trigger = data["macd_trigger"]
     ema_trigger = data["ema_trigger"]
-    joint = data["joint"]
     
     # Try to find the first entry
     db_signal = db.query(StrategySignals).first()
@@ -171,8 +170,7 @@ def update_strategy_signals_by_first(
             lstm_trigger=lstm_trigger,
             bollinger_trigger=bollinger_trigger,
             macd_trigger=macd_trigger,
-            ema_trigger=ema_trigger,
-            joint=joint
+            ema_trigger=ema_trigger
         )
         db.add(db_signal)
     else:
@@ -186,7 +184,6 @@ def update_strategy_signals_by_first(
         db_signal.bollinger_trigger = bollinger_trigger
         db_signal.macd_trigger = macd_trigger
         db_signal.ema_trigger = ema_trigger
-        db_signal.joint = joint
     
     db.commit()
     db.refresh(db_signal)
@@ -202,7 +199,7 @@ def update_strategy_settings_by_first(
     Update the first strategy settings entry or create if it doesn't exist.
     """
     # Validate required fields
-    required_fields = ["time", "auto_market", "quantity"]
+    required_fields = ["time", "auto_market", "quantity", "joint"]
     
     for field in required_fields:
         if field not in data:
@@ -215,6 +212,10 @@ def update_strategy_settings_by_first(
     time = data["time"]
     auto_market = data["auto_market"]
     quantity = data["quantity"]
+    joint = data["joint"]
+    
+    # Get sandbox_trigger value (if it exists in the data)
+    sandbox_trigger = data.get("sandbox_trigger")
     
     # Try to find the first entry
     db_setting = db.query(StrategySettings).first()
@@ -224,7 +225,9 @@ def update_strategy_settings_by_first(
         db_setting = StrategySettings(
             time=time,
             auto_market=auto_market,
-            quantity=quantity
+            quantity=quantity,
+            joint=joint,
+            sandbox_trigger=sandbox_trigger if sandbox_trigger is not None else False
         )
         db.add(db_setting)
     else:
@@ -232,6 +235,9 @@ def update_strategy_settings_by_first(
         db_setting.time = time
         db_setting.auto_market = auto_market
         db_setting.quantity = quantity
+        db_setting.joint = joint
+        if sandbox_trigger is not None:
+            db_setting.sandbox_trigger = sandbox_trigger
     
     db.commit()
     db.refresh(db_setting)

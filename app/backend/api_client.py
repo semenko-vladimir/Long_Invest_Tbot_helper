@@ -32,38 +32,36 @@ class ApiClient:
             response = requests.get(f"{self.api_url}/config/")
             data = response.json()
             if data and len(data) > 0:
-                return data[0]
+                config = data[0]
+                
+                # Получаем sandbox_trigger из настроек стратегии
+                try:
+                    sandbox_response = requests.get(f"{self.api_url}/config/sandbox-trigger/")
+                    config["sandbox_trigger"] = sandbox_response.json()
+                except:
+                    config["sandbox_trigger"] = False
+                
+                return config
             else:
-                # Если конфигурация не найдена, получаем chat_id из переменных окружения
-                from dotenv import load_dotenv
-                import os
-                
-                load_dotenv()
-                chat_id = os.getenv('CHAT_ID')
-                
-                # Создаем новую конфигурацию
+                # Если конфигурация не найдена, создаем новую
                 config = {
-                    "chat_id": chat_id,
                     "collapse_updates": False,
                     "collapse_updates_time": "60",
                     "market_updates": False,
-                    "market_updates_time": "60",
-                    "sandbox_trigger": False
+                    "market_updates_time": "60"
                 }
                 
                 # Сохраняем конфигурацию в базе данных
                 response = requests.post(f"{self.api_url}/config/", json=config)
-                return response.json()
+                config_data = response.json()
+                
+                # Добавляем sandbox_trigger (по умолчанию False)
+                config_data["sandbox_trigger"] = False
+                
+                return config_data
         except Exception as e:
             # В случае ошибки возвращаем значения по умолчанию
-            from dotenv import load_dotenv
-            import os
-            
-            load_dotenv()
-            chat_id = os.getenv('CHAT_ID')
-            
             return {
-                "chat_id": chat_id,
                 "collapse_updates": False,
                 "collapse_updates_time": "60",
                 "market_updates": False,
@@ -577,12 +575,13 @@ class ApiClient:
             bollinger_trigger: Флаг Bollinger
             macd_trigger: Флаг MACD
             ema_trigger: Флаг EMA
-            joint: Флаг объединения
+            joint: Флаг объединения (будет обновлен в настройках стратегии)
             
         Returns:
             Dict[str, Any]: Обновленные настройки сигналов стратегии
         """
-        response = requests.put(
+        # Обновляем сигналы стратегии
+        signals_response = requests.put(
             f"{self.api_url}/strategy/update-signals/", 
             json={
                 "tpls_trigger": tpls_trigger,
@@ -593,11 +592,30 @@ class ApiClient:
                 "lstm_trigger": lstm_trigger,
                 "bollinger_trigger": bollinger_trigger,
                 "macd_trigger": macd_trigger,
-                "ema_trigger": ema_trigger,
-                "joint": joint
+                "ema_trigger": ema_trigger
             }
         )
-        return response.json()
+        
+        # Получаем текущие настройки стратегии
+        settings = self.get_strategy_settings()
+        
+        if settings:
+            # Обновляем настройку joint в настройках стратегии
+            settings_response = requests.put(
+                f"{self.api_url}/strategy/update-settings/", 
+                json={
+                    "time": settings.get("time", "60"),
+                    "auto_market": settings.get("auto_market", False),
+                    "quantity": settings.get("quantity", 1),
+                    "joint": joint,
+                    "sandbox_trigger": settings.get("sandbox_trigger", False)
+                }
+            )
+        
+        # Возвращаем обновленные сигналы стратегии
+        signals_data = signals_response.json()
+        signals_data["joint"] = joint  # Добавляем joint в ответ для обратной совместимости
+        return signals_data
     
     def get_strategy_settings(self) -> Optional[Dict[str, Any]]:
         """
@@ -614,7 +632,9 @@ class ApiClient:
         self,
         time: str,
         auto_market: bool,
-        quantity: int
+        quantity: int,
+        joint: Optional[bool] = None,
+        sandbox_trigger: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Обновляет общие настройки стратегии.
@@ -623,17 +643,27 @@ class ApiClient:
             time: Время стратегии
             auto_market: Флаг автоматического рынка
             quantity: Количество
+            joint: Флаг объединения (опционально)
+            sandbox_trigger: Флаг песочницы (опционально)
             
         Returns:
             Dict[str, Any]: Обновленные общие настройки стратегии
         """
+        # Получаем текущие настройки для полей, которые не переданы
+        current_settings = self.get_strategy_settings() or {}
+        
+        # Формируем данные для обновления
+        data = {
+            "time": time,
+            "auto_market": auto_market,
+            "quantity": quantity,
+            "joint": joint if joint is not None else current_settings.get("joint", False),
+            "sandbox_trigger": sandbox_trigger if sandbox_trigger is not None else current_settings.get("sandbox_trigger", False)
+        }
+        
         response = requests.put(
             f"{self.api_url}/strategy/update-settings/", 
-            json={
-                "time": time,
-                "auto_market": auto_market,
-                "quantity": quantity
-            }
+            json=data
         )
         return response.json()
     

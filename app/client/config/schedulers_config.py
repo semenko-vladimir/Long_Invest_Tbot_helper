@@ -2,7 +2,7 @@ from app.backend.api_client import ApiClient
 from app.client.handlers.notifications.send import send_price_change_notification
 from app.client.log.logger import setup_logger
 from app.client.utils.methods import get_info_by_ticker
-from app.client.store.store import chat_schedulers, strategy_shedulers
+from app.client.store.store import strategy_scheduler, market_scheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.client.bot.bot import bot
 from datetime import datetime, timedelta
@@ -45,19 +45,14 @@ def configure_market_scheduler():
       планировщик.
     - Если включены обновления рынка, настраивается соответствующий планировщик.
     """
+    global market_scheduler
+    
     try:
         # Получаем конфигурацию через API-клиент
         config_data = api_client.get_config()
         
         if not config_data:
             logger.error("Configuration data not found")
-            return
-        
-        # Получаем chat_id из конфигурации
-        chat_id = config_data.get('chat_id')
-        
-        if not chat_id:
-            logger.error("Chat ID is not available")
             return
         
         # Получаем настройки уведомлений
@@ -77,41 +72,55 @@ def configure_market_scheduler():
         except (ValueError, TypeError):
             market_updates_time = 60
         
-        if chat_id and chat_id not in chat_schedulers:
-            # Получаем список всех инструментов
-            instruments = api_client.get_all_instruments()
-            
-            if not instruments:
-                # bot.send_message(chat_id, 'У вас нет активных инструментов')
-                return
+        # Получаем список всех инструментов
+        instruments = api_client.get_all_instruments()
+        
+        if not instruments:
+            logger.info('Нет активных инструментов для настройки уведомлений')
+            return
+        
+        # Получаем chat_id из переменных окружения для отправки уведомлений
+        load_dotenv()
+        chat_id = os.getenv('CHAT_ID')
+        
+        if not chat_id:
+            logger.error("Chat ID is not available in environment variables")
+            return
+        
+        # Если планировщик уже существует, останавливаем его
+        if market_scheduler:
+            market_scheduler.shutdown()
+        
+        # Создаем новый планировщик
+        if collapse_updates or market_updates:
+            market_scheduler = BackgroundScheduler()
+            market_scheduler.start()
             
             # Настраиваем планировщики в зависимости от настроек
             if collapse_updates:
-                setup_scheduler(chat_id, instruments, collapse_updates_time, send_price_change_notification, "Падения рынка")
+                setup_market_jobs(market_scheduler, instruments, collapse_updates_time, chat_id, "Падения рынка")
             
             if market_updates:
-                setup_scheduler(chat_id, instruments, market_updates_time, send_price_change_notification, "Обновления рынка")
+                setup_market_jobs(market_scheduler, instruments, market_updates_time, chat_id, "Обновления рынка")
+            
+            logger.info("Планировщик уведомлений о рынке успешно настроен")
     
     except Exception as e:
         logger.error(f"Error configuring market scheduler: {str(e)}")
 
 
-def setup_scheduler(chat_id, instruments, update_time, notification_func, update_type):
+def setup_market_jobs(scheduler, instruments, update_time, chat_id, update_type):
     """
-    Настраивает планировщик для отправки уведомлений по конкретному типу обновлений.
+    Настраивает задачи для планировщика уведомлений о рынке.
     
     Args:
-        chat_id: ID чата, в который нужно отправить уведомления
+        scheduler: Планировщик задач
         instruments: Список инструментов, по которым нужно отправлять уведомления
         update_time: Интервал времени, с которым нужно отправлять уведомления
-        notification_func: Функция, которая будет вызвана для отправки уведомления
+        chat_id: ID чата, в который нужно отправить уведомления
         update_type: Тип уведомления ('Падения рынка' или 'Обновления рынка')
     """
     try:
-        scheduler = BackgroundScheduler()
-        chat_schedulers[chat_id] = scheduler
-        scheduler.start()
-        
         for instrument in instruments:
             ticker = instrument.get('ticker')
             figi = instrument.get('figi')
@@ -129,14 +138,14 @@ def setup_scheduler(chat_id, instruments, update_time, notification_func, update
             
             # Добавляем задачу в планировщик
             scheduler.add_job(
-                notification_func, 
+                send_price_change_notification, 
                 'interval', 
                 minutes=update_time, 
                 args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker)
             )
     
     except Exception as e:
-        logger.error(f"Error setting up scheduler: {str(e)}")
+        logger.error(f"Error setting up market jobs: {str(e)}")
 
 
 def calculate_start_time_and_interval(update_time):
@@ -160,6 +169,8 @@ def configure_strategy_scheduler():
     
     Собирает информацию о всех активных стратегиях и настраивает планировщик.
     """
+    global strategy_scheduler
+    
     try:
         # Получаем настройки стратегий через API-клиент
         strategy_signals = api_client.get_strategy_signals()
@@ -167,14 +178,6 @@ def configure_strategy_scheduler():
         
         if not strategy_signals or not strategy_settings:
             logger.error("Strategy configuration not found")
-            return
-        
-        # Получаем chat_id из конфигурации
-        config_data = api_client.get_config()
-        chat_id = config_data.get('chat_id')
-        
-        if not chat_id:
-            logger.error("Chat ID is not available")
             return
         
         # Определяем активные стратегии
@@ -198,9 +201,28 @@ def configure_strategy_scheduler():
             logger.info("No active strategies found")
             return
         
-        # Настраиваем планировщик для запуска стратегий
-        if chat_id and chat_id not in strategy_shedulers:
-            setup_strategy_scheduler(chat_id, time_interval)
+        # Получаем chat_id из переменных окружения для отправки уведомлений
+        load_dotenv()
+        chat_id = os.getenv('CHAT_ID')
+        
+        if not chat_id:
+            logger.error("Chat ID is not available in environment variables")
+            return
+        
+        # Если планировщик уже существует, останавливаем его
+        if strategy_scheduler:
+            strategy_scheduler.shutdown()
+        
+        # Создаем новый планировщик
+        strategy_scheduler = BackgroundScheduler()
+        strategy_scheduler.start()
+        
+        # Преобразуем time_interval в число минут
+        minutes = parse_time_interval(time_interval)
+        
+        # Добавляем задачу в планировщик
+        strategy_scheduler.add_job(strategy_run, 'interval', minutes=minutes)
+        logger.info(f"Планировщик стратегий успешно настроен с интервалом {minutes} минут")
     
     except Exception as e:
         logger.error(f"Error configuring strategy scheduler: {str(e)}")
@@ -217,30 +239,6 @@ def is_any_strategy_active(strategies):
         bool: True, если хотя бы одна стратегия активна, иначе False
     """
     return any(strategy == 1 for strategy in strategies.values())
-
-
-def setup_strategy_scheduler(chat_id, time_interval):
-    """
-    Настраивает планировщик для запуска стратегий.
-    
-    Args:
-        chat_id: ID чата
-        time_interval: Интервал времени для запуска стратегий
-    """
-    try:
-        scheduler = BackgroundScheduler()
-        strategy_shedulers[chat_id] = scheduler
-        scheduler.start()
-        
-        # Преобразуем time_interval в число минут
-        minutes = parse_time_interval(time_interval)
-        
-        # Добавляем задачу в планировщик
-        scheduler.add_job(strategy_run, 'interval', minutes=minutes)
-        logger.info(f"Стратегия запущена для чата {chat_id}")
-    
-    except Exception as e:
-        logger.error(f"Error setting up strategy scheduler: {str(e)}")
 
 
 def parse_time_interval(time_interval):

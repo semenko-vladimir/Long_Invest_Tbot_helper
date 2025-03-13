@@ -1,5 +1,5 @@
 # Import all schemas here for easy access
-from app.backend.schemas.config import ConfigBase, ConfigCreate, ConfigUpdate, ConfigResponse
+from app.backend.schemas.config import SchedulerConfigBase, SchedulerConfigCreate, SchedulerConfigUpdate, SchedulerConfigResponse
 from app.backend.schemas.signals import (
     SignalTPSLBase, SignalTPSLCreate, SignalTPSLUpdate, SignalTPSLResponse,
     SignalRSIBase, SignalRSICreate, SignalRSIUpdate, SignalRSIResponse,

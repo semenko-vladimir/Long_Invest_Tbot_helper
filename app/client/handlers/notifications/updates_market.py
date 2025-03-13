@@ -56,7 +56,7 @@ def market_interval_handler(call):
     
     try:
         # Останавливаем текущий планировщик
-        stop_scheduler(chat_id)
+        stop_scheduler()
         
         # Получаем интервал из callback-данных
         time_value = get_interval_from_callback(call.data)
@@ -100,7 +100,7 @@ def remove_market_updates_handler(call):
         )
         
         # Останавливаем планировщик
-        stop_scheduler(chat_id)
+        stop_scheduler()
         
         bot.send_message(chat_id, 'Вы отписались от обновлений рынка')
     

@@ -1,11 +1,11 @@
-from app.client.store.store import chat_schedulers
+from app.client.store.store import market_scheduler
 
-def stop_scheduler(chat_id):
-    """Останавливает и удаляет планировщик для указанного чата"""
-    if chat_id in chat_schedulers:
-        scheduler = chat_schedulers[chat_id]
-        scheduler.shutdown()
-        del chat_schedulers[chat_id]
+def stop_scheduler():
+    """Останавливает планировщик уведомлений о рынке"""
+    global market_scheduler
+    if market_scheduler:
+        market_scheduler.shutdown()
+        market_scheduler = None
         
 def get_interval_from_callback(callback_data):
     """Извлекает интервал времени из callback_data"""

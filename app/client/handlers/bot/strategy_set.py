@@ -3,13 +3,13 @@ from app.client.bot.bot import bot
 from app.backend.api_client import ApiClient
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.client.strategy.strategy_run import strategy_run
+from app.client.store.store import strategy_scheduler
 
 # Создаем экземпляр API-клиента
 api_client = ApiClient()
 
 # Временные хранилища для данных
 available_signals = ['RSI', 'SMA', 'EMA', 'TAKE PROFIT/STOP LOSS', 'ALLIGATOR', 'GPT', 'LSTM', 'BOLLINGER', 'MACD']
-strategy_shedulers = {}
 selected_signals = {}
 tpsl_trigger = False
 rsi_trigger = False
@@ -285,16 +285,21 @@ def set_joint(call):
         )
 
         # Завершение текущего планировщика и создание нового
-        if chat_id in strategy_shedulers:
-            scheduler = strategy_shedulers[chat_id]
-            scheduler.shutdown()
-            del strategy_shedulers[chat_id]
+        global strategy_scheduler
+        if strategy_scheduler:
+            strategy_scheduler.shutdown()
 
-        scheduler = BackgroundScheduler()
-        strategy_shedulers[chat_id] = scheduler
-        scheduler.start()
+        strategy_scheduler = BackgroundScheduler()
+        strategy_scheduler.start()
 
-        scheduler.add_job(strategy_run, 'interval', minutes=int(time), args=(chat_id,))
+        # Получаем chat_id из переменных окружения для отправки уведомлений
+        from dotenv import load_dotenv
+        import os
+        load_dotenv()
+        env_chat_id = os.getenv('CHAT_ID')
+        
+        # Используем chat_id из переменных окружения, если доступен, иначе используем текущий chat_id
+        strategy_scheduler.add_job(strategy_run, 'interval', minutes=int(time))
 
         # Сброс переменных стратегии
         selected_signals = {}

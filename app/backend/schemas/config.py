@@ -3,24 +3,22 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class ConfigBase(BaseModel):
+class SchedulerConfigBase(BaseModel):
     collapse_updates: Optional[bool] = None
     collapse_updates_time: Optional[str] = None
     market_updates: Optional[bool] = None
     market_updates_time: Optional[str] = None
-    sandbox_trigger: Optional[bool] = None
-    chat_id: Optional[str] = None
 
 
-class ConfigCreate(ConfigBase):
+class SchedulerConfigCreate(SchedulerConfigBase):
     pass
 
 
-class ConfigUpdate(ConfigBase):
+class SchedulerConfigUpdate(SchedulerConfigBase):
     pass
 
 
-class ConfigResponse(ConfigBase):
+class SchedulerConfigResponse(SchedulerConfigBase):
     id: int
 
     class Config:

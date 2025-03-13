@@ -480,6 +480,24 @@ def strategy_run(chat_id=None):
         if not strategy_config:
             logger.error("Strategy settings are not available")
             return
+            
+        # Проверяем, есть ли активные сигналы
+        active_strategies = [
+            strategy_config.get('tpsl_trigger', False),
+            strategy_config.get('rsi_trigger', False),
+            strategy_config.get('sma_trigger', False),
+            strategy_config.get('ema_trigger', False),
+            strategy_config.get('alligator_trigger', False),
+            strategy_config.get('gpt_trigger', False),
+            strategy_config.get('lstm_trigger', False),
+            strategy_config.get('bollinger_trigger', False),
+            strategy_config.get('macd_trigger', False)
+        ]
+        
+        # Если нет активных сигналов, выходим
+        if not any(active_strategies):
+            logger.info("No active strategies found, skipping strategy run")
+            return
         
         # Обрабатываем каждый инструмент
         for instrument in instruments:
