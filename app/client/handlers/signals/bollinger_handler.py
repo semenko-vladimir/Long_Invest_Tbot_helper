@@ -1,9 +1,9 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
+
 
 # Временное хранилище для данных пользователя
 user_bollinger_data = {}
@@ -19,7 +19,7 @@ def bollinger_handler(call):
     chat_id = call.message.chat.id
     
     # Получаем текущие настройки Bollinger
-    current_settings = api_client.get_signal_bollinger()
+    current_settings = signals_client.get_signal_bollinger()
     
     if current_settings:
         period = current_settings.get('period', 20)
@@ -129,7 +129,7 @@ def get_bollinger_ma_type(message):
     
     try:
         # Обновляем параметры через API-клиент
-        result = api_client.update_signal_bollinger(period, stddev, ma_type)
+        result = signals_client.update_signal_bollinger(period, stddev, ma_type)
         
         # Подтверждение настроек стратегии
         bot.send_message(

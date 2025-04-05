@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
+from app.client.api.instruments_client import InstrumentsApiClient
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from telebot import types
 from app.client.graphics.bollinger_graph import plot_bollinger
 from app.client.log.logger import setup_logger
@@ -13,8 +14,8 @@ import os
 from app.client.utils.helpers import calculate_profit, cast_money, create_df
 from app.client.utils.methods import get_current_price, get_historic_candles, get_instrument_from_portfolio_by_ticker
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+instruments_client = InstrumentsApiClient()
+signals_client = SignalsApiClient()
 
 logger = setup_logger(__name__)
 
@@ -44,7 +45,7 @@ def mls_bollinger_handler(call):
     
     try:
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             bot.send_message(chat_id, 'У вас нет активных инструментов')
@@ -79,7 +80,7 @@ def interval_handler(call):
         mls_interval = interval
         
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             bot.send_message(chat_id, 'У вас нет активных инструментов')
@@ -117,7 +118,7 @@ def calculate_mls_bollinger(call):
             return
         
         # Получаем настройки Bollinger
-        bollinger_settings = api_client.get_signal_bollinger()
+        bollinger_settings = signals_client.get_signal_bollinger()
         
         if not bollinger_settings:
             bot.send_message(chat_id, "Настройки Bollinger не найдены. Пожалуйста, настройте сигнал Bollinger.")
@@ -128,7 +129,7 @@ def calculate_mls_bollinger(call):
         type_ma = bollinger_settings.get('typeMA')
         
         # Получаем FIGI инструмента
-        instrument = api_client.get_instrument_by_ticker(ticker)
+        instrument = instruments_client.get_instrument_by_ticker(ticker)
         if not instrument:
             bot.send_message(chat_id, f"Инструмент {ticker} не найден.")
             return

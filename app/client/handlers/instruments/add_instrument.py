@@ -1,12 +1,11 @@
 from telebot import types
+from app.client.api.instruments_client import InstrumentsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.utils.methods import get_figi_by_ticker
 import re
 import requests
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+instruments_client = InstrumentsApiClient()
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'add_instrument')
@@ -38,7 +37,7 @@ def process_ticker_step(message):
     
     # Проверка, существует ли уже инструмент с таким тикером
     try:
-        existing = api_client.get_instrument_by_ticker(ticker)
+        existing = instruments_client.get_instrument_by_ticker(ticker)
         bot.send_message(chat_id, f'Инструмент с тикером {ticker} уже существует.')
         return
     except requests.exceptions.HTTPError as e:
@@ -64,7 +63,7 @@ def process_ticker_step(message):
     
     # Добавляем инструмент через API-клиент
     try:
-        result = api_client.add_instrument(ticker, figi)
+        result = instruments_client.add_instrument(ticker, figi)
         bot.send_message(chat_id, f'Инструмент {ticker} успешно добавлен.')
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 400 and "already exists" in str(e.response.text):

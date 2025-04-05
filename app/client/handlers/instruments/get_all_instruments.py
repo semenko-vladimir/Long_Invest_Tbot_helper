@@ -1,8 +1,7 @@
+from app.client.api.instruments_client import InstrumentsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+instruments_client = InstrumentsApiClient()
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'get_all_instruments')
@@ -16,7 +15,7 @@ def get_all_instruments_handler(call):
     
     try:
         # Получаем список всех инструментов через API-клиент
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             bot.send_message(chat_id, 'У вас нет активных инструментов')

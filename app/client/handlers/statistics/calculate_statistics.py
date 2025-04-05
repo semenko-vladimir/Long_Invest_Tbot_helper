@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
 import pytz
+from app.client.api.trading_client import TradingApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.graphics.statistics_graph import statistics_graph
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
-
+trading_client = TradingApiClient()
 
 def filter_data_by_days(data, days):
     """
@@ -54,8 +52,8 @@ def calculate_statistics(days, chat_id):
     """
     try:
         # Получаем данные о покупках и прибыли через API-клиент
-        buy = api_client.get_buys()
-        margin = api_client.get_margins()
+        buy = trading_client.get_buys()
+        margin = trading_client.get_margins()
         
         if not buy and not margin:
             bot.send_message(chat_id, "Нет данных для вывода статистики.")

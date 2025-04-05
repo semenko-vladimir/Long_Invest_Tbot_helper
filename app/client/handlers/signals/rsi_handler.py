@@ -1,9 +1,9 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
+
 
 # Временное хранилище для данных пользователя
 user_rsi_data = {}
@@ -19,7 +19,7 @@ def rsi_handler(call):
     chat_id = call.message.chat.id
     
     # Получаем текущие настройки RSI
-    current_settings = api_client.get_signal_rsi()
+    current_settings = signals_client.get_signal_rsi()
     
     if current_settings:
         period = current_settings.get('period', 14)
@@ -120,7 +120,7 @@ def get_rsi_oversold(message):
     
     try:
         # Обновляем параметры через API-клиент
-        result = api_client.update_signal_rsi(period, overbought, oversold)
+        result = signals_client.update_signal_rsi(period, overbought, oversold)
         
         # Подтверждение настройки стратегии
         bot.send_message(

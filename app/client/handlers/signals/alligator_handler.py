@@ -1,9 +1,8 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
 
 # Временное хранилище для данных пользователя
 user_alligator_data = {}
@@ -19,7 +18,7 @@ def alligator_on(call):
     chat_id = call.message.chat.id
     
     # Получаем текущие настройки Alligator
-    current_settings = api_client.get_signal_alligator()
+    current_settings = signals_client.get_signal_alligator()
     
     if current_settings:
         jaw_period = current_settings.get('jaw_period', 13)
@@ -194,7 +193,7 @@ def get_alligator_lips_shift(message):
     
     try:
         # Обновляем параметры через API-клиент
-        result = api_client.update_signal_alligator(
+        result = signals_client.update_signal_alligator(
             jaw_period, jaw_shift, teeth_period, teeth_shift, lips_period, lips_shift
         )
         

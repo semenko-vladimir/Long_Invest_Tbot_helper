@@ -1,13 +1,12 @@
 from telebot import types
+from app.client.api.config_client import ConfigApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from tinkoff.invest import Client
 from tinkoff.invest.services import SandboxService
 from dotenv import load_dotenv
 import os
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+config_client = ConfigApiClient()
 
 # Функция для получения токенов из переменных окружения
 def get_tokens():
@@ -56,7 +55,7 @@ def real_account(call):
     
     try:
         # Используем API-клиент для установки флага sandbox_trigger
-        api_client.set_sandbox_trigger(False)
+        config_client.set_sandbox_trigger(False)
         bot.send_message(chat_id, 'Вы выбрали боевой счет')
     
     except Exception as e:
@@ -75,7 +74,7 @@ def sandbox_account(call):
     
     try:
         # Используем API-клиент для установки флага sandbox_trigger
-        api_client.set_sandbox_trigger(True)
+        config_client.set_sandbox_trigger(True)
 
         # Работа с песочницей Tinkoff API
         with Client(tokens["sandbox_token"]) as client:

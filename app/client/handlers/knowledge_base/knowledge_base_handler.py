@@ -1,7 +1,5 @@
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from telebot import types
-
 from app.client.handlers.knowledge_base.instruments_base import base_instruments_handler
 from app.client.handlers.knowledge_base.portfolio_base import base_portfolio_handler
 from app.client.handlers.knowledge_base.notifications_base import base_notifications_handler
@@ -10,9 +8,6 @@ from app.client.handlers.knowledge_base.dividends_base import base_dividends_han
 from app.client.handlers.knowledge_base.bot_base import base_bot_handler
 from app.client.handlers.knowledge_base.mls_base import base_mls_handler
 from app.client.handlers.knowledge_base.signals_base import base_signals_handler
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
 
 
 @bot.message_handler(func=lambda message: message.text == 'База знаний')

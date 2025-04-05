@@ -1,11 +1,10 @@
+from app.client.api.instruments_client import InstrumentsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.utils.methods import get_dividends_data
 from dotenv import load_dotenv
 import os
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+instruments_client = InstrumentsApiClient()
 
 # Функция для получения токенов из переменных окружения
 def get_tokens():
@@ -63,7 +62,7 @@ def handle_dividends_period(message, token):
         period = int(message.text)
         
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             bot.send_message(chat_id, "У вас нет активных инструментов.")

@@ -1,5 +1,8 @@
+from app.client.api.config_client import ConfigApiClient
+from app.client.api.instruments_client import InstrumentsApiClient
+from app.client.api.signals_client import SignalsApiClient
+from app.client.api.strategy_client import StrategyApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.utils.helpers import calculate_profit, format_date, cast_money, create_df
 from app.client.orders.orders import cancel_existing_order, check_orders, place_order
 from app.client.log.logger import setup_logger
@@ -18,8 +21,10 @@ from app.client.signals.rsi_signal import calculate_rsi, check_rsi_signal
 from app.client.signals.sma_signal import calculate_sma_strategy
 from app.client.signals.ema_signal import calculate_ema_strategy
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
+strategy_client = StrategyApiClient()
+instruments_client = InstrumentsApiClient()
+config_client = ConfigApiClient()
 
 logger = setup_logger(__name__)
 
@@ -44,7 +49,7 @@ def get_token_and_sandbox_method():
         tuple: (token, sandbox_method)
     """
     tokens = get_tokens()
-    sandbox_trigger = api_client.get_sandbox_trigger()
+    sandbox_trigger = config_client.get_sandbox_trigger()
     
     if sandbox_trigger:
         return tokens["sandbox_token"], True
@@ -142,7 +147,7 @@ def get_signal_settings(signal_type):
     """
     try:
         if signal_type == 'tpsl':
-            settings = api_client.get_signal_tpsl()
+            settings = signals_client.get_signal_tpsl()
             if not settings:
                 return None
             return {
@@ -151,7 +156,7 @@ def get_signal_settings(signal_type):
             }
         
         elif signal_type == 'rsi':
-            settings = api_client.get_signal_rsi()
+            settings = signals_client.get_signal_rsi()
             if not settings:
                 return None
             return {
@@ -161,7 +166,7 @@ def get_signal_settings(signal_type):
             }
         
         elif signal_type == 'sma':
-            settings = api_client.get_signal_sma()
+            settings = signals_client.get_signal_sma()
             if not settings:
                 return None
             return {
@@ -170,7 +175,7 @@ def get_signal_settings(signal_type):
             }
         
         elif signal_type == 'ema':
-            settings = api_client.get_signal_ema()
+            settings = signals_client.get_signal_ema()
             if not settings:
                 return None
             return {
@@ -179,7 +184,7 @@ def get_signal_settings(signal_type):
             }
         
         elif signal_type == 'alligator':
-            settings = api_client.get_signal_alligator()
+            settings = signals_client.get_signal_alligator()
             if not settings:
                 return None
             return {
@@ -192,7 +197,7 @@ def get_signal_settings(signal_type):
             }
         
         elif signal_type == 'gpt':
-            settings = api_client.get_signal_gpt()
+            settings = signals_client.get_signal_gpt()
             if not settings:
                 return None
             return {
@@ -200,7 +205,7 @@ def get_signal_settings(signal_type):
             }
         
         elif signal_type == 'bollinger':
-            settings = api_client.get_signal_bollinger()
+            settings = signals_client.get_signal_bollinger()
             if not settings:
                 return None
             return {
@@ -210,7 +215,7 @@ def get_signal_settings(signal_type):
             }
         
         elif signal_type == 'macd':
-            settings = api_client.get_signal_macd()
+            settings = signals_client.get_signal_macd()
             if not settings:
                 return None
             return {
@@ -323,13 +328,13 @@ def get_strategy_config():
     """
     try:
         # Получаем настройки сигналов стратегии
-        signals = api_client.get_strategy_signals()
+        signals = strategy_client.get_strategy_signals()
         if not signals:
             logger.error("Strategy signals not found")
             return None
         
         # Получаем общие настройки стратегии
-        settings = api_client.get_strategy_settings()
+        settings = strategy_client.get_strategy_settings()
         if not settings:
             logger.error("Strategy settings not found")
             return None
@@ -369,7 +374,7 @@ def process_ticker(ticker_name, strategy_config, token, sandbox_method, chat_id)
     
     try:
         # Получаем FIGI инструмента
-        instrument = api_client.get_instrument_by_ticker(ticker_name)
+        instrument = instruments_client.get_instrument_by_ticker(ticker_name)
         if not instrument:
             logger.error(f"Instrument {ticker_name} not found")
             return
@@ -468,7 +473,7 @@ def strategy_run(chat_id=None):
     
     try:
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             bot.send_message(chat_id, 'У вас нет активных инструментов')

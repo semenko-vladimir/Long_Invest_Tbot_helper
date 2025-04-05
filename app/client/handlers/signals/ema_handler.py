@@ -1,9 +1,9 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
+
 
 # Временное хранилище для данных пользователя
 user_ema_data = {}
@@ -19,7 +19,7 @@ def ema_handler(call):
     chat_id = call.message.chat.id
     
     # Получаем текущие настройки EMA
-    current_settings = api_client.get_signal_ema()
+    current_settings = signals_client.get_signal_ema()
     
     if current_settings:
         fast_length = current_settings.get('fastLength', 12)
@@ -98,7 +98,7 @@ def get_ema_slow(message):
     
     try:
         # Обновляем параметры через API-клиент
-        result = api_client.update_signal_ema(fast_length, slow_length)
+        result = signals_client.update_signal_ema(fast_length, slow_length)
         
         # Подтверждение активации стратегии
         bot.send_message(

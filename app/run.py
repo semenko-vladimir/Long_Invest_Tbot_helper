@@ -13,9 +13,8 @@ sys.path.append(str(ROOT_DIR))
 
 from app.client.bot.bot import bot
 from app.client.config.schedulers_config import configure_schedulers
-from app.client.config.db_config import configure_database
+from app.client.config.db_config import configure_database, DatabaseConfigError
 from app.client.log.logger import setup_logger
-from app.backend.api_client import ApiClient
 from app.backend.main_api import app as fastapi_app
 from app.client.handlers.portfolio.portfolio_handler import get_portfolio_handler
 from app.client.handlers.instruments.instruments_handler import instruments_handler
@@ -29,7 +28,47 @@ from app.client.handlers.knowledge_base.knowledge_base_handler import knowledge_
 from app.client.handlers.statistics.statistics_handler import statistics_handler
 
 logger = setup_logger(__name__)
-api_client = ApiClient()
+
+class TokenVerificationError(Exception):
+    """Исключение, возникающее при ошибке проверки токенов."""
+    pass
+
+def verify_tokens():
+    """
+    Проверяет наличие и валидность необходимых токенов в переменных окружения.
+    
+    Raises:
+        TokenVerificationError: Если отсутствуют необходимые переменные окружения
+    """
+    try:
+        load_dotenv()
+        
+        # Получение переменных окружения
+        BOT_TOKEN = os.getenv('BOT_TOKEN')
+        CHAT_ID = os.getenv('CHAT_ID')
+        TOKEN = os.getenv('TOKEN')
+        SANDBOX_TOKEN = os.getenv('SANDBOX_TOKEN')
+        
+        # Проверка, что переменные окружения существуют и не пусты
+        if not BOT_TOKEN or BOT_TOKEN.strip() == '':
+            raise TokenVerificationError("Отсутствует или пуст токен бота (BOT_TOKEN)")
+        
+        if not CHAT_ID or CHAT_ID.strip() == '':
+            raise TokenVerificationError("Отсутствует или пуст идентификатор чата (CHAT_ID)")
+        
+        if not TOKEN or TOKEN.strip() == '':
+            raise TokenVerificationError("Отсутствует или пуст основной токен API (TOKEN)")
+        
+        if not SANDBOX_TOKEN or SANDBOX_TOKEN.strip() == '':
+            raise TokenVerificationError("Отсутствует или пуст токен песочницы (SANDBOX_TOKEN)")
+        
+        logger.info("Все необходимые токены успешно проверены")
+    
+    except TokenVerificationError as e:
+        raise
+    except Exception as e:
+        error_msg = f"Непредвиденная ошибка при проверке токенов: {str(e)}"
+        raise TokenVerificationError(error_msg)
 
 
 # Обработчик команды /start
@@ -90,9 +129,18 @@ def run_api():
 
 if __name__ == '__main__':
     try:
+        # Проверка токенов
+        try:
+            verify_tokens()
+        except TokenVerificationError as e:
+            logger.error(f"Ошибка проверки токенов: {str(e)}")
+            sys.exit(1)
+        
         # Инициализация базы данных
-        if not configure_database():
-            logger.error("Не удалось настроить базу данных. Завершение работы.")
+        try:
+            configure_database()
+        except DatabaseConfigError as e:
+            logger.error(f"Не удалось настроить базу данных: {str(e)}")
             sys.exit(1)
         
         # Запуск API в отдельном потоке

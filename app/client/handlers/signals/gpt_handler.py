@@ -1,9 +1,9 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
+
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'signal_gpt')
@@ -16,7 +16,7 @@ def gpt_handler(call):
     chat_id = call.message.chat.id
     
     # Получаем текущие настройки GPT
-    current_settings = api_client.get_signal_gpt()
+    current_settings = signals_client.get_signal_gpt()
     
     if current_settings:
         text = current_settings.get('text', '')
@@ -49,7 +49,7 @@ def get_gpt_text(message):
     
     try:
         # Обновляем параметры через API-клиент
-        result = api_client.update_signal_gpt(gpt_text)
+        result = signals_client.update_signal_gpt(gpt_text)
         
         # Отображаем промпт без предварительных условий для лучшей читаемости
         display_text = gpt_text.replace("\n A PREREQUISITE. Based on your reasoning, an answer should be given consisting of one word: buy, sell or hold.".upper(), "")

@@ -1,11 +1,12 @@
+from app.client.api.config_client import ConfigApiClient
+from app.client.api.instruments_client import InstrumentsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from telebot import types
 from app.client.config.schedulers_config import configure_market_scheduler
 from app.client.handlers.notifications.utils.utils import stop_scheduler, get_interval_from_callback
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+config_client = ConfigApiClient()
+instruments_client = InstrumentsApiClient()
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'user_update_collapse_market')
@@ -19,7 +20,7 @@ def add_collapse_market_handler(call):
     
     try:
         # Получаем текущие настройки конфигурации
-        config = api_client.get_config()
+        config = config_client.get_config()
         
         if config and config.get('collapse_updates', False):
             bot.send_message(chat_id, 'Вы уже подписаны на обновления падений рынка')
@@ -28,7 +29,7 @@ def add_collapse_market_handler(call):
         bot.send_message(chat_id, 'Вы автоматически будете отписаны от обновлений рынка')
         
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             bot.send_message(chat_id, 'У вас нет активных инструментов')
@@ -65,7 +66,7 @@ def collapse_interval_handler(call):
         time_str = str(time_value)
         
         # Обновляем настройки конфигурации через API-клиент
-        api_client.update_config_collapse(
+        config_client.update_config_collapse(
             time_str,       # collapse_updates_time
             True,           # collapse_updates
             "0",            # market_updates_time
@@ -92,7 +93,7 @@ def remove_collapse_market_handler(call):
     
     try:
         # Обновляем настройки конфигурации через API-клиент
-        api_client.update_config_collapse(
+        config_client.update_config_collapse(
             "0",            # collapse_updates_time
             False,          # collapse_updates
             "0",            # market_updates_time

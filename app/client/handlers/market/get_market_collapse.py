@@ -1,12 +1,11 @@
 from datetime import datetime, timedelta
+from app.client.api.instruments_client import InstrumentsApiClient
 from app.client.bot.bot import bot
 from telebot import types
-from app.backend.api_client import ApiClient
 from app.client.utils.methods import get_info_by_ticker, get_price_change_in_current_interval
 from tinkoff.invest import CandleInterval
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+instruments_client = InstrumentsApiClient()
 
 # Маппинг интервалов на соответствующие значения
 INTERVAL_MAPPING = {
@@ -39,7 +38,7 @@ def get_market_collapse_handler(call):
     
     try:
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             bot.send_message(chat_id, 'У вас нет активных инструментов')
@@ -113,7 +112,7 @@ def percent_handler(call):
             return
         
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         # Проверяем каждый инструмент
         for instrument in instruments:

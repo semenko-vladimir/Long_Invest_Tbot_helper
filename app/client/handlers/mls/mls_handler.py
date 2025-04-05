@@ -1,5 +1,4 @@
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from telebot import types
 from app.client.handlers.mls.mls_rsi import mls_rsi_handler
 from app.client.handlers.mls.mls_sma import mls_sma_handler
@@ -7,9 +6,6 @@ from app.client.handlers.mls.mls_alligator import mls_alligator_handler
 from app.client.handlers.mls.mls_bollinger import mls_bollinger_handler
 from app.client.handlers.mls.mls_macd import mls_macd_handler
 from app.client.handlers.mls.mls_ema import mls_ema_handler
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
 
 
 @bot.message_handler(func=lambda message: message.text == 'Middle/Long сигналы(Графики)')

@@ -1,9 +1,9 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
+
 
 # Временное хранилище для данных пользователя
 user_macd_data = {}
@@ -19,7 +19,7 @@ def macd_handler(call):
     chat_id = call.message.chat.id
     
     # Получаем текущие настройки MACD
-    current_settings = api_client.get_signal_macd()
+    current_settings = signals_client.get_signal_macd()
     
     if current_settings:
         fast_length = current_settings.get('fastLength', 12)
@@ -121,7 +121,7 @@ def get_macd_signal(message):
     
     try:
         # Обновляем параметры через API-клиент
-        result = api_client.update_signal_macd(fast_ema, slow_ema, signal_period)
+        result = signals_client.update_signal_macd(fast_ema, slow_ema, signal_period)
         
         # Подтверждение настройки стратегии
         bot.send_message(

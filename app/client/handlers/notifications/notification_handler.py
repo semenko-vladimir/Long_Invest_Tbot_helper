@@ -1,12 +1,7 @@
 from telebot import types
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.handlers.notifications.updates_market import add_market_updates_handler, remove_market_updates_handler
 from app.client.handlers.notifications.collapse_market import add_collapse_market_handler, remove_collapse_market_handler
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
-
 
 @bot.message_handler(func=lambda message: message.text == 'Уведомления')
 def notification_handler(message):

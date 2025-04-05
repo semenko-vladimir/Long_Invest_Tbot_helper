@@ -1,4 +1,6 @@
-from app.backend.api_client import ApiClient
+from app.client.api.config_client import ConfigApiClient
+from app.client.api.instruments_client import InstrumentsApiClient
+from app.client.api.strategy_client import StrategyApiClient
 from app.client.handlers.notifications.send import send_price_change_notification
 from app.client.log.logger import setup_logger
 from app.client.utils.methods import get_info_by_ticker
@@ -12,8 +14,9 @@ from dotenv import load_dotenv
 import os
 import re
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+config_client = ConfigApiClient()
+instruments_client = InstrumentsApiClient()
+strategy_client = StrategyApiClient()
 
 logger = setup_logger(__name__)
 
@@ -49,7 +52,7 @@ def configure_market_scheduler():
     
     try:
         # Получаем конфигурацию через API-клиент
-        config_data = api_client.get_config()
+        config_data = config_client.get_config()
         
         if not config_data:
             logger.error("Configuration data not found")
@@ -73,7 +76,7 @@ def configure_market_scheduler():
             market_updates_time = 60
         
         # Получаем список всех инструментов
-        instruments = api_client.get_all_instruments()
+        instruments = instruments_client.get_all_instruments()
         
         if not instruments:
             logger.info('Нет активных инструментов для настройки уведомлений')
@@ -173,8 +176,8 @@ def configure_strategy_scheduler():
     
     try:
         # Получаем настройки стратегий через API-клиент
-        strategy_signals = api_client.get_strategy_signals()
-        strategy_settings = api_client.get_strategy_settings()
+        strategy_signals = strategy_client.get_strategy_signals()
+        strategy_settings = strategy_client.get_strategy_settings()
         
         if not strategy_signals or not strategy_settings:
             logger.error("Strategy configuration not found")

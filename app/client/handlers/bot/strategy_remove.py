@@ -1,10 +1,8 @@
+from app.client.api.strategy_client import StrategyApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.store.store import strategy_scheduler, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
-
+strategy_client = StrategyApiClient()
 
 @bot.callback_query_handler(func=lambda call: call.data == 'strategy_remove')
 def remove_strategy_handler(call):
@@ -24,7 +22,7 @@ def remove_strategy_handler(call):
             strategy_scheduler = None
         
         # Обновляем настройки стратегии через API-клиент
-        api_client.update_strategy_signals(
+        strategy_client.update_strategy_signals(
             False,  # tpsl_trigger
             False,  # rsi_trigger
             False,  # sma_trigger
@@ -37,7 +35,7 @@ def remove_strategy_handler(call):
             False   # joint
         )
         
-        api_client.update_strategy_settings(
+        strategy_client.update_strategy_settings(
             "0",    # time
             False,  # auto_market
             0       # quantity

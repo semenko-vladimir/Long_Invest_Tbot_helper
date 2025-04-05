@@ -1,14 +1,9 @@
 from telebot import types
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.handlers.bot.sandbox_info import sandbox_info_handler
 from app.client.handlers.bot.account_selection import get_account_handler
 from app.client.handlers.bot.strategy_set import set_signals
 from app.client.handlers.bot.strategy_remove import remove_strategy_handler
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
-
 
 @bot.message_handler(func=lambda message: message.text == 'Торговый робот')
 def bot_handler(message):

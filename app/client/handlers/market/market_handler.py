@@ -1,12 +1,8 @@
 from telebot import types
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.handlers.market.get_market_collapse import get_market_collapse_handler
 from app.client.handlers.market.get_market_growth import get_market_growth_handler
 from app.client.handlers.market.get_market_change import get_market_change_handler
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
 
 
 @bot.message_handler(func=lambda message: message.text == 'Состояние рынка')

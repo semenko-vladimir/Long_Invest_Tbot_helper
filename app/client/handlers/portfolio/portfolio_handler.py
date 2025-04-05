@@ -1,11 +1,7 @@
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from app.client.utils.methods import get_portfolio
 from dotenv import load_dotenv
 import os
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
 
 # Функция для получения токенов из переменных окружения
 def get_tokens():

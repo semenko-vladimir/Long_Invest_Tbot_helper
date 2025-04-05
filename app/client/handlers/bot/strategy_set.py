@@ -1,12 +1,13 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
+from app.client.api.strategy_client import StrategyApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.client.strategy.strategy_run import strategy_run
 from app.client.store.store import strategy_scheduler
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+strategy_client = StrategyApiClient()
+signals_client = SignalsApiClient()
 
 # Временные хранилища для данных
 available_signals = ['RSI', 'SMA', 'EMA', 'TAKE PROFIT/STOP LOSS', 'ALLIGATOR', 'GPT', 'LSTM', 'BOLLINGER', 'MACD']
@@ -66,7 +67,7 @@ def select_signal(call):
     # Проверяем, что все поля для сигнала заполнены
     try:
         if signal == 'RSI':
-            current_settings = api_client.get_signal_rsi()
+            current_settings = signals_client.get_signal_rsi()
             if current_settings:
                 selected_signals[signal] = True
                 rsi_trigger = True
@@ -75,7 +76,7 @@ def select_signal(call):
                 bot.send_message(chat_id, "Сигнал RSI не настроен.")
         
         elif signal == 'SMA':
-            current_settings = api_client.get_signal_sma()
+            current_settings = signals_client.get_signal_sma()
             if current_settings:
                 selected_signals[signal] = True
                 sma_trigger = True
@@ -84,7 +85,7 @@ def select_signal(call):
                 bot.send_message(chat_id, "Сигнал SMA не настроен.")
         
         elif signal == 'EMA':
-            current_settings = api_client.get_signal_ema()
+            current_settings = signals_client.get_signal_ema()
             if current_settings:
                 selected_signals[signal] = True
                 ema_trigger = True
@@ -93,7 +94,7 @@ def select_signal(call):
                 bot.send_message(chat_id, "Сигнал EMA не настроен.")
         
         elif signal == 'TAKE PROFIT/STOP LOSS':
-            current_settings = api_client.get_signal_tpsl()
+            current_settings = signals_client.get_signal_tpsl()
             if current_settings:
                 selected_signals[signal] = True
                 tpsl_trigger = True
@@ -102,7 +103,7 @@ def select_signal(call):
                 bot.send_message(chat_id, "Сигнал Take Profit/Stop Loss не настроен.")
         
         elif signal == 'ALLIGATOR':
-            current_settings = api_client.get_signal_alligator()
+            current_settings = signals_client.get_signal_alligator()
             if current_settings:
                 selected_signals[signal] = True
                 alligator_trigger = True
@@ -111,7 +112,7 @@ def select_signal(call):
                 bot.send_message(chat_id, "Сигнал Alligator не настроен.")
         
         elif signal == 'GPT':
-            current_settings = api_client.get_signal_gpt()
+            current_settings = signals_client.get_signal_gpt()
             if current_settings:
                 selected_signals[signal] = True
                 gpt_trigger = True
@@ -125,7 +126,7 @@ def select_signal(call):
             bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
         
         elif signal == 'BOLLINGER':
-            current_settings = api_client.get_signal_bollinger()
+            current_settings = signals_client.get_signal_bollinger()
             if current_settings:
                 selected_signals[signal] = True
                 bollinger_trigger = True
@@ -134,7 +135,7 @@ def select_signal(call):
                 bot.send_message(chat_id, "Сигнал Bollinger не настроен.")
         
         elif signal == 'MACD':
-            current_settings = api_client.get_signal_macd()
+            current_settings = signals_client.get_signal_macd()
             if current_settings:
                 selected_signals[signal] = True
                 macd_trigger = True
@@ -265,7 +266,7 @@ def set_joint(call):
 
     try:
         # Обновляем настройки стратегии через API-клиент
-        api_client.update_strategy_signals(
+        strategy_client.update_strategy_signals(
             tpsl_trigger,
             rsi_trigger,
             sma_trigger,
@@ -278,7 +279,7 @@ def set_joint(call):
             joint
         )
         
-        api_client.update_strategy_settings(
+        strategy_client.update_strategy_settings(
             f"{time}",
             auto_market,
             quantity

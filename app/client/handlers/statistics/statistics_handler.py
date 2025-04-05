@@ -1,11 +1,6 @@
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from telebot import types
 from app.client.handlers.statistics.calculate_statistics import calculate_statistics
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
-
 
 @bot.message_handler(func=lambda message: message.text == 'Статистика')
 def statistics_handler(message):

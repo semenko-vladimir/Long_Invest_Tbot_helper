@@ -1,6 +1,5 @@
 from telebot import types
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 from tinkoff.invest import Client, RequestError
 from tinkoff.invest.services import SandboxService
 from app.client.utils.helpers import to_money_value
@@ -8,9 +7,6 @@ from app.client.utils.methods import get_sandbox_portfolio
 from tinkoff.invest import MoneyValue
 from dotenv import load_dotenv
 import os
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
 
 # Функция для получения токенов из переменных окружения
 def get_tokens():

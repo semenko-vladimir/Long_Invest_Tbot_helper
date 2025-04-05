@@ -1,9 +1,9 @@
 from telebot import types
+from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
-from app.backend.api_client import ApiClient
 
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
+signals_client = SignalsApiClient()
+
 
 # Временное хранилище для данных пользователя
 user_tpsl_data = {}
@@ -38,7 +38,7 @@ def tpsl_handler(call):
     chat_id = call.message.chat.id
     
     # Получаем текущие настройки TPSL
-    current_settings = api_client.get_signal_tpsl()
+    current_settings = signals_client.get_signal_tpsl()
     
     if current_settings:
         take_profit = current_settings.get('take_profit', 10)
@@ -100,7 +100,7 @@ def get_sl_value(message):
     
     try:
         # Обновляем параметры через API-клиент
-        result = api_client.update_signal_tpsl(tp_value, sl_value)
+        result = signals_client.update_signal_tpsl(tp_value, sl_value)
         
         # Подтверждение настройки стратегии
         bot.send_message(

@@ -4,16 +4,16 @@ import os
 from dotenv import load_dotenv
 from tinkoff.invest import Client, RequestError, OrderDirection, OrderType, GetOrdersResponse
 from tinkoff.invest.services import SandboxService
+from app.client.api.trading_client import TradingApiClient
 from app.client.log.logger import setup_logger
 from app.client.utils.methods import calc_avaliable_lots, check_enough_currency, get_current_price
 from app.client.utils.helpers import cast_money, format_date
-from app.backend.api_client import ApiClient
-
-# Создаем экземпляр API-клиента
-api_client = ApiClient()
-
-logger = setup_logger(__name__)
 from app.client.bot.bot import bot
+
+
+
+trading_client = TradingApiClient()
+logger = setup_logger(__name__)
 
 def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_method: str, ticker, bm_value, signal):
     """
@@ -67,7 +67,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                         )
 
                         # Создаем новый ордер через API клиент
-                        api_client.add_order({
+                        trading_client.add_order({
                             "order_id": order_id,
                             "ticker": ticker,
                             "signal": signal,
@@ -110,7 +110,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     )
 
                     # Создаем новый ордер через API клиент
-                    api_client.add_order({
+                    trading_client.add_order({
                         "order_id": order_id,
                         "ticker": ticker,
                         "signal": signal,
@@ -153,7 +153,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                         )
 
                         # Создаем новый ордер через API клиент
-                        api_client.add_order({
+                        trading_client.add_order({
                             "order_id": order_id,
                             "ticker": ticker,
                             "signal": signal,
@@ -195,7 +195,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     )
 
                     # Создаем новый ордер через API клиент
-                    api_client.add_order({
+                    trading_client.add_order({
                         "order_id": order_id,
                         "ticker": ticker,
                         "signal": signal,
@@ -339,7 +339,7 @@ def check_orders(token: str, chat_id=None, sandbox_method: bool=False):
             return
         
     # Получаем все ордеры через API клиент
-    orders_db = api_client.get_all_orders()
+    orders_db = trading_client.get_all_orders()
 
     if not orders_db or len(orders_db) == 0:
         return
@@ -356,11 +356,11 @@ def check_orders(token: str, chat_id=None, sandbox_method: bool=False):
 
         if not existing_order:
             # Удаляем ордер через API клиент
-            api_client.delete_order_by_order_id(order_id)
+            trading_client.delete_order_by_order_id(order_id)
 
             if operation_type == "buy":
                 # Создаем новую покупку через API клиент
-                api_client.add_buy(
+                trading_client.add_buy(
                     price=float(bm_value),
                     ticker=str(ticker),
                     signal=str(signal),
@@ -378,7 +378,7 @@ def check_orders(token: str, chat_id=None, sandbox_method: bool=False):
 
             elif operation_type == "sell":
                 # Создаем новую маржу через API клиент
-                api_client.add_margin(
+                trading_client.add_margin(
                     margin=float(bm_value),
                     ticker=str(ticker),
                     signal=str(signal),
