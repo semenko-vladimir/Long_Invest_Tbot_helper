@@ -1,6 +1,7 @@
 from app.client.api.strategy_client import StrategyApiClient
 from app.client.bot.bot import bot
 from app.client.store.store import strategy_scheduler, selected_signals, tpsl_trigger, rsi_trigger, sma_trigger, ema_trigger, alligator_trigger, gpt_trigger, lstm_trigger, bollinger_trigger, macd_trigger, time, auto_market, quantity, joint
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 strategy_client = StrategyApiClient()
 
@@ -15,6 +16,9 @@ def remove_strategy_handler(call):
     chat_id = call.message.chat.id
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nОтключаем текущую стратегию...")
+        
         # Останавливаем планировщик, если он существует
         global strategy_scheduler
         if strategy_scheduler:
@@ -57,7 +61,7 @@ def remove_strategy_handler(call):
         quantity = None
         joint = None
         
-        bot.send_message(chat_id, "Стратегия отключена.")
+        send_or_edit_message(chat_id, "🛑 *Стратегия отключена*\n\nВсе параметры стратегии сброшены.")
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при отключении стратегии: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при отключении стратегии*\n\n`{str(e)}`")

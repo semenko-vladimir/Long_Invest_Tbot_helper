@@ -5,6 +5,7 @@ from app.client.bot.bot import bot
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.client.strategy.strategy_run import strategy_run
 from app.client.store.store import strategy_scheduler
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 strategy_client = StrategyApiClient()
 signals_client = SignalsApiClient()
@@ -36,16 +37,26 @@ def set_signals(call):
     """
     chat_id = call.message.chat.id
     
-    # Генерация кнопок для выбора сигналов
+    # Генерация кнопок для выбора сигналов с эмодзи
     markup = types.InlineKeyboardMarkup(row_width=2)
-    buttons = [types.InlineKeyboardButton(signal, callback_data=f'select_{signal.lower()}') for signal in available_signals]
-    buttons.append(types.InlineKeyboardButton('Ок', callback_data='ok'))
-    buttons.append(types.InlineKeyboardButton('Отмена', callback_data='cancel'))
+    signal_emojis = {
+        'RSI': '📊', 'SMA': '📈', 'EMA': '📉', 
+        'TAKE PROFIT/STOP LOSS': '🎯', 'ALLIGATOR': '🐊',
+        'GPT': '🤖', 'LSTM': '🧠', 'BOLLINGER': '📊', 'MACD': '📈'
+    }
+    
+    buttons = [types.InlineKeyboardButton(f"{signal_emojis.get(signal, '')} {signal}", callback_data=f'select_{signal.lower()}') for signal in available_signals]
+    buttons.append(types.InlineKeyboardButton('✅ Ок', callback_data='ok'))
+    buttons.append(types.InlineKeyboardButton('❌ Отмена', callback_data='cancel'))
     
     for button in buttons:
         markup.add(button)
     
-    bot.send_message(chat_id, "Выберите, какие сигналы подключить к стратегии:", reply_markup=markup)
+    send_or_edit_message(
+        chat_id, 
+        "⚙️ *Настройка стратегии*\n\nВыберите, какие сигналы подключить к стратегии:", 
+        reply_markup=markup
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
@@ -61,7 +72,7 @@ def select_signal(call):
 
     # Проверяем, не выбран ли сигнал уже
     if selected_signals.get(signal):
-        bot.send_message(chat_id, f"Сигнал {signal} уже выбран.")
+        send_or_edit_message(chat_id, f"ℹ️ *Информация*\n\nСигнал {signal} уже выбран.")
         return
 
     # Проверяем, что все поля для сигнала заполнены
@@ -71,80 +82,80 @@ def select_signal(call):
             if current_settings:
                 selected_signals[signal] = True
                 rsi_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал RSI не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал RSI не настроен.")
         
         elif signal == 'SMA':
             current_settings = signals_client.get_signal_sma()
             if current_settings:
                 selected_signals[signal] = True
                 sma_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал SMA не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал SMA не настроен.")
         
         elif signal == 'EMA':
             current_settings = signals_client.get_signal_ema()
             if current_settings:
                 selected_signals[signal] = True
                 ema_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал EMA не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал EMA не настроен.")
         
         elif signal == 'TAKE PROFIT/STOP LOSS':
             current_settings = signals_client.get_signal_tpsl()
             if current_settings:
                 selected_signals[signal] = True
                 tpsl_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал Take Profit/Stop Loss не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал Take Profit/Stop Loss не настроен.")
         
         elif signal == 'ALLIGATOR':
             current_settings = signals_client.get_signal_alligator()
             if current_settings:
                 selected_signals[signal] = True
                 alligator_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал Alligator не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал Alligator не настроен.")
         
         elif signal == 'GPT':
             current_settings = signals_client.get_signal_gpt()
             if current_settings:
                 selected_signals[signal] = True
                 gpt_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал GPT не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал GPT не настроен.")
         
         elif signal == 'LSTM':
             selected_signals[signal] = True
             lstm_trigger = True
-            bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+            send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
         
         elif signal == 'BOLLINGER':
             current_settings = signals_client.get_signal_bollinger()
             if current_settings:
                 selected_signals[signal] = True
                 bollinger_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал Bollinger не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал Bollinger не настроен.")
         
         elif signal == 'MACD':
             current_settings = signals_client.get_signal_macd()
             if current_settings:
                 selected_signals[signal] = True
                 macd_trigger = True
-                bot.send_message(chat_id, f"Сигнал {signal} добавлен.")
+                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
             else:
-                bot.send_message(chat_id, "Сигнал MACD не настроен.")
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал MACD не настроен.")
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при проверке настроек сигнала {signal}: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при проверке настроек сигнала*\n\n`{str(e)}`")
 
     # Повторно выводим кнопки для выбора сигналов
     set_signals(call)
@@ -160,17 +171,21 @@ def confirm_selection(call):
     chat_id = call.message.chat.id
 
     if not selected_signals:
-        bot.send_message(chat_id, "Вы не выбрали ни одного сигнала.")
+        send_or_edit_message(chat_id, "❌ *Ошибка*\n\nВы не выбрали ни одного сигнала.")
         return
 
     # Показываем выбор времени
     markup = types.InlineKeyboardMarkup(row_width=3)
     markup.add(
-        types.InlineKeyboardButton('2 минуты', callback_data='time_2'),
-        types.InlineKeyboardButton('5 минут', callback_data='time_5'),
-        types.InlineKeyboardButton('10 минут', callback_data='time_10')
+        types.InlineKeyboardButton('⏱️ 2 минуты', callback_data='time_2'),
+        types.InlineKeyboardButton('⏱️ 5 минут', callback_data='time_5'),
+        types.InlineKeyboardButton('⏱️ 10 минут', callback_data='time_10')
     )
-    bot.send_message(chat_id, "Выберите время для стратегии:", reply_markup=markup)
+    send_or_edit_message(
+        chat_id, 
+        "⏰ *Выбор интервала*\n\nВыберите время для выполнения стратегии:", 
+        reply_markup=markup
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('time_'))
@@ -187,10 +202,14 @@ def select_time(call):
     # Спрашиваем о включении автоматической торговли
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton('Да', callback_data='auto_yes'),
-        types.InlineKeyboardButton('Нет', callback_data='auto_no')
+        types.InlineKeyboardButton('✅ Да', callback_data='auto_yes'),
+        types.InlineKeyboardButton('❌ Нет', callback_data='auto_no')
     )
-    bot.send_message(chat_id, "Включить автоматическую торговлю?", reply_markup=markup)
+    send_or_edit_message(
+        chat_id, 
+        "🤖 *Автоматическая торговля*\n\nВключить автоматическую торговлю?", 
+        reply_markup=markup
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('auto_'))
@@ -206,7 +225,7 @@ def set_auto_market(call):
 
     if auto_market:
         # Спрашиваем у пользователя, сколько бумаг покупать/продавать
-        msg = bot.send_message(chat_id, "Введите количество бумаг для покупки/продажи:")
+        msg = send_or_edit_message(chat_id, "🔢 *Количество бумаг*\n\nВведите количество бумаг для покупки/продажи:")
         bot.register_next_step_handler(msg, set_quantity)
     else:
         # Обновляем стратегию с joint-параметром в зависимости от выбора пользователя
@@ -228,7 +247,7 @@ def set_quantity(message):
     try:
         quantity = int(message.text)
     except ValueError:
-        msg = bot.send_message(chat_id, "Пожалуйста, введите корректное количество (целое число):")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nПожалуйста, введите корректное количество (целое число):")
         bot.register_next_step_handler(msg, set_quantity)
         return
 
@@ -245,11 +264,15 @@ def ask_for_joint(chat_id):
     # Спрашиваем пользователя, какой логический оператор использовать
     markup = types.InlineKeyboardMarkup()
     markup.add(
-        types.InlineKeyboardButton("И", callback_data='joint_and'),
-        types.InlineKeyboardButton("ИЛИ", callback_data='joint_or')
+        types.InlineKeyboardButton("🔄 И (AND)", callback_data='joint_and'),
+        types.InlineKeyboardButton("🔀 ИЛИ (OR)", callback_data='joint_or')
     )
     
-    bot.send_message(chat_id, "Выберите логический оператор для условий:", reply_markup=markup)
+    send_or_edit_message(
+        chat_id, 
+        "🔗 *Логический оператор*\n\nВыберите логический оператор для объединения условий:", 
+        reply_markup=markup
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ['joint_and', 'joint_or'])
@@ -265,6 +288,8 @@ def set_joint(call):
     joint = call.data == 'joint_and'
 
     try:
+        send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nОбновляем настройки стратегии...")
+        
         # Обновляем настройки стратегии через API-клиент
         strategy_client.update_strategy_signals(
             tpsl_trigger,
@@ -318,10 +343,10 @@ def set_joint(call):
         quantity = None
         joint = None
 
-        bot.send_message(chat_id, "Стратегия обновлена.")
+        send_or_edit_message(chat_id, "✅ *Успешно*\n\nСтратегия успешно обновлена и запущена.")
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при обновлении стратегии: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при обновлении стратегии*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel')
@@ -350,4 +375,4 @@ def cancel_strategy(call):
     quantity = None
     joint = None
 
-    bot.send_message(chat_id, "Выбор стратегии отменен.")
+    send_or_edit_message(chat_id, "❌ *Отменено*\n\nВыбор стратегии отменен.")

@@ -4,6 +4,7 @@ from app.client.bot.bot import bot
 from telebot import types
 from app.client.config.schedulers_config import configure_market_scheduler
 from app.client.handlers.notifications.utils.utils import stop_scheduler, get_interval_from_callback
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 config_client = ConfigApiClient()
 instruments_client = InstrumentsApiClient()
@@ -23,16 +24,16 @@ def add_collapse_market_handler(call):
         config = config_client.get_config()
         
         if config and config.get('collapse_updates', False):
-            bot.send_message(chat_id, 'Вы уже подписаны на обновления падений рынка')
+            send_or_edit_message(chat_id, '📊 *Подписка на уведомления*\n\nВы уже подписаны на обновления падений рынка')
             return
         
-        bot.send_message(chat_id, 'Вы автоматически будете отписаны от обновлений рынка')
+        send_or_edit_message(chat_id, '🔄 *Изменение подписки*\n\nВы автоматически будете отписаны от обновлений рынка')
         
         # Получаем список всех инструментов
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Ошибка подписки*\n\nУ вас нет активных инструментов')
         else:
             inline_keyboard = types.InlineKeyboardMarkup()
             buttons = [types.InlineKeyboardButton(text=t, callback_data=f'ucinterval_{t}') for t in ['10 минут', 'пол часа', 'час']]
@@ -40,10 +41,14 @@ def add_collapse_market_handler(call):
             for button in buttons:
                 inline_keyboard.add(button)
             
-            bot.send_message(chat_id, 'Выберите интервал для получения обновлений', reply_markup=inline_keyboard)
+            send_or_edit_message(
+                chat_id, 
+                '⏱️ *Выбор интервала*\n\nВыберите интервал для получения обновлений о падениях рынка:', 
+                reply_markup=inline_keyboard
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при подписке на обновления: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при подписке на обновления*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('ucinterval_'))
@@ -76,10 +81,13 @@ def collapse_interval_handler(call):
         print("РАБОТАЮТ ПАДЕНИЯ РЫНКА")
         configure_market_scheduler()
         
-        bot.send_message(chat_id, f'Вы подписались на обновления о падениях рынка с интервалом {time_str}')
+        send_or_edit_message(
+            chat_id, 
+            f'✅ *Успешно*\n\nВы подписались на обновления о падениях рынка с интервалом {time_str}'
+        )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при настройке интервала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при настройке интервала*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'remove_collapse_market')
@@ -103,7 +111,7 @@ def remove_collapse_market_handler(call):
         # Останавливаем планировщик
         stop_scheduler()
         
-        bot.send_message(chat_id, 'Вы отписались от обновлений о падениях рынка')
+        send_or_edit_message(chat_id, '🔕 *Отписка от уведомлений*\n\nВы отписались от обновлений о падениях рынка')
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при отписке от обновлений: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при отписке от обновлений*\n\n`{str(e)}`")

@@ -5,6 +5,7 @@ from tinkoff.invest import Client
 from tinkoff.invest.services import SandboxService
 from dotenv import load_dotenv
 import os
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 config_client = ConfigApiClient()
 
@@ -34,14 +35,18 @@ def get_account_handler(call):
     
     inline_keyboard = types.InlineKeyboardMarkup()
     buttons = [
-        types.InlineKeyboardButton(text='Боевой счет', callback_data='real_account'),
-        types.InlineKeyboardButton(text='Песочница', callback_data='sandbox_account'),
+        types.InlineKeyboardButton(text='💹 Боевой счет', callback_data='real_account'),
+        types.InlineKeyboardButton(text='🏝️ Песочница', callback_data='sandbox_account'),
     ]
     
     for button in buttons:
         inline_keyboard.add(button)
     
-    bot.send_message(chat_id, 'Выберите счет:', reply_markup=inline_keyboard)
+    send_or_edit_message(
+        chat_id, 
+        '💼 *Выбор счета*\n\nВыберите тип счета для торговли:', 
+        reply_markup=inline_keyboard
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'real_account')
@@ -54,12 +59,15 @@ def real_account(call):
     chat_id = call.message.chat.id
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nНастраиваем боевой счет...")
+        
         # Используем API-клиент для установки флага sandbox_trigger
         config_client.set_sandbox_trigger(False)
-        bot.send_message(chat_id, 'Вы выбрали боевой счет')
+        send_or_edit_message(chat_id, "✅ *Успешно*\n\nВы выбрали боевой счет")
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при выборе боевого счета: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при выборе боевого счета*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'sandbox_account')
@@ -73,6 +81,9 @@ def sandbox_account(call):
     tokens = get_tokens()
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nНастраиваем режим песочницы...")
+        
         # Используем API-клиент для установки флага sandbox_trigger
         config_client.set_sandbox_trigger(True)
 
@@ -83,10 +94,10 @@ def sandbox_account(call):
             r = sb.get_sandbox_accounts().accounts
 
             if len(r) > 0:
-                bot.send_message(chat_id, 'Вы выбрали песочницу.')
+                send_or_edit_message(chat_id, "✅ *Успешно*\n\nВы выбрали режим песочницы")
             else:
                 sb.open_sandbox_account()
-                bot.send_message(chat_id, 'Создан новый счет в песочнице. Выбрана песочница.')
+                send_or_edit_message(chat_id, "✅ *Успешно*\n\nСоздан новый счет в песочнице. Выбран режим песочницы.")
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при выборе песочницы: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при выборе песочницы*\n\n`{str(e)}`")

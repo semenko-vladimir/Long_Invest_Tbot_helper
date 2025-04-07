@@ -4,6 +4,7 @@ from app.client.bot.bot import bot
 from telebot import types
 from app.client.utils.methods import get_info_by_ticker, get_price_change_in_current_interval
 from tinkoff.invest import CandleInterval
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 instruments_client = InstrumentsApiClient()
 
@@ -41,7 +42,7 @@ def get_market_collapse_handler(call):
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nУ вас нет активных инструментов')
         else:
             inline_keyboard = types.InlineKeyboardMarkup()
             buttons = [
@@ -56,10 +57,14 @@ def get_market_collapse_handler(call):
             for button in buttons:
                 inline_keyboard.add(button)
             
-            bot.send_message(chat_id, 'Выберите интервал', reply_markup=inline_keyboard)
+            send_or_edit_message(
+                chat_id, 
+                '📉 *Обвал рынка*\n\nВыберите интервал времени:', 
+                reply_markup=inline_keyboard
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении списка инструментов: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при получении списка инструментов*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('intervalcollapse_'))
@@ -86,10 +91,14 @@ def interval_handler(call):
         for button in buttons:
             inline_keyboard.add(button)
         
-        bot.send_message(chat_id, 'Выберите процент', reply_markup=inline_keyboard)
+        send_or_edit_message(
+            chat_id, 
+            f'📉 *Обвал рынка*\n\nВыбран интервал: `{interval}`\n\nВыберите процентный диапазон:', 
+            reply_markup=inline_keyboard
+        )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при выборе интервала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при выборе интервала*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('percentcollapse_'))
@@ -105,16 +114,23 @@ def percent_handler(call):
     interval = data[2]
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(
+            chat_id, 
+            f"⏳ *Обработка запроса*\n\nПолучаем данные об обвале рынка за интервал `{interval}` с диапазоном `{percent_range}`..."
+        )
+        
         # Получаем начальное время и интервал свечи
         start_time, candle_interval = get_time_interval(interval)
         if start_time is None:
-            bot.send_message(chat_id, 'Некорректный интервал')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nНекорректный интервал')
             return
         
         # Получаем список всех инструментов
         instruments = instruments_client.get_all_instruments()
         
         # Проверяем каждый инструмент
+        found_instruments = False
         for instrument in instruments:
             ticker = instrument.get('ticker')
             figi = instrument.get('figi')
@@ -132,19 +148,27 @@ def percent_handler(call):
             # Проверяем изменение цены в зависимости от выбранного процента
             low, high = PERCENT_RANGES[percent_range]
             if high < price_change_percent <= low:
-                bot.send_message(
-                    chat_id, 
-                    f'Название: {name}\n'
-                    f'Тип: {type_of}\n'
-                    f'Тикер: {ticker}\n'
-                    f'Изменение цены: {round(price_change_percent, 2)}%\n'
-                    f'Цена закрытия последней свечи: {close_price}\n'
-                    f'Максимальная цена: {max_price}\n'
-                    f'Минимальная цена: {min_price}'
+                found_instruments = True
+                message_text = (
+                    f'📉 *Информация об обвале инструмента*\n\n'
+                    f'📌 Название: `{name}`\n'
+                    f'📋 Тип: `{type_of}`\n'
+                    f'🏷️ Тикер: `{ticker}`\n'
+                    f'📊 Изменение цены: `{round(price_change_percent, 2)}%`\n'
+                    f'💰 Цена закрытия последней свечи: `{close_price}`\n'
+                    f'⬆️ Максимальная цена: `{max_price}`\n'
+                    f'⬇️ Минимальная цена: `{min_price}`\n'
                 )
+                send_or_edit_message(chat_id, message_text)
+        
+        if not found_instruments:
+            send_or_edit_message(
+                chat_id, 
+                f'ℹ️ *Информация*\n\nНе найдено инструментов с падением в диапазоне {percent_range} за интервал {interval}'
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении данных об обвале рынка: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при получении данных об обвале рынка*\n\n`{str(e)}`")
 
 
 # Вспомогательная функция для получения интервала

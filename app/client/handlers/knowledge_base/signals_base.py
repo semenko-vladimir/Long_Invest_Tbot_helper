@@ -1,36 +1,57 @@
 from app.client.bot.bot import bot
 from telebot import types
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_signals')
 def base_signals_handler(call):
+    """
+    Обработчик для раздела базы знаний о сигналах и их настройке.
+    """
     chat_id = call.message.chat.id
     
     text = [
+        f'🚨 *РАЗДЕЛ: СИГНАЛЫ И ИХ НАСТРОЙКА*\n\n'
         f'Здесь вы можете получить информацию о сигналах и их настройке.\n',
     ]
 
     inline_keyboard = types.InlineKeyboardMarkup()
+    
+    # Создаем кнопки для выбора типа сигнала
     buttons = [
-        types.InlineKeyboardButton(text='RSI', callback_data='base_rsi'),
-        types.InlineKeyboardButton(text='SMA', callback_data='base_sma'),
-        types.InlineKeyboardButton(text='EMA', callback_data='base_ema'),
-        types.InlineKeyboardButton(text='Alligator', callback_data='base_alligator'),
-        types.InlineKeyboardButton(text='Bollinger', callback_data='base_bollinger'),
-        types.InlineKeyboardButton(text='MACD', callback_data='base_macd'),
-        types.InlineKeyboardButton(text='LSTM', callback_data='base_lstm'),
-        types.InlineKeyboardButton(text='GPT', callback_data='base_gpt'),
+        types.InlineKeyboardButton(text='RSI 📊', callback_data='base_rsi'),
+        types.InlineKeyboardButton(text='SMA 📈', callback_data='base_sma'),
+        types.InlineKeyboardButton(text='EMA 📉', callback_data='base_ema'),
+        types.InlineKeyboardButton(text='Alligator 🐊', callback_data='base_alligator'),
+        types.InlineKeyboardButton(text='Bollinger 📊', callback_data='base_bollinger'),
+        types.InlineKeyboardButton(text='MACD 📈', callback_data='base_macd'),
+        types.InlineKeyboardButton(text='LSTM 🧠', callback_data='base_lstm'),
+        types.InlineKeyboardButton(text='GPT 🤖', callback_data='base_gpt'),
     ]
-    inline_keyboard.add(*buttons)
+    
+    # Добавляем по 2 кнопки в строку
+    for i in range(0, len(buttons), 2):
+        if i + 1 < len(buttons):
+            inline_keyboard.add(buttons[i], buttons[i+1])
+        else:
+            inline_keyboard.add(buttons[i])
+    
+    # Добавляем кнопку возврата
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к базе знаний', callback_data='back_to_knowledge_base')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text), reply_markup=inline_keyboard)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_sma')
 def base_sma_handler(call):
+    """
+    Обработчик для информации о SMA.
+    """
     chat_id = call.message.chat.id
    
     text = [       
-        f'SMA\n'
+        f'📈 *SMA (Simple Moving Average)*\n'
         f'\nSMA (Simple Moving Average) — это технический индикатор, который отображает значение простой скользящей средней в тренде.\n'
         f'\nВ данном боте сигнал SMA представляет собой пересечение двух простых скользящих средних.\n'
         f'\n📈 Быстрая скользящая средняя (Fast SMA) — это более короткая скользящая средняя, которая быстрее реагирует на изменения цен. Она рассчитывается на меньшем количестве периодов, что делает её более чувствительной к недавним движениям цен.\n'
@@ -39,18 +60,25 @@ def base_sma_handler(call):
         f'\n🔧 Базовые настройки сигнала SMA:\n'
         f'\n    fastLength: 10\n'
         f'\n    slowLength: 30\n'
-
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_ema')
 def base_ema_handler(call):
+    """
+    Обработчик для информации о EMA.
+    """
     chat_id = call.message.chat.id
     
     text = [
-        f'EMA\n'
+        f'📉 *EMA (Exponential Moving Average)*\n'
         f'\nEMA (Exponential Moving Average) — это технический индикатор, который вычисляет скользящую среднюю, придавая большее значение последним ценам. Это делает её более чувствительной к изменениям цен по сравнению с SMA.\n'
         f'\n🔍 В данном боте сигнал EMA также представляет собой пересечение двух экспоненциальных скользящих средних.\n'
         f'\n📈 Быстрая экспоненциальная скользящая средняя (Fast EMA) — это более короткая EMA, которая быстрее реагирует на изменения цен, так как она использует меньшее количество периодов и придаёт больший вес последним значениям.\n'
@@ -61,14 +89,23 @@ def base_ema_handler(call):
         f'\n    slowLength: 30\n'
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_rsi')
 def base_rsi_handler(call):
+    """
+    Обработчик для информации о RSI.
+    """
     chat_id = call.message.chat.id
     
     text = [
-        f'RSI\n'
+        f'📊 *RSI (Relative Strength Index)*\n'
         f'\nRSI (Relative Strength Index) — это осциллятор, который измеряет скорость и изменения ценовых движений. Он используется для определения уровней перекупленности и перепроданности на рынке.\n'
         f'\n🔍 RSI колеблется в диапазоне от 0 до 100, и обычно значения выше 70 указывают на перекупленность, а ниже 30 — на перепроданность. Это может помочь трейдерам определить, когда стоит открывать или закрывать позиции.\n'
         f'\n📈 Чем выше RSI, тем сильнее восходящий тренд, тогда как низкие значения RSI указывают на силу нисходящего тренда.\n'
@@ -79,15 +116,23 @@ def base_rsi_handler(call):
         f'\n    lowLevel: 30 — уровень перепроданности, ниже которого возможен рост.\n'
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_alligator')
 def base_alligator_handler(call):
+    """
+    Обработчик для информации об индикаторе Аллигатор.
+    """
     chat_id = call.message.chat.id
     
     text = [
-        f'🐊 Индикатор Аллигатор\n'
+        f'🐊 *Индикатор Аллигатор*\n'
         f'\nИндикатор Аллигатор — это осцилляторный индикатор технического анализа, разработанный известным трейдером Биллом Уильямсом. Он используется для определения изменений в рыночном тренде, выявляя моменты перехода от трендового движения к боковому и наоборот.\n'
         f'\n🔍 График индикатора состоит из трех линий, которые представляют собой сглаженные скользящие средние (SMA) с разными периодами и смещением. Все линии основаны на средней цене, рассчитываемой как (High + Low) / 2.\n'
         f'\n📈 Синяя линия (Челюсть) — период 21, сдвиг 8 баров: показывает возможное местоположение цены при отсутствии важных новостей. Если линия находится ниже графика цены, это сигнализирует о восходящем движении. Если выше, то о нисходящем.\n'
@@ -103,14 +148,23 @@ def base_alligator_handler(call):
         f'\n    lips_shift: 3 — смещение для губ.\n'
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_bollinger')
 def base_bollinger_handler(call):
+    """
+    Обработчик для информации о Полосах Боллинджера.
+    """
     chat_id = call.message.chat.id
     
     text = [
-        f'📈 Полосы Боллинджера\n'
+        f'📈 *Полосы Боллинджера*\n'
         f'\nИндикатор Полосы Боллинджера — это технический индикатор, который состоит из трех линий и используется для оценки волатильности рынка и определения уровней перекупленности и перепроданности.\n'
         f'\n🔍 Индикатор состоит из:\n'
         f'1. **Средняя линия (Middle Band)** — это скользящая средняя, которая рассчитывается на основе цен закрытия за определенный период.\n'
@@ -126,14 +180,23 @@ def base_bollinger_handler(call):
         f'\n    ma_type: "SMA" или "EMA" — тип скользящей средней, которую вы хотите использовать для расчета средней линии.\n'
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_macd')
 def base_macd_handler(call):
+    """
+    Обработчик для информации о MACD.
+    """
     chat_id = call.message.chat.id
     
     text = [
-        f'📈 MACD (Moving Average Convergence Divergence)\n'
+        f'📈 *MACD (Moving Average Convergence Divergence)*\n'
         f'\nИндикатор MACD — это один из наиболее популярных инструментов технического анализа, используемый для определения силы, направления и продолжительности тренда. Он основан на разности двух экспоненциальных скользящих средних (EMA).\n'
         f'\n🔍 MACD состоит из двух линий:\n'
         f'1. **Линия MACD** — это разность между быстрой и медленной EMA. Эта линия отражает силу тренда и его направление.\n'
@@ -147,15 +210,23 @@ def base_macd_handler(call):
         f'\n    signal_length: 9 — период для сигнальной линии, обычно равный 9.\n'
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_lstm')
 def base_lstm_handler(call):
+    """
+    Обработчик для информации о LSTM.
+    """
     chat_id = call.message.chat.id
     
     text = [
-        f'📉 LSTM (Long Short-Term Memory)\n'
+        f'🧠 *LSTM (Long Short-Term Memory)*\n'
         f'\nLSTM — это тип рекуррентной нейронной сети (RNN), способной запоминать зависимости в последовательных данных. Он особенно эффективен для анализа временных рядов, таких как цены акций.\n'
         f'\n🔍 Основные особенности LSTM:\n'
         f'- **Запоминание зависимостей**: LSTM может запоминать информацию на долгие промежутки времени, что позволяет учитывать прошлые значения при прогнозировании будущих цен.\n'
@@ -170,14 +241,23 @@ def base_lstm_handler(call):
         f'\n🔧 **Настройки**: Модель LSTM не имеет настраиваемых параметров, она обучается на исторических данных и предсказывает цены на основе обученных зависимостей.\n'
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_gpt')
 def base_gpt_handler(call):
+    """
+    Обработчик для информации о GPT.
+    """
     chat_id = call.message.chat.id
+    
     text = [
-        f'🧠 GPT (Generative Pre-trained Transformer)\n'
+        f'🤖 *GPT (Generative Pre-trained Transformer)*\n'
         f'\nGPT — это мощная языковая модель, способная генерировать текст и анализировать информацию на основе заданного промпта. Она использует знания из огромного объёма текста для генерации ответов, что делает её полезной в различных сценариях.\n'
         f'\n🔍 Основные особенности использования GPT для анализа:\n'
         f'- **Анализ данных**: Вы можете вводить текст с вопросами или запросами на анализ, и модель предоставит осмысленные ответы.\n'
@@ -190,7 +270,12 @@ def base_gpt_handler(call):
         f'\n⚠️ **Замечание**: Результаты, полученные от GPT, являются рекомендациями и не должны восприниматься как финансовые советы.\n'
     ]
 
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню сигналов
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к сигналам', callback_data='base_signals')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)
 
 
 

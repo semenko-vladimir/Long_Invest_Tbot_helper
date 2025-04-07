@@ -1,6 +1,7 @@
 from telebot import types
 from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 signals_client = SignalsApiClient()
 
@@ -26,16 +27,16 @@ def macd_handler(call):
         slow_length = current_settings.get('slowLength', 26)
         signal_length = current_settings.get('signalLength', 9)
         
-        bot.send_message(
+        send_or_edit_message(
             chat_id, 
-            f'Текущие настройки MACD:\n'
-            f'Период быстрой EMA: {fast_length}\n'
-            f'Период медленной EMA: {slow_length}\n'
-            f'Период сигнальной линии: {signal_length}'
+            f'📈 *Текущие настройки MACD*\n\n'
+            f'• Период быстрой EMA: `{fast_length}`\n'
+            f'• Период медленной EMA: `{slow_length}`\n'
+            f'• Период сигнальной линии: `{signal_length}`'
         )
     
     # Запрашиваем период быстрой EMA
-    msg = bot.send_message(chat_id, "Введите период быстрой EMA:")
+    msg = send_or_edit_message(chat_id, "📈 *Настройка MACD*\n\nВведите период быстрой EMA:")
     bot.register_next_step_handler(msg, get_macd_fast)
 
 
@@ -68,14 +69,14 @@ def get_macd_fast(message):
     fast_ema_period = message.text
     
     if not validate_number(fast_ema_period):
-        msg = bot.send_message(chat_id, "Число должно быть целым, больше 0 и меньше 100. Попробуйте снова:")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nЧисло должно быть целым, больше 0 и меньше 100. Попробуйте снова:")
         bot.register_next_step_handler(msg, get_macd_fast)
         return
     
     fast_ema_period = int(fast_ema_period)
     user_macd_data[chat_id] = {'fast_ema': fast_ema_period}
-    bot.send_message(chat_id, f"Вы выбрали период быстрой EMA: {fast_ema_period}. Теперь введите период медленной EMA:")
-    bot.register_next_step_handler(message, get_macd_slow)
+    msg = send_or_edit_message(chat_id, f"✅ Вы выбрали период быстрой EMA: `{fast_ema_period}`\n\n*Теперь введите период медленной EMA:*")
+    bot.register_next_step_handler(msg, get_macd_slow)
 
 
 def get_macd_slow(message):
@@ -88,14 +89,14 @@ def get_macd_slow(message):
     slow_ema_period = message.text
     
     if not validate_number(slow_ema_period):
-        msg = bot.send_message(chat_id, "Число должно быть целым, больше 0 и меньше 100. Попробуйте снова:")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nЧисло должно быть целым, больше 0 и меньше 100. Попробуйте снова:")
         bot.register_next_step_handler(msg, get_macd_slow)
         return
     
     slow_ema_period = int(slow_ema_period)
     user_macd_data[chat_id]['slow_ema'] = slow_ema_period
-    bot.send_message(chat_id, f"Вы выбрали период медленной EMA: {slow_ema_period}. Теперь введите период сигнальной линии:")
-    bot.register_next_step_handler(message, get_macd_signal)
+    msg = send_or_edit_message(chat_id, f"✅ Вы выбрали период медленной EMA: `{slow_ema_period}`\n\n*Теперь введите период сигнальной линии:*")
+    bot.register_next_step_handler(msg, get_macd_signal)
 
 
 def get_macd_signal(message):
@@ -108,7 +109,7 @@ def get_macd_signal(message):
     signal_period = message.text
     
     if not validate_number(signal_period):
-        msg = bot.send_message(chat_id, "Число должно быть целым, больше 0 и меньше 100. Попробуйте снова:")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nЧисло должно быть целым, больше 0 и меньше 100. Попробуйте снова:")
         bot.register_next_step_handler(msg, get_macd_signal)
         return
     
@@ -124,16 +125,16 @@ def get_macd_signal(message):
         result = signals_client.update_signal_macd(fast_ema, slow_ema, signal_period)
         
         # Подтверждение настройки стратегии
-        bot.send_message(
+        send_or_edit_message(
             chat_id, 
-            f"Стратегия MACD настроена с параметрами:\n"
-            f"Период быстрой EMA: {fast_ema}\n"
-            f"Период медленной EMA: {slow_ema}\n"
-            f"Период сигнальной линии: {signal_period}"
+            f"✅ *Стратегия MACD успешно настроена*\n\n"
+            f"• Период быстрой EMA: `{fast_ema}`\n"
+            f"• Период медленной EMA: `{slow_ema}`\n"
+            f"• Период сигнальной линии: `{signal_period}`"
         )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при обновлении настроек MACD: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при обновлении настроек MACD*\n\n`{str(e)}`")
     
     # Очищаем временные данные после использования
     del user_macd_data[chat_id]

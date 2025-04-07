@@ -1,6 +1,7 @@
 from telebot import types
 from app.client.api.instruments_client import InstrumentsApiClient
 from app.client.bot.bot import bot
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 instruments_client = InstrumentsApiClient()
 
@@ -15,22 +16,29 @@ def delete_instrument_handler(call):
     chat_id = call.message.chat.id
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, '⏳ *Обработка запроса*\n\nПолучаем список инструментов...')
+        
         # Получаем список всех инструментов через API-клиент
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Удаление инструмента*\n\nУ вас нет активных инструментов')
         else:
             inline_keyboard = types.InlineKeyboardMarkup()
             for instrument in instruments:
                 ticker = instrument.get('ticker')
-                button = types.InlineKeyboardButton(text=ticker, callback_data=f'ticker_{ticker}')
+                button = types.InlineKeyboardButton(text=f"❌ {ticker}", callback_data=f'ticker_{ticker}')
                 inline_keyboard.add(button)
             
-            bot.send_message(chat_id, 'Выберите инструмент для удаления', reply_markup=inline_keyboard)
+            send_or_edit_message(
+                chat_id, 
+                '🗑️ *Удаление инструмента*\n\nВыберите инструмент для удаления:', 
+                reply_markup=inline_keyboard
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f'Ошибка при получении списка инструментов: {str(e)}')
+        send_or_edit_message(chat_id, f'❌ *Ошибка при получении списка инструментов*\n\n`{str(e)}`')
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('ticker_'))
@@ -44,9 +52,12 @@ def delete_ticker_step(call):
     ticker = call.data.replace('ticker_', '')
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, f'⏳ *Обработка запроса*\n\nУдаляем инструмент `{ticker}`...')
+        
         # Удаляем инструмент через API-клиент
         instruments_client.delete_instrument(ticker)
-        bot.send_message(chat_id, f'Инструмент "{ticker}" успешно удален')
+        send_or_edit_message(chat_id, f'✅ *Успешно*\n\nИнструмент `{ticker}` успешно удален')
     
     except Exception as e:
-        bot.send_message(chat_id, f'Ошибка при удалении инструмента: {str(e)}')
+        send_or_edit_message(chat_id, f'❌ *Ошибка при удалении инструмента*\n\n`{str(e)}`')

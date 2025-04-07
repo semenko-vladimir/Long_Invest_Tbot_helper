@@ -4,6 +4,7 @@ from app.client.bot.bot import bot
 from telebot import types
 from app.client.utils.methods import get_info_by_ticker, get_price_change_in_current_interval
 from tinkoff.invest import CandleInterval
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 instruments_client = InstrumentsApiClient()
 
@@ -32,12 +33,12 @@ def get_market_change_handler(call):
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nУ вас нет активных инструментов')
         else:
             show_interval_selection(chat_id)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении списка инструментов: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при получении списка инструментов*\n\n`{str(e)}`")
 
 
 def show_interval_selection(chat_id):
@@ -55,10 +56,14 @@ def show_interval_selection(chat_id):
         for button in buttons:
             inline_keyboard.add(button)
         
-        bot.send_message(chat_id, 'Выберите интервал', reply_markup=inline_keyboard)
+        send_or_edit_message(
+            chat_id, 
+            '📊 *Изменение состояния рынка*\n\nВыберите интервал времени:', 
+            reply_markup=inline_keyboard
+        )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при отображении меню выбора интервала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при отображении меню выбора интервала*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('intervals_'))
@@ -72,6 +77,9 @@ def percent_handler(call):
     interval = call.data.split('_')[1]
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, f"⏳ *Обработка запроса*\n\nПолучаем данные об изменении рынка за интервал `{interval}`...")
+        
         # Получаем список всех инструментов
         instruments = instruments_client.get_all_instruments()
         
@@ -80,10 +88,10 @@ def percent_handler(call):
                 ticker = instrument.get('ticker')
                 process_ticker_data(chat_id, ticker, interval)
         else:
-            bot.send_message(chat_id, "У вас нет активных инструментов.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет активных инструментов.")
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при обработке выбора интервала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при обработке выбора интервала*\n\n`{str(e)}`")
 
 
 def process_ticker_data(chat_id, ticker, interval):
@@ -98,14 +106,14 @@ def process_ticker_data(chat_id, ticker, interval):
     try:
         info = get_info_by_ticker(ticker)
         if info is None or info.empty:
-            bot.send_message(chat_id, f'Не удалось найти информацию для тикера {ticker}')
+            send_or_edit_message(chat_id, f'❌ Не удалось найти информацию для тикера `{ticker}`')
             return
         
         figi, name, type_of = extract_ticker_info(info)
         start_time, candle_interval = get_time_interval(interval)
         
         if start_time is None:
-            bot.send_message(chat_id, 'Неправильный интервал времени.')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nНеправильный интервал времени.')
             return
         
         end_time = datetime.now()
@@ -116,7 +124,7 @@ def process_ticker_data(chat_id, ticker, interval):
         send_ticker_summary(chat_id, name, type_of, ticker, price_change_percent, close_price, max_price, min_price)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при обработке данных тикера {ticker}: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при обработке данных тикера {ticker}*\n\n`{str(e)}`")
 
 
 def extract_ticker_info(info):
@@ -171,13 +179,17 @@ def send_ticker_summary(chat_id, name, type_of, ticker, price_change_percent, cl
         max_price: Максимальная цена
         min_price: Минимальная цена
     """
+    # Определяем эмодзи в зависимости от процента изменения
+    change_emoji = "📈" if price_change_percent > 0 else "📉"
+    
     text = (
-        f'Название: {name}\n'
-        f'Тип: {type_of}\n'
-        f'Тикер: {ticker}\n'
-        f'Изменение цены: {round(price_change_percent, 2)}%\n'
-        f'Цена закрытия последней свечи: {close_price}\n'
-        f'Максимальная цена: {max_price}\n'
-        f'Минимальная цена: {min_price}\n'
+        f'{change_emoji} *Информация о {ticker}*\n\n'
+        f'📌 Название: `{name}`\n'
+        f'📋 Тип: `{type_of}`\n'
+        f'🏷️ Тикер: `{ticker}`\n'
+        f'📊 Изменение цены: `{round(price_change_percent, 2)}%`\n'
+        f'💰 Цена закрытия последней свечи: `{close_price}`\n'
+        f'⬆️ Максимальная цена: `{max_price}`\n'
+        f'⬇️ Минимальная цена: `{min_price}`\n'
     )
-    bot.send_message(chat_id, text)
+    send_or_edit_message(chat_id, text)

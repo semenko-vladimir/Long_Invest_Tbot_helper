@@ -1,5 +1,6 @@
 from telebot import types
 from app.client.bot.bot import bot
+from app.client.handlers.utils.message_utils import send_or_edit_message, last_messages
 from app.client.handlers.bot.sandbox_info import sandbox_info_handler
 from app.client.handlers.bot.account_selection import get_account_handler
 from app.client.handlers.bot.strategy_set import set_signals
@@ -16,13 +17,21 @@ def bot_handler(message):
     
     inline_keyboard = types.InlineKeyboardMarkup()
     buttons = [
-        types.InlineKeyboardButton(text='Настроить стратегию', callback_data='strategy_set'),
-        types.InlineKeyboardButton(text='Отключить стратегию', callback_data='strategy_remove'),
-        types.InlineKeyboardButton(text='Выбор счета', callback_data='account_selection'),
-        types.InlineKeyboardButton(text='Информация о песочнице', callback_data='sandbox_info'),
+        types.InlineKeyboardButton(text='⚙️ Настроить стратегию', callback_data='strategy_set'),
+        types.InlineKeyboardButton(text='🛑 Отключить стратегию', callback_data='strategy_remove'),
+        types.InlineKeyboardButton(text='💼 Выбор счета', callback_data='account_selection'),
+        types.InlineKeyboardButton(text='ℹ️ Информация о песочнице', callback_data='sandbox_info'),
     ]
     
     for button in buttons:
         inline_keyboard.add(button)
     
-    bot.send_message(chat_id, 'Выберите опцию', reply_markup=inline_keyboard)
+    # Отправляем новое сообщение для первого обработчика
+    msg = bot.send_message(
+        chat_id=chat_id, 
+        text='🤖 *Торговый робот*\n\nВыберите опцию для работы с торговым роботом:', 
+        reply_markup=inline_keyboard
+    )
+    
+    # Сохраняем ID сообщения для последующего редактирования
+    last_messages[chat_id] = msg.message_id

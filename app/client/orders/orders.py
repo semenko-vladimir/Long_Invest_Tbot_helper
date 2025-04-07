@@ -43,7 +43,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     accounts = sb.get_sandbox_accounts()
                     account_id = accounts.accounts[0].id
 
-                    avaliable_lots = calc_avaliable_lots(token, figi, client, sandbox_method)
+                    avaliable_lots, lotSize = calc_avaliable_lots(token, figi, client, sandbox_method)
 
                     if (avaliable_lots > 0):
                         print(f"Позиция {figi} уже в портфеле, ждем сигнала к продаже...")
@@ -71,7 +71,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                             "order_id": order_id,
                             "ticker": ticker,
                             "signal": signal,
-                            "bm_value": cast_money(price_buy),
+                            "bm_value": cast_money(price_buy) * lotSize * quantity,
                             "operation_type": operation
                         })
 
@@ -88,7 +88,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     accounts = sb.get_sandbox_accounts()
                     account_id = accounts.accounts[0].id
 
-                    avaliable_lots = calc_avaliable_lots(token, figi, client, sandbox_method)
+                    avaliable_lots, _ = calc_avaliable_lots(token, figi, client, sandbox_method)
 
                     if (avaliable_lots == 0):
                         print(f"Позиции {figi} в портфеле нет. Ждем сигнала к покупке...")
@@ -130,7 +130,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     accounts = client.users.get_accounts()
                     account_id = accounts.accounts[0].id
 
-                    avaliable_lots = calc_avaliable_lots(token, figi, client, False)
+                    avaliable_lots, lotSize = calc_avaliable_lots(token, figi, client, False)
 
                     if (avaliable_lots > 0):
                         logger.info(f"Позиция {figi} уже в портфеле, ждем сигнала к продаже...")
@@ -157,7 +157,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                             "order_id": order_id,
                             "ticker": ticker,
                             "signal": signal,
-                            "bm_value": cast_money(price_buy),
+                            "bm_value": cast_money(price_buy) * lotSize * quantity,
                             "operation_type": operation
                         })
 
@@ -173,7 +173,7 @@ def place_order(token: str, figi: str, quantity: str, operation: str, sandbox_me
                     accounts = client.users.get_accounts()
                     account_id = accounts.accounts[0].id
 
-                    avaliable_lots = calc_avaliable_lots(token, figi, client, False)
+                    avaliable_lots, _ = calc_avaliable_lots(token, figi, client, False)
 
                     if (avaliable_lots == 0):
                         logger.info(f"Позиции {figi} в портфеле нет. Ждем сигнала к покупке...")

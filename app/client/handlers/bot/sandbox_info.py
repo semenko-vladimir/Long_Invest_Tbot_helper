@@ -7,6 +7,7 @@ from app.client.utils.methods import get_sandbox_portfolio
 from tinkoff.invest import MoneyValue
 from dotenv import load_dotenv
 import os
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 # Функция для получения токенов из переменных окружения
 def get_tokens():
@@ -34,19 +35,23 @@ def sandbox_info_handler(call):
     tokens = get_tokens()
     
     if not tokens["sandbox_token"]:
-        bot.send_message(chat_id, 'У вас нет открытого счета в песочнице')
+        send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
     inline_keyboard = types.InlineKeyboardMarkup()
     buttons = [
-        types.InlineKeyboardButton(text='Получить портфолио песочницы', callback_data='get_sandbox'),
-        types.InlineKeyboardButton(text='Пополнить баланс', callback_data='set_sandbox_balance'),
+        types.InlineKeyboardButton(text='📊 Получить портфолио песочницы', callback_data='get_sandbox'),
+        types.InlineKeyboardButton(text='💰 Пополнить баланс', callback_data='set_sandbox_balance'),
     ]
     
     for button in buttons:
         inline_keyboard.add(button)
     
-    bot.send_message(chat_id, 'Выберите опцию', reply_markup=inline_keyboard)
+    send_or_edit_message(
+        chat_id, 
+        '🏝️ *Песочница*\n\nВыберите действие для работы с песочницей:', 
+        reply_markup=inline_keyboard
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'set_sandbox_balance')
@@ -60,10 +65,10 @@ def set_sandbox_balance(call):
     tokens = get_tokens()
     
     if not tokens["sandbox_token"]:
-        bot.send_message(chat_id, 'У вас нет открытого счета в песочнице')
+        send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
-    bot.send_message(chat_id, 'Введите сумму для пополнения баланса')
+    msg = send_or_edit_message(chat_id, "💰 *Пополнение баланса*\n\nВведите сумму в рублях для пополнения баланса:")
     bot.register_next_step_handler(call.message, set_sandbox_balance_2)
 
 
@@ -77,12 +82,15 @@ def set_sandbox_balance_2(message):
     tokens = get_tokens()
     
     if not tokens["sandbox_token"]:
-        bot.send_message(chat_id, 'У вас нет открытого счета в песочнице')
+        send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
     # Проверка на ввод числа
     try:
         money_value = int(message.text)
+        
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, f"⏳ *Обработка запроса*\n\nПополняем баланс на {money_value} руб...")
         
         with Client(tokens["sandbox_token"]) as client:
             sb: SandboxService = client.sandbox
@@ -97,15 +105,15 @@ def set_sandbox_balance_2(message):
                 amount=MoneyValue(units=units, nano=nano, currency='rub'),
             )
 
-            bot.send_message(chat_id, f'Баланс пополнен на {money_value} руб.')
+            send_or_edit_message(chat_id, f"✅ *Успешно*\n\nБаланс пополнен на `{money_value}` руб.")
     
     except ValueError:
-        msg = bot.send_message(chat_id, "Пожалуйста, введите корректное количество (целое число):")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nПожалуйста, введите корректное количество (целое число):")
         bot.register_next_step_handler(msg, set_sandbox_balance_2)
         return
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при пополнении баланса: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при пополнении баланса*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'get_sandbox')
@@ -119,36 +127,43 @@ def get_sandbox(call):
     tokens = get_tokens()
     
     if not tokens["sandbox_token"]:
-        bot.send_message(chat_id, 'У вас нет открытого счета в песочнице')
+        send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nПолучаем данные портфолио в песочнице...")
+        
         portfolio = get_sandbox_portfolio(tokens["sandbox_token"])
-
         positions = portfolio['positions']
 
         text = (
-            f"Общая стоимость акций: {portfolio['total_amount_shares']} руб.\n"
-            f"Общая стоимость облигаций: {portfolio['total_amount_bonds']} руб.\n"
-            f"Общая стоимость фондов: {portfolio['total_amount_etf']} руб.\n"
-            f"Общая стоимость валют: {portfolio['total_amount_currencies']} руб.\n"
-            f"Ожидаемая доходность: {portfolio['expected_yield']} %\n"
-            f"Общая стоимость портфеля: {portfolio['total_amount_portfolio']} руб.\n"
+            "📊 *ПОРТФОЛИО В ПЕСОЧНИЦЕ*\n\n"
+            f"💹 Общая стоимость акций: `{portfolio['total_amount_shares']}` руб.\n"
+            f"📝 Общая стоимость облигаций: `{portfolio['total_amount_bonds']}` руб.\n"
+            f"📈 Общая стоимость фондов: `{portfolio['total_amount_etf']}` руб.\n"
+            f"💱 Общая стоимость валют: `{portfolio['total_amount_currencies']}` руб.\n"
+            f"📊 Ожидаемая доходность: `{portfolio['expected_yield']}` %\n"
+            f"💰 Общая стоимость портфеля: `{portfolio['total_amount_portfolio']}` руб.\n"
         )
 
-        for position in positions:
-            text += (
-                f"\nТикер: {position['ticker']}\n"
-                f"Figi: {position['figi']}\n"
-                f"Тип: {position['type']}\n"
-                f"Количество: {position['quantity']}\n"
-                f"Средневзвешенная цена: {position['average_position_price']}\n"
-                f"Ожидаемая доходность: {position['expected_yield']}\n"
-                f"Текущая цена: {position['current_price']}\n"
-                f"Состояние: {position['blocked']}\n"
-            )
+        if positions:
+            text += "\n*📋 Активы в портфеле:*\n"
+            for position in positions:
+                text += (
+                    f"\n🔹 *{position['ticker']}*\n"
+                    f"  • FIGI: `{position['figi']}`\n"
+                    f"  • Тип: `{position['type']}`\n"
+                    f"  • Количество: `{position['quantity']}`\n"
+                    f"  • Средняя цена: `{position['average_position_price']}`\n"
+                    f"  • Ожидаемая доходность: `{position['expected_yield']}`\n"
+                    f"  • Текущая цена: `{position['current_price']}`\n"
+                    f"  • Состояние: `{position['blocked']}`\n"
+                )
+        else:
+            text += "\n*Активы отсутствуют*"
         
-        bot.send_message(chat_id, text)
+        send_or_edit_message(chat_id, text)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении портфолио: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при получении портфолио*\n\n`{str(e)}`")

@@ -1,5 +1,6 @@
 from app.client.api.instruments_client import InstrumentsApiClient
 from app.client.bot.bot import bot
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 instruments_client = InstrumentsApiClient()
 
@@ -14,19 +15,22 @@ def get_all_instruments_handler(call):
     chat_id = call.message.chat.id
     
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, '⏳ *Обработка запроса*\n\nПолучаем список инструментов...')
+        
         # Получаем список всех инструментов через API-клиент
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '📋 *Список инструментов*\n\n❌ У вас нет активных инструментов')
         else:
-            text = "Ваши инструменты:\n"
-            for instrument in instruments:
+            text = "📋 *СПИСОК ИНСТРУМЕНТОВ*\n\n"
+            for i, instrument in enumerate(instruments, 1):
                 ticker = instrument.get('ticker')
                 figi = instrument.get('figi')
-                text += f"{ticker} (FIGI: {figi})\n"
+                text += f"{i}. *{ticker}*\n   FIGI: `{figi}`\n\n"
             
-            bot.send_message(chat_id, text)
+            send_or_edit_message(chat_id, text)
     
     except Exception as e:
-        bot.send_message(chat_id, f'Ошибка при получении списка инструментов: {str(e)}')
+        send_or_edit_message(chat_id, f'❌ *Ошибка при получении списка инструментов*\n\n`{str(e)}`')

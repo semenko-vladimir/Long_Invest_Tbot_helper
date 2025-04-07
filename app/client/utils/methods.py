@@ -739,7 +739,7 @@ def calc_avaliable_lots(token, figi, client, sandbox_method):
 
     availableQty = get_available_qty(token, figi, client, sandbox_method)
     lotSize = get_lotSize(token, figi, client)
-    return round(availableQty / lotSize)
+    return round(availableQty / lotSize), lotSize
 
 
 def check_enough_currency(token: str, figi: str, client, buy_price, quantity, sandbox_method):

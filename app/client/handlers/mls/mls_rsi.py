@@ -13,6 +13,7 @@ import os
 
 from app.client.utils.helpers import calculate_profit, cast_money, create_df
 from app.client.utils.methods import get_current_price, get_historic_candles, get_instrument_from_portfolio_by_ticker
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 instruments_client = InstrumentsApiClient()
 signals_client = SignalsApiClient()
@@ -48,21 +49,25 @@ def mls_rsi_handler(call):
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nУ вас нет активных инструментов')
         else:
             inline_keyboard = types.InlineKeyboardMarkup()
             buttons = [
-                types.InlineKeyboardButton(text='пол года', callback_data='rsi_interval_6'),
-                types.InlineKeyboardButton(text='год', callback_data='rsi_interval_12')
+                types.InlineKeyboardButton(text='📅 6 месяцев', callback_data='rsi_interval_6'),
+                types.InlineKeyboardButton(text='📆 1 год', callback_data='rsi_interval_12')
             ]
             
             for button in buttons:
                 inline_keyboard.add(button)
             
-            bot.send_message(chat_id, 'Выберите интервал', reply_markup=inline_keyboard)
+            send_or_edit_message(
+                chat_id, 
+                '📊 *RSI График*\n\nВыберите интервал времени:', 
+                reply_markup=inline_keyboard
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении списка инструментов: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при получении списка инструментов*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('rsi_interval_'))
@@ -83,7 +88,7 @@ def interval_handler(call):
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nУ вас нет активных инструментов')
         else:
             inline_keyboard = types.InlineKeyboardMarkup()
             
@@ -92,10 +97,14 @@ def interval_handler(call):
                 button = types.InlineKeyboardButton(text=ticker, callback_data=f'mls_rsi_ticker_{ticker}')
                 inline_keyboard.add(button)
             
-            bot.send_message(chat_id, 'Выберите инструмент для расчета', reply_markup=inline_keyboard)
+            send_or_edit_message(
+                chat_id, 
+                '📊 *RSI График*\n\nВыберите инструмент для расчета:', 
+                reply_markup=inline_keyboard
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при выборе интервала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при выборе интервала*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('mls_rsi_ticker_'))
@@ -114,14 +123,14 @@ def calculate_mls_rsi(call):
         token = tokens["token"]
         
         if not token:
-            bot.send_message(chat_id, "Токен не найден. Пожалуйста, проверьте настройки.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nТокен не найден. Пожалуйста, проверьте настройки.")
             return
         
         # Получаем настройки RSI
         rsi_settings = signals_client.get_signal_rsi()
         
         if not rsi_settings:
-            bot.send_message(chat_id, "Настройки RSI не найдены. Пожалуйста, настройте сигнал RSI.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНастройки RSI не найдены. Пожалуйста, настройте сигнал RSI.")
             return
         
         period = rsi_settings.get('period')
@@ -131,7 +140,7 @@ def calculate_mls_rsi(call):
         # Получаем FIGI инструмента
         instrument = instruments_client.get_instrument_by_ticker(ticker)
         if not instrument:
-            bot.send_message(chat_id, f"Инструмент {ticker} не найден.")
+            send_or_edit_message(chat_id, f"❌ *Ошибка*\n\nИнструмент {ticker} не найден.")
             return
         
         figi = instrument.get('figi')
@@ -157,7 +166,7 @@ def calculate_mls_rsi(call):
         elif mls_interval == '12':
             start_time = datetime.now() - timedelta(days=365)
         else:
-            bot.send_message(chat_id, "Некорректный интервал.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНекорректный интервал.")
             return
         
         candle_interval = CandleInterval.CANDLE_INTERVAL_DAY
@@ -167,30 +176,30 @@ def calculate_mls_rsi(call):
         candles = get_historic_candles(figi, start_time, end_time, candle_interval)
         
         if not candles or not candles.candles:
-            bot.send_message(chat_id, "Не удалось получить исторические данные.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНе удалось получить исторические данные.")
             return
         
         # Проверяем, достаточно ли свечей для расчета
         df = create_df(candles.candles)
         if len(df["close"].values) < period + 1:
-            bot.send_message(chat_id, "Недостаточно свечей для расчета сигнала RSI.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНедостаточно свечей для расчета сигнала RSI.")
             return
         
         # Расчет RSI
         rsi_value = calculate_rsi(candles, period)
         
         if rsi_value is None:
-            bot.send_message(chat_id, "Не удалось рассчитать значение RSI.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНе удалось рассчитать значение RSI.")
             return
         
         # Проверяем сигнал RSI
         rsi_signal = check_rsi_signal(rsi_value, lowLevel, highLevel, current_profit)
         
         if rsi_signal != 'hold':
-            bot.send_message(chat_id, f'{ticker} - {rsi_signal}')
+            send_or_edit_message(chat_id, f'📈 *RSI Сигнал*\n\n{ticker} - {rsi_signal}')
         
         # Строим график RSI
         plot_rsi(chat_id, df, lowLevel, highLevel)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при расчете RSI сигнала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при расчете RSI сигнала*\n\n`{str(e)}`")

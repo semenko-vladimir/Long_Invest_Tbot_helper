@@ -1,11 +1,17 @@
 from app.client.bot.bot import bot
+from telebot import types
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_portfolio')
 def base_portfolio_handler(call):
+    """
+    Обработчик для раздела базы знаний о портфолио.
+    """
     chat_id = call.message.chat.id
     
     text = [
+        f'📊 *РАЗДЕЛ: ПОРТФОЛИО*\n\n'
         f'Раздел "Получить портфолио" представляет собой получение вашего портфолио.\n',
         
         f'\nЗдесь вы можете получить состояние вашего счета и все активные инструменты портфеля.\n',
@@ -19,6 +25,9 @@ def base_portfolio_handler(call):
         f'\nЭта информация поможет вам лучше понять состояние ваших инвестиций и принимать более обоснованные решения.\n'
     ]
 
-
-
-    bot.send_message(chat_id=chat_id, text='\n'.join(text))
+    # Создаем кнопку для возврата в меню базы знаний
+    inline_keyboard = types.InlineKeyboardMarkup()
+    back_button = types.InlineKeyboardButton(text='◀️ Назад к базе знаний', callback_data='back_to_knowledge_base')
+    inline_keyboard.add(back_button)
+    
+    send_or_edit_message(chat_id, ''.join(text), reply_markup=inline_keyboard)

@@ -18,57 +18,88 @@ def get_tokens():
     }
 
 
+# Добавим словарь с эмодзи
+EMOJIS = {
+    'portfolio': '💼',
+    'stocks': '📈',
+    'bonds': '📊',
+    'etf': '📉',
+    'currency': '💵',
+    'yield': '💰',
+    'total': '💎',
+    'ticker': '🔖',
+    'type': '📋',
+    'quantity': '🔢',
+    'avg_price': '⚖️',
+    'current': '💱',
+    'state': '🔒',
+    'warning': '⚠️',
+    'error': '❌',
+    'info': 'ℹ️'
+}
+
+def format_money(amount):
+    """Форматирует денежную сумму"""
+    return f"{float(amount):,.2f}₽".replace(',', ' ')
+
 @bot.message_handler(func=lambda message: message.text == 'Получить портфолио')
 def get_portfolio_handler(message):
-    """
-    Обработчик для получения информации о портфолио.
-    
-    Отображает информацию о портфолио пользователя.
-    """
     chat_id = message.chat.id
     
     try:
-        # Получаем токен из переменных окружения
         tokens = get_tokens()
         token = tokens["token"]
         
         if not token:
-            bot.send_message(chat_id, "Токен не найден. Пожалуйста, проверьте настройки.")
+            bot.send_message(
+                chat_id,
+                f"{EMOJIS['error']} *Токен не найден*\nПожалуйста, проверьте настройки.",
+                parse_mode='Markdown'
+            )
             return
         
-        # Получаем информацию о портфолио
         portfolio = get_portfolio(token)
         
         if not portfolio:
-            bot.send_message(chat_id, "Не удалось получить информацию о портфолио.")
+            bot.send_message(
+                chat_id,
+                f"{EMOJIS['warning']} *Не удалось получить информацию о портфолио*",
+                parse_mode='Markdown'
+            )
             return
         
-        positions = portfolio['positions']
-        
-        # Формируем текст сообщения с общей информацией о портфолио
-        text = (
-            f"Общая стоимость акций: {portfolio['total_amount_shares']} руб.\n"
-            f"Общая стоимость облигаций: {portfolio['total_amount_bonds']} руб.\n"
-            f"Общая стоимость фондов: {portfolio['total_amount_etf']} руб.\n"
-            f"Общая стоимость валют: {portfolio['total_amount_currencies']} руб.\n"
-            f"Ожидаемая доходность: {portfolio['expected_yield']} %\n"
-            f"Общая стоимость портфеля: {portfolio['total_amount_portfolio']} руб.\n"
+        # Форматируем основную информацию о портфолио
+        portfolio_summary = (
+            f"{EMOJIS['portfolio']} *СОСТОЯНИЕ ПОРТФЕЛЯ*\n"
+            f"{EMOJIS['stocks']} Акции: {format_money(portfolio['total_amount_shares'])}\n"
+            f"{EMOJIS['bonds']} Облигации: {format_money(portfolio['total_amount_bonds'])}\n"
+            f"{EMOJIS['etf']} Фонды: {format_money(portfolio['total_amount_etf'])}\n"
+            f"{EMOJIS['currency']} Валюты: {format_money(portfolio['total_amount_currencies'])}\n"
+            f"{EMOJIS['yield']} Доходность: {portfolio['expected_yield']}%\n"
+            f"{EMOJIS['total']} *Общая стоимость: {format_money(portfolio['total_amount_portfolio'])}*\n\n"
         )
+
+        # Форматируем информацию о позициях
+        positions_info = f"{EMOJIS['info']} *ПОЗИЦИИ В ПОРТФЕЛЕ:*\n\n"
         
-        # Добавляем информацию о каждой позиции в портфолио
-        for position in positions:
-            text += (
-                f"\nТикер: {position['ticker']}\n"
-                f"Figi: {position['figi']}\n"
-                f"Тип: {position['type']}\n"
-                f"Количество: {position['quantity']}\n"
-                f"Средневзвешенная цена: {position['average_position_price']}\n"
-                f"Ожидаемая доходность: {position['expected_yield']}\n"
-                f"Текущая цена: {position['current_price']}\n"
-                f"Состояние: {position['blocked']}\n"
+        for position in portfolio['positions']:
+            positions_info += (
+                f"{EMOJIS['ticker']} *{position['ticker']}*\n"
+                f"├─ {EMOJIS['type']} Тип: {position['type']}\n"
+                f"├─ {EMOJIS['quantity']} Количество: {position['quantity']}\n"
+                f"├─ {EMOJIS['avg_price']} Ср. цена: {format_money(position['average_position_price'])}\n"
+                f"├─ {EMOJIS['current']} Текущая: {format_money(position['current_price'])}\n"
+                f"├─ {EMOJIS['yield']} Доходность: {position['expected_yield']}руб.\n"
+                f"└─ {EMOJIS['state']} Статус: {position['blocked']}\n\n"
             )
-        
-        bot.send_message(chat_id, text)
+
+        # Отправляем сообщения отдельно для лучшей читаемости
+        bot.send_message(chat_id, portfolio_summary, parse_mode='Markdown')
+        bot.send_message(chat_id, positions_info, parse_mode='Markdown')
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении портфолио: {str(e)}")
+        bot.send_message(
+            chat_id,
+            f"{EMOJIS['error']} *Ошибка при получении портфолио:*\n`{str(e)}`",
+            parse_mode='Markdown'
+        )

@@ -1,6 +1,7 @@
 from app.client.bot.bot import bot
 from telebot import types
 from app.client.handlers.statistics.calculate_statistics import calculate_statistics
+from app.client.handlers.utils.message_utils import send_or_edit_message, last_messages
 
 @bot.message_handler(func=lambda message: message.text == 'Статистика')
 def statistics_handler(message):
@@ -13,14 +14,22 @@ def statistics_handler(message):
     
     inline_keyboard = types.InlineKeyboardMarkup()
     buttons = [
-        types.InlineKeyboardButton(text='Интервал', callback_data='stat_interval'),
-        types.InlineKeyboardButton(text='Общая статистика', callback_data='stat_full'),
+        types.InlineKeyboardButton(text='📅 Интервал', callback_data='stat_interval'),
+        types.InlineKeyboardButton(text='📊 Общая статистика', callback_data='stat_full'),
     ]
     
     for button in buttons:
         inline_keyboard.add(button)
     
-    bot.send_message(chat_id, 'Выберите действие', reply_markup=inline_keyboard)
+    # Отправляем новое сообщение для первого обработчика
+    msg = bot.send_message(
+        chat_id=chat_id, 
+        text='📈 *Статистика торговли*\n\nВыберите тип статистики:', 
+        reply_markup=inline_keyboard
+    )
+    
+    # Сохраняем ID сообщения для последующего редактирования
+    last_messages[chat_id] = msg.message_id
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'stat_interval')
@@ -33,11 +42,11 @@ def stat_interval_handler(call):
     chat_id = call.message.chat.id
     
     try:
-        msg = bot.send_message(chat_id, "Введите количество дней для расчета статистики:")
+        msg = send_or_edit_message(chat_id, "📅 *Выбор интервала*\n\nВведите количество дней для расчета статистики (от 1 до 365):")
         bot.register_next_step_handler(msg, validate_days)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при выборе интервала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при выборе интервала*\n\n`{str(e)}`")
 
 
 def validate_days(message):
@@ -53,21 +62,18 @@ def validate_days(message):
         
         if 1 <= days <= 365:
             days = str(days)
+            send_or_edit_message(chat_id, f"⏳ *Обработка запроса*\n\nРассчитываем статистику за последние {days} дней...")
             calculate_statistics(days, chat_id)
         else:
-            bot.send_message(chat_id, "Некорректное количество дней. Пожалуйста, введите значение от 1 до 365.")
-            # Создаем новое сообщение для повторного запроса
-            msg = bot.send_message(chat_id, "Введите количество дней для расчета статистики:")
+            msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nНекорректное количество дней. Пожалуйста, введите значение от 1 до 365:")
             bot.register_next_step_handler(msg, validate_days)
     
     except ValueError:
-        bot.send_message(chat_id, "Некорректный ввод. Пожалуйста, введите целое число.")
-        # Создаем новое сообщение для повторного запроса
-        msg = bot.send_message(chat_id, "Введите количество дней для расчета статистики:")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nНекорректный ввод. Пожалуйста, введите целое число:")
         bot.register_next_step_handler(msg, validate_days)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при обработке ввода: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при обработке ввода*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'stat_full')
@@ -80,7 +86,8 @@ def stat_full_handler(call):
     chat_id = call.message.chat.id
     
     try:
+        send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nРассчитываем полную статистику торговли...")
         calculate_statistics('full', chat_id)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении общей статистики: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при получении общей статистики*\n\n`{str(e)}`")

@@ -10,6 +10,7 @@ from app.client.store.store import mls_interval
 from tinkoff.invest import CandleInterval, Client
 from dotenv import load_dotenv
 import os
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 from app.client.utils.helpers import calculate_profit, cast_money, create_df
 from app.client.utils.methods import get_current_price, get_historic_candles, get_instrument_from_portfolio_by_ticker
@@ -48,21 +49,25 @@ def mls_sma_handler(call):
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nУ вас нет активных инструментов')
         else:
             inline_keyboard = types.InlineKeyboardMarkup()
             buttons = [
-                types.InlineKeyboardButton(text='пол года', callback_data='sma_interval_6'),
-                types.InlineKeyboardButton(text='год', callback_data='sma_interval_12')
+                types.InlineKeyboardButton(text='📅 6 месяцев', callback_data='sma_interval_6'),
+                types.InlineKeyboardButton(text='📆 1 год', callback_data='sma_interval_12')
             ]
             
             for button in buttons:
                 inline_keyboard.add(button)
             
-            bot.send_message(chat_id, 'Выберите интервал', reply_markup=inline_keyboard)
+            send_or_edit_message(
+                chat_id, 
+                '📈 *SMA График*\n\nВыберите интервал времени:', 
+                reply_markup=inline_keyboard
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при получении списка инструментов: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при получении списка инструментов*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('sma_interval_'))
@@ -78,12 +83,13 @@ def interval_handler(call):
     
     try:
         mls_interval = interval
+        interval_text = "6 месяцев" if interval == '6' else "1 год"
         
         # Получаем список всех инструментов
         instruments = instruments_client.get_all_instruments()
         
         if not instruments:
-            bot.send_message(chat_id, 'У вас нет активных инструментов')
+            send_or_edit_message(chat_id, '❌ *Ошибка*\n\nУ вас нет активных инструментов')
         else:
             inline_keyboard = types.InlineKeyboardMarkup()
             
@@ -92,10 +98,14 @@ def interval_handler(call):
                 button = types.InlineKeyboardButton(text=ticker, callback_data=f'mls_sma_ticker_{ticker}')
                 inline_keyboard.add(button)
             
-            bot.send_message(chat_id, 'Выберите инструмент для расчета', reply_markup=inline_keyboard)
+            send_or_edit_message(
+                chat_id, 
+                f'📈 *SMA График*\n\nВыбран интервал: `{interval_text}`\n\nВыберите инструмент для построения графика:', 
+                reply_markup=inline_keyboard
+            )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при выборе интервала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при выборе интервала*\n\n`{str(e)}`")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('mls_sma_ticker_'))
@@ -109,19 +119,21 @@ def calculate_mls_sma(call):
     ticker = call.data.replace('mls_sma_ticker_', '')
     
     try:
+        send_or_edit_message(chat_id, f"⏳ *Обработка запроса*\n\nРассчитываем SMA для тикера `{ticker}`...")
+        
         # Получаем токен из переменных окружения
         tokens = get_tokens()
         token = tokens["token"]
         
         if not token:
-            bot.send_message(chat_id, "Токен не найден. Пожалуйста, проверьте настройки.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nТокен не найден. Пожалуйста, проверьте настройки.")
             return
         
         # Получаем настройки SMA
         sma_settings = signals_client.get_signal_sma()
         
         if not sma_settings:
-            bot.send_message(chat_id, "Настройки SMA не найдены. Пожалуйста, настройте сигнал SMA.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНастройки SMA не найдены. Пожалуйста, настройте сигнал SMA.")
             return
         
         fastLength = sma_settings.get('fastLength')
@@ -130,7 +142,7 @@ def calculate_mls_sma(call):
         # Получаем FIGI инструмента
         instrument = instruments_client.get_instrument_by_ticker(ticker)
         if not instrument:
-            bot.send_message(chat_id, f"Инструмент {ticker} не найден.")
+            send_or_edit_message(chat_id, f"❌ *Ошибка*\n\nИнструмент {ticker} не найден.")
             return
         
         figi = instrument.get('figi')
@@ -156,7 +168,7 @@ def calculate_mls_sma(call):
         elif mls_interval == '12':
             start_time = datetime.now() - timedelta(days=365)
         else:
-            bot.send_message(chat_id, "Некорректный интервал.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНекорректный интервал.")
             return
         
         candle_interval = CandleInterval.CANDLE_INTERVAL_DAY
@@ -166,23 +178,24 @@ def calculate_mls_sma(call):
         candles = get_historic_candles(figi, start_time, end_time, candle_interval)
         
         if not candles or not candles.candles:
-            bot.send_message(chat_id, "Не удалось получить исторические данные.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНе удалось получить исторические данные.")
             return
         
         # Проверяем, достаточно ли свечей для расчета
         df = create_df(candles.candles)
         if len(df["close"].values) < slowLength + 1:
-            bot.send_message(chat_id, "Недостаточно свечей для расчета сигнала SMA.")
+            send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНедостаточно свечей для расчета сигнала SMA.")
             return
         
         # Рассчитываем сигнал SMA
         sma_signal = calculate_sma_strategy(candles, fastLength, slowLength, current_profit)
         
         if sma_signal != 'hold':
-            bot.send_message(chat_id, f'{ticker} - {sma_signal}')
+            emoji = "🟢 BUY" if sma_signal == 'buy' else "🔴 SELL"
+            send_or_edit_message(chat_id, f'📊 *SMA сигнал для {ticker}*: {emoji}')
         
         # Строим график SMA
         plot_sma(chat_id, df)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при расчете SMA сигнала: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при расчете SMA сигнала*\n\n`{str(e)}`")

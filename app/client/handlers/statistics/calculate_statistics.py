@@ -3,6 +3,7 @@ import pytz
 from app.client.api.trading_client import TradingApiClient
 from app.client.bot.bot import bot
 from app.client.graphics.statistics_graph import statistics_graph
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 trading_client = TradingApiClient()
 
@@ -51,12 +52,15 @@ def calculate_statistics(days, chat_id):
         chat_id: ID чата
     """
     try:
+        # Отправляем сообщение о начале обработки
+        send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nРассчитываем статистику торговли...")
+        
         # Получаем данные о покупках и прибыли через API-клиент
         buy = trading_client.get_buys()
         margin = trading_client.get_margins()
         
         if not buy and not margin:
-            bot.send_message(chat_id, "Нет данных для вывода статистики.")
+            send_or_edit_message(chat_id, "ℹ️ *Информация*\n\nНет данных для вывода статистики.")
             return
         
         # Если указан интервал, фильтруем данные
@@ -67,11 +71,14 @@ def calculate_statistics(days, chat_id):
         
         # Проверяем, остались ли данные после фильтрации
         if not buy and not margin:
-            bot.send_message(chat_id, f"Нет данных за последние {days} дней.")
+            send_or_edit_message(chat_id, f"ℹ️ *Информация*\n\nНет данных за последние `{days}` дней.")
             return
+        
+        # Отправляем сообщение о построении графика
+        send_or_edit_message(chat_id, "📊 *Построение графика*\n\nГенерируем визуальное представление статистики...")
         
         # Отображаем график статистики
         statistics_graph(buy, margin, chat_id)
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при расчете статистики: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при расчете статистики*\n\n`{str(e)}`")

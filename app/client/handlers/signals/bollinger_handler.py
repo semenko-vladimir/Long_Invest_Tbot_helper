@@ -1,6 +1,7 @@
 from telebot import types
 from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 signals_client = SignalsApiClient()
 
@@ -26,16 +27,16 @@ def bollinger_handler(call):
         deviation = current_settings.get('deviation', 2)
         type_ma = current_settings.get('type_ma', 'sma')
         
-        bot.send_message(
+        send_or_edit_message(
             chat_id, 
-            f'Текущие настройки Bollinger Bands:\n'
-            f'Период: {period}\n'
-            f'Стандартные отклонения: {deviation}\n'
-            f'Тип скользящей средней: {type_ma.upper()}'
+            f'📊 *Текущие настройки Bollinger Bands*\n\n'
+            f'• Период: `{period}`\n'
+            f'• Стандартные отклонения: `{deviation}`\n'
+            f'• Тип скользящей средней: `{type_ma.upper()}`'
         )
     
     # Запрашиваем период
-    msg = bot.send_message(chat_id, "Введите период для расчета скользящей средней:")
+    msg = send_or_edit_message(chat_id, "📊 *Настройка Bollinger Bands*\n\nВведите период для расчета скользящей средней:")
     bot.register_next_step_handler(msg, get_bollinger_period)
 
 
@@ -75,14 +76,14 @@ def get_bollinger_period(message):
     period = message.text
     
     if not validate_number(period, min_value=1, max_value=100):
-        msg = bot.send_message(chat_id, "Период должен быть целым числом от 1 до 100. Попробуйте снова:")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nПериод должен быть целым числом от 1 до 100. Попробуйте снова:")
         bot.register_next_step_handler(msg, get_bollinger_period)
         return
     
     period = int(period)
     user_bollinger_data[chat_id] = {'period': period}  # Сохраняем период
-    bot.send_message(chat_id, f"Вы выбрали период {period}. Теперь введите количество стандартных отклонений:")
-    bot.register_next_step_handler(message, get_bollinger_stddev)
+    msg = send_or_edit_message(chat_id, f"✅ Вы выбрали период `{period}`.\n\n*Введите количество стандартных отклонений:*")
+    bot.register_next_step_handler(msg, get_bollinger_stddev)
 
 
 def get_bollinger_stddev(message):
@@ -100,11 +101,11 @@ def get_bollinger_stddev(message):
             raise ValueError("Количество стандартных отклонений должно быть положительным числом")
         
         user_bollinger_data[chat_id]['stddev'] = stddev  # Сохраняем количество стандартных отклонений
-        bot.send_message(chat_id, f"Вы выбрали количество стандартных отклонений {stddev}. Теперь выберите тип скользящей средней (SMA или EMA):")
-        bot.register_next_step_handler(message, get_bollinger_ma_type)
+        msg = send_or_edit_message(chat_id, f"✅ Вы выбрали количество стандартных отклонений `{stddev}`.\n\n*Выберите тип скользящей средней (SMA или EMA):*")
+        bot.register_next_step_handler(msg, get_bollinger_ma_type)
     
     except ValueError as e:
-        msg = bot.send_message(chat_id, f"Ошибка: {str(e)}. Попробуйте снова:")
+        msg = send_or_edit_message(chat_id, f"❌ *Ошибка ввода*\n\n{str(e)}. Попробуйте снова:")
         bot.register_next_step_handler(msg, get_bollinger_stddev)
 
 
@@ -118,7 +119,7 @@ def get_bollinger_ma_type(message):
     ma_type = message.text.strip().upper()
     
     if ma_type not in ['SMA', 'EMA']:
-        msg = bot.send_message(chat_id, "Некорректный ввод. Введите 'SMA' или 'EMA' для типа скользящей средней:")
+        msg = send_or_edit_message(chat_id, "❌ *Ошибка ввода*\n\nНекорректный ввод. Введите 'SMA' или 'EMA' для типа скользящей средней:")
         bot.register_next_step_handler(msg, get_bollinger_ma_type)
         return
     
@@ -132,16 +133,16 @@ def get_bollinger_ma_type(message):
         result = signals_client.update_signal_bollinger(period, stddev, ma_type)
         
         # Подтверждение настроек стратегии
-        bot.send_message(
+        send_or_edit_message(
             chat_id, 
-            f"Стратегия полос Боллинджера настроена с параметрами:\n"
-            f"Период: {period}\n"
-            f"Стандартные отклонения: {stddev}\n"
-            f"Тип скользящей средней: {ma_type.upper()}"
+            f"✅ *Стратегия полос Боллинджера успешно настроена*\n\n"
+            f"• Период: `{period}`\n"
+            f"• Стандартные отклонения: `{stddev}`\n"
+            f"• Тип скользящей средней: `{ma_type.upper()}`"
         )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при обновлении настроек Bollinger Bands: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при обновлении настроек*\n\n`{str(e)}`")
     
     # Очищаем временные данные
     del user_bollinger_data[chat_id]

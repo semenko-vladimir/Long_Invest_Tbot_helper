@@ -1,6 +1,7 @@
 from telebot import types
 from app.client.api.signals_client import SignalsApiClient
 from app.client.bot.bot import bot
+from app.client.handlers.utils.message_utils import send_or_edit_message
 
 signals_client = SignalsApiClient()
 
@@ -44,15 +45,15 @@ def tpsl_handler(call):
         take_profit = current_settings.get('take_profit', 10)
         stop_loss = current_settings.get('stop_loss', 5)
         
-        bot.send_message(
+        send_or_edit_message(
             chat_id, 
-            f'Текущие настройки Take Profit/Stop Loss:\n'
-            f'Take Profit: {take_profit}\n'
-            f'Stop Loss: {stop_loss}'
+            f'🎯 *Текущие настройки Take Profit/Stop Loss*\n\n'
+            f'• Take Profit: `{take_profit}`\n'
+            f'• Stop Loss: `{stop_loss}`'
         )
     
     # Запрашиваем значение для Take Profit
-    bot.send_message(chat_id, 'Введите значение для Take Profit')
+    msg = send_or_edit_message(chat_id, '🎯 *Настройка Take Profit/Stop Loss*\n\nВведите значение для Take Profit:')
     bot.register_next_step_handler_by_chat_id(chat_id, get_tp_value)
 
 
@@ -68,13 +69,13 @@ def get_tp_value(message):
     # Проверка введенного значения
     tp_value = validate_number(tp_value)
     if tp_value is None:
-        bot.send_message(chat_id, 'Ошибка: Введите целое число больше 0 и меньше 100 для Take Profit.')
+        msg = send_or_edit_message(chat_id, '❌ *Ошибка ввода*\n\nВведите целое число больше 0 и меньше 100 для Take Profit:')
         # Повторно запрашиваем значение
         bot.register_next_step_handler_by_chat_id(chat_id, get_tp_value)
         return  # Прерываем обработку, если значение некорректное
 
     user_tpsl_data[chat_id] = {'tp_value': tp_value}
-    bot.send_message(chat_id, 'Введите значение для Stop Loss')
+    msg = send_or_edit_message(chat_id, f'✅ Take Profit установлен: `{tp_value}`\n\n*Введите значение для Stop Loss:*')
     bot.register_next_step_handler_by_chat_id(chat_id, get_sl_value)
 
 
@@ -90,7 +91,7 @@ def get_sl_value(message):
     # Проверка введенного значения
     sl_value = validate_number(sl_value)
     if sl_value is None:
-        bot.send_message(chat_id, 'Ошибка: Введите целое число больше 0 и меньше 100 для Stop Loss.')
+        msg = send_or_edit_message(chat_id, '❌ *Ошибка ввода*\n\nВведите целое число больше 0 и меньше 100 для Stop Loss:')
         # Повторно запрашиваем значение
         bot.register_next_step_handler_by_chat_id(chat_id, get_sl_value)
         return  # Прерываем обработку, если значение некорректное
@@ -103,15 +104,15 @@ def get_sl_value(message):
         result = signals_client.update_signal_tpsl(tp_value, sl_value)
         
         # Подтверждение настройки стратегии
-        bot.send_message(
+        send_or_edit_message(
             chat_id, 
-            f'Take Profit/Stop Loss настроен с параметрами:\n'
-            f'Take Profit = {tp_value}\n'
-            f'Stop Loss = {sl_value}'
+            f'✅ *Take Profit/Stop Loss успешно настроены*\n\n'
+            f'• Take Profit = `{tp_value}`\n'
+            f'• Stop Loss = `{sl_value}`'
         )
     
     except Exception as e:
-        bot.send_message(chat_id, f"Ошибка при обновлении настроек Take Profit/Stop Loss: {str(e)}")
+        send_or_edit_message(chat_id, f"❌ *Ошибка при обновлении настроек*\n\n`{str(e)}`")
     
     # Очищаем временные данные
     del user_tpsl_data[chat_id]
