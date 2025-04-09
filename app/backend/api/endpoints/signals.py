@@ -21,23 +21,12 @@ from app.backend.schemas.signals import (
 router = APIRouter()
 
 # TPSL Signal endpoints
-@router.get("/tpsl/", response_model=List[SignalTPSLResponse])
-def read_tpsl_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/tpsl/", response_model=SignalTPSLResponse)
+def read_tpsl_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all TPSL signal entries.
+    Получить настройки сигнала Take Profit/Stop Loss.
     """
-    signals = db.query(SignalTPSL).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/tpsl/{signal_id}", response_model=SignalTPSLResponse)
-def read_tpsl_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific TPSL signal by ID.
-    """
-    signal = db.query(SignalTPSL).filter(SignalTPSL.id == signal_id).first()
+    signal = db.query(SignalTPSL).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="TPSL signal not found")
     return signal
@@ -46,7 +35,7 @@ def read_tpsl_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/tpsl/", response_model=SignalTPSLResponse)
 def create_tpsl_signal(signal: SignalTPSLCreate, db: Session = Depends(get_db)):
     """
-    Create a new TPSL signal.
+    Создать новый сигнал Take Profit/Stop Loss.
     """
     db_signal = SignalTPSL(**signal.dict())
     db.add(db_signal)
@@ -55,14 +44,12 @@ def create_tpsl_signal(signal: SignalTPSLCreate, db: Session = Depends(get_db)):
     return db_signal
 
 
-@router.put("/tpsl/{signal_id}", response_model=SignalTPSLResponse)
-def update_tpsl_signal(
-    signal_id: int, signal: SignalTPSLUpdate, db: Session = Depends(get_db)
-):
+@router.put("/tpsl/", response_model=SignalTPSLResponse)
+def update_tpsl_signal(signal: SignalTPSLUpdate, db: Session = Depends(get_db)):
     """
-    Update a TPSL signal.
+    Обновить сигнал Take Profit/Stop Loss.
     """
-    db_signal = db.query(SignalTPSL).filter(SignalTPSL.id == signal_id).first()
+    db_signal = db.query(SignalTPSL).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="TPSL signal not found")
     
@@ -76,23 +63,12 @@ def update_tpsl_signal(
 
 
 # RSI Signal endpoints
-@router.get("/rsi/", response_model=List[SignalRSIResponse])
-def read_rsi_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/rsi/", response_model=SignalRSIResponse)
+def read_rsi_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all RSI signal entries.
+    Получить настройки сигнала RSI.
     """
-    signals = db.query(SignalRSI).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/rsi/{signal_id}", response_model=SignalRSIResponse)
-def read_rsi_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific RSI signal by ID.
-    """
-    signal = db.query(SignalRSI).filter(SignalRSI.id == signal_id).first()
+    signal = db.query(SignalRSI).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="RSI signal not found")
     return signal
@@ -101,7 +77,7 @@ def read_rsi_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/rsi/", response_model=SignalRSIResponse)
 def create_rsi_signal(signal: SignalRSICreate, db: Session = Depends(get_db)):
     """
-    Create a new RSI signal.
+    Создать новый сигнал RSI.
     """
     db_signal = SignalRSI(**signal.dict())
     db.add(db_signal)
@@ -110,14 +86,12 @@ def create_rsi_signal(signal: SignalRSICreate, db: Session = Depends(get_db)):
     return db_signal
 
 
-@router.put("/rsi/{signal_id}", response_model=SignalRSIResponse)
-def update_rsi_signal(
-    signal_id: int, signal: SignalRSIUpdate, db: Session = Depends(get_db)
-):
+@router.put("/rsi/", response_model=SignalRSIResponse)
+def update_rsi_signal(signal: SignalRSIUpdate, db: Session = Depends(get_db)):
     """
-    Update a RSI signal.
+    Обновить сигнал RSI.
     """
-    db_signal = db.query(SignalRSI).filter(SignalRSI.id == signal_id).first()
+    db_signal = db.query(SignalRSI).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="RSI signal not found")
     
@@ -131,23 +105,12 @@ def update_rsi_signal(
 
 
 # GPT Signal endpoints
-@router.get("/gpt/", response_model=List[SignalGPTResponse])
-def read_gpt_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/gpt/", response_model=SignalGPTResponse)
+def read_gpt_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all GPT signal entries.
+    Получить настройки сигнала GPT.
     """
-    signals = db.query(SignalGPT).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/gpt/{signal_id}", response_model=SignalGPTResponse)
-def read_gpt_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific GPT signal by ID.
-    """
-    signal = db.query(SignalGPT).filter(SignalGPT.id == signal_id).first()
+    signal = db.query(SignalGPT).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="GPT signal not found")
     return signal
@@ -156,7 +119,7 @@ def read_gpt_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/gpt/", response_model=SignalGPTResponse)
 def create_gpt_signal(signal: SignalGPTCreate, db: Session = Depends(get_db)):
     """
-    Create a new GPT signal.
+    Создать новый сигнал GPT.
     """
     db_signal = SignalGPT(**signal.dict())
     db.add(db_signal)
@@ -165,14 +128,12 @@ def create_gpt_signal(signal: SignalGPTCreate, db: Session = Depends(get_db)):
     return db_signal
 
 
-@router.put("/gpt/{signal_id}", response_model=SignalGPTResponse)
-def update_gpt_signal(
-    signal_id: int, signal: SignalGPTUpdate, db: Session = Depends(get_db)
-):
+@router.put("/gpt/", response_model=SignalGPTResponse)
+def update_gpt_signal(signal: SignalGPTUpdate, db: Session = Depends(get_db)):
     """
-    Update a GPT signal.
+    Обновить сигнал GPT.
     """
-    db_signal = db.query(SignalGPT).filter(SignalGPT.id == signal_id).first()
+    db_signal = db.query(SignalGPT).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="GPT signal not found")
     
@@ -186,23 +147,12 @@ def update_gpt_signal(
 
 
 # SMA Signal endpoints
-@router.get("/sma/", response_model=List[SignalSMAResponse])
-def read_sma_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/sma/", response_model=SignalSMAResponse)
+def read_sma_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all SMA signal entries.
+    Получить настройки сигнала SMA.
     """
-    signals = db.query(SignalSMA).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/sma/{signal_id}", response_model=SignalSMAResponse)
-def read_sma_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific SMA signal by ID.
-    """
-    signal = db.query(SignalSMA).filter(SignalSMA.id == signal_id).first()
+    signal = db.query(SignalSMA).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="SMA signal not found")
     return signal
@@ -211,7 +161,7 @@ def read_sma_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/sma/", response_model=SignalSMAResponse)
 def create_sma_signal(signal: SignalSMACreate, db: Session = Depends(get_db)):
     """
-    Create a new SMA signal.
+    Создать новый сигнал SMA.
     """
     db_signal = SignalSMA(**signal.dict())
     db.add(db_signal)
@@ -220,14 +170,12 @@ def create_sma_signal(signal: SignalSMACreate, db: Session = Depends(get_db)):
     return db_signal
 
 
-@router.put("/sma/{signal_id}", response_model=SignalSMAResponse)
-def update_sma_signal(
-    signal_id: int, signal: SignalSMAUpdate, db: Session = Depends(get_db)
-):
+@router.put("/sma/", response_model=SignalSMAResponse)
+def update_sma_signal(signal: SignalSMAUpdate, db: Session = Depends(get_db)):
     """
-    Update a SMA signal.
+    Обновить сигнал SMA.
     """
-    db_signal = db.query(SignalSMA).filter(SignalSMA.id == signal_id).first()
+    db_signal = db.query(SignalSMA).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="SMA signal not found")
     
@@ -241,23 +189,12 @@ def update_sma_signal(
 
 
 # EMA Signal endpoints
-@router.get("/ema/", response_model=List[SignalEMAResponse])
-def read_ema_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/ema/", response_model=SignalEMAResponse)
+def read_ema_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all EMA signal entries.
+    Получить настройки сигнала EMA.
     """
-    signals = db.query(SignalEMA).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/ema/{signal_id}", response_model=SignalEMAResponse)
-def read_ema_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific EMA signal by ID.
-    """
-    signal = db.query(SignalEMA).filter(SignalEMA.id == signal_id).first()
+    signal = db.query(SignalEMA).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="EMA signal not found")
     return signal
@@ -266,7 +203,7 @@ def read_ema_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/ema/", response_model=SignalEMAResponse)
 def create_ema_signal(signal: SignalEMACreate, db: Session = Depends(get_db)):
     """
-    Create a new EMA signal.
+    Создать новый сигнал EMA.
     """
     db_signal = SignalEMA(**signal.dict())
     db.add(db_signal)
@@ -275,14 +212,12 @@ def create_ema_signal(signal: SignalEMACreate, db: Session = Depends(get_db)):
     return db_signal
 
 
-@router.put("/ema/{signal_id}", response_model=SignalEMAResponse)
-def update_ema_signal(
-    signal_id: int, signal: SignalEMAUpdate, db: Session = Depends(get_db)
-):
+@router.put("/ema/", response_model=SignalEMAResponse)
+def update_ema_signal(signal: SignalEMAUpdate, db: Session = Depends(get_db)):
     """
-    Update a EMA signal.
+    Обновить сигнал EMA.
     """
-    db_signal = db.query(SignalEMA).filter(SignalEMA.id == signal_id).first()
+    db_signal = db.query(SignalEMA).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="EMA signal not found")
     
@@ -296,23 +231,12 @@ def update_ema_signal(
 
 
 # Bollinger Signal endpoints
-@router.get("/bollinger/", response_model=List[SignalBollingerResponse])
-def read_bollinger_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/bollinger/", response_model=SignalBollingerResponse)
+def read_bollinger_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all Bollinger signal entries.
+    Получить настройки сигнала Bollinger.
     """
-    signals = db.query(SignalBollinger).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/bollinger/{signal_id}", response_model=SignalBollingerResponse)
-def read_bollinger_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific Bollinger signal by ID.
-    """
-    signal = db.query(SignalBollinger).filter(SignalBollinger.id == signal_id).first()
+    signal = db.query(SignalBollinger).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="Bollinger signal not found")
     return signal
@@ -321,7 +245,7 @@ def read_bollinger_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/bollinger/", response_model=SignalBollingerResponse)
 def create_bollinger_signal(signal: SignalBollingerCreate, db: Session = Depends(get_db)):
     """
-    Create a new Bollinger signal.
+    Создать новый сигнал Bollinger.
     """
     db_signal = SignalBollinger(**signal.dict())
     db.add(db_signal)
@@ -330,14 +254,12 @@ def create_bollinger_signal(signal: SignalBollingerCreate, db: Session = Depends
     return db_signal
 
 
-@router.put("/bollinger/{signal_id}", response_model=SignalBollingerResponse)
-def update_bollinger_signal(
-    signal_id: int, signal: SignalBollingerUpdate, db: Session = Depends(get_db)
-):
+@router.put("/bollinger/", response_model=SignalBollingerResponse)
+def update_bollinger_signal(signal: SignalBollingerUpdate, db: Session = Depends(get_db)):
     """
-    Update a Bollinger signal.
+    Обновить сигнал Bollinger.
     """
-    db_signal = db.query(SignalBollinger).filter(SignalBollinger.id == signal_id).first()
+    db_signal = db.query(SignalBollinger).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="Bollinger signal not found")
     
@@ -351,23 +273,12 @@ def update_bollinger_signal(
 
 
 # MACD Signal endpoints
-@router.get("/macd/", response_model=List[SignalMACDResponse])
-def read_macd_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/macd/", response_model=SignalMACDResponse)
+def read_macd_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all MACD signal entries.
+    Получить настройки сигнала MACD.
     """
-    signals = db.query(SignalMACD).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/macd/{signal_id}", response_model=SignalMACDResponse)
-def read_macd_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific MACD signal by ID.
-    """
-    signal = db.query(SignalMACD).filter(SignalMACD.id == signal_id).first()
+    signal = db.query(SignalMACD).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="MACD signal not found")
     return signal
@@ -376,7 +287,7 @@ def read_macd_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/macd/", response_model=SignalMACDResponse)
 def create_macd_signal(signal: SignalMACDCreate, db: Session = Depends(get_db)):
     """
-    Create a new MACD signal.
+    Создать новый сигнал MACD.
     """
     db_signal = SignalMACD(**signal.dict())
     db.add(db_signal)
@@ -385,14 +296,12 @@ def create_macd_signal(signal: SignalMACDCreate, db: Session = Depends(get_db)):
     return db_signal
 
 
-@router.put("/macd/{signal_id}", response_model=SignalMACDResponse)
-def update_macd_signal(
-    signal_id: int, signal: SignalMACDUpdate, db: Session = Depends(get_db)
-):
+@router.put("/macd/", response_model=SignalMACDResponse)
+def update_macd_signal(signal: SignalMACDUpdate, db: Session = Depends(get_db)):
     """
-    Update a MACD signal.
+    Обновить сигнал MACD.
     """
-    db_signal = db.query(SignalMACD).filter(SignalMACD.id == signal_id).first()
+    db_signal = db.query(SignalMACD).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="MACD signal not found")
     
@@ -406,23 +315,12 @@ def update_macd_signal(
 
 
 # Alligator Signal endpoints
-@router.get("/alligator/", response_model=List[SignalAlligatorResponse])
-def read_alligator_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/alligator/", response_model=SignalAlligatorResponse)
+def read_alligator_signal(db: Session = Depends(get_db)):
     """
-    Retrieve all Alligator signal entries.
+    Получить настройки сигнала Alligator.
     """
-    signals = db.query(SignalAlligator).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/alligator/{signal_id}", response_model=SignalAlligatorResponse)
-def read_alligator_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific Alligator signal by ID.
-    """
-    signal = db.query(SignalAlligator).filter(SignalAlligator.id == signal_id).first()
+    signal = db.query(SignalAlligator).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="Alligator signal not found")
     return signal
@@ -431,7 +329,7 @@ def read_alligator_signal(signal_id: int, db: Session = Depends(get_db)):
 @router.post("/alligator/", response_model=SignalAlligatorResponse)
 def create_alligator_signal(signal: SignalAlligatorCreate, db: Session = Depends(get_db)):
     """
-    Create a new Alligator signal.
+    Создать новый сигнал Alligator.
     """
     db_signal = SignalAlligator(**signal.dict())
     db.add(db_signal)
@@ -440,14 +338,12 @@ def create_alligator_signal(signal: SignalAlligatorCreate, db: Session = Depends
     return db_signal
 
 
-@router.put("/alligator/{signal_id}", response_model=SignalAlligatorResponse)
-def update_alligator_signal(
-    signal_id: int, signal: SignalAlligatorUpdate, db: Session = Depends(get_db)
-):
+@router.put("/alligator/", response_model=SignalAlligatorResponse)
+def update_alligator_signal(signal: SignalAlligatorUpdate, db: Session = Depends(get_db)):
     """
-    Update an Alligator signal.
+    Обновить сигнал Alligator.
     """
-    db_signal = db.query(SignalAlligator).filter(SignalAlligator.id == signal_id).first()
+    db_signal = db.query(SignalAlligator).first()
     if db_signal is None:
         raise HTTPException(status_code=404, detail="Alligator signal not found")
     

@@ -1,125 +1,37 @@
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.backend.models.database import get_db
 from app.backend.models.strategy import StrategySignals, StrategySettings
 from app.backend.schemas.strategy import (
-    StrategySignalsCreate, StrategySignalsUpdate, StrategySignalsResponse,
-    StrategySettingsCreate, StrategySettingsUpdate, StrategySettingsResponse
+    StrategySignalsResponse, StrategySettingsResponse
 )
 
 router = APIRouter()
 
 
 # Strategy Signals endpoints
-@router.get("/signals/", response_model=List[StrategySignalsResponse])
-def read_strategy_signals(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/signals/", response_model=StrategySignalsResponse)
+def read_strategy_signals(db: Session = Depends(get_db)):
     """
-    Retrieve all strategy signals entries.
+    Получить настройки сигналов стратегии.
     """
-    signals = db.query(StrategySignals).offset(skip).limit(limit).all()
-    return signals
-
-
-@router.get("/signals/{signal_id}", response_model=StrategySignalsResponse)
-def read_strategy_signal(signal_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific strategy signals entry by ID.
-    """
-    signal = db.query(StrategySignals).filter(StrategySignals.id == signal_id).first()
+    signal = db.query(StrategySignals).first()
     if signal is None:
         raise HTTPException(status_code=404, detail="Strategy signals not found")
     return signal
 
 
-@router.post("/signals/", response_model=StrategySignalsResponse)
-def create_strategy_signals(signal: StrategySignalsCreate, db: Session = Depends(get_db)):
-    """
-    Create a new strategy signals entry.
-    """
-    db_signal = StrategySignals(**signal.dict())
-    db.add(db_signal)
-    db.commit()
-    db.refresh(db_signal)
-    return db_signal
-
-
-@router.put("/signals/{signal_id}", response_model=StrategySignalsResponse)
-def update_strategy_signals(
-    signal_id: int, signal: StrategySignalsUpdate, db: Session = Depends(get_db)
-):
-    """
-    Update a strategy signals entry.
-    """
-    db_signal = db.query(StrategySignals).filter(StrategySignals.id == signal_id).first()
-    if db_signal is None:
-        raise HTTPException(status_code=404, detail="Strategy signals not found")
-    
-    update_data = signal.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_signal, key, value)
-    
-    db.commit()
-    db.refresh(db_signal)
-    return db_signal
-
-
 # Strategy Settings endpoints
-@router.get("/settings/", response_model=List[StrategySettingsResponse])
-def read_strategy_settings(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
+@router.get("/settings/", response_model=StrategySettingsResponse)
+def read_strategy_settings(db: Session = Depends(get_db)):
     """
-    Retrieve all strategy settings entries.
+    Получить общие настройки стратегии.
     """
-    settings = db.query(StrategySettings).offset(skip).limit(limit).all()
-    return settings
-
-
-@router.get("/settings/{setting_id}", response_model=StrategySettingsResponse)
-def read_strategy_setting(setting_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific strategy settings entry by ID.
-    """
-    setting = db.query(StrategySettings).filter(StrategySettings.id == setting_id).first()
+    setting = db.query(StrategySettings).first()
     if setting is None:
         raise HTTPException(status_code=404, detail="Strategy settings not found")
     return setting
-
-
-@router.post("/settings/", response_model=StrategySettingsResponse)
-def create_strategy_settings(setting: StrategySettingsCreate, db: Session = Depends(get_db)):
-    """
-    Create a new strategy settings entry.
-    """
-    db_setting = StrategySettings(**setting.dict())
-    db.add(db_setting)
-    db.commit()
-    db.refresh(db_setting)
-    return db_setting
-
-
-@router.put("/settings/{setting_id}", response_model=StrategySettingsResponse)
-def update_strategy_settings(
-    setting_id: int, setting: StrategySettingsUpdate, db: Session = Depends(get_db)
-):
-    """
-    Update a strategy settings entry.
-    """
-    db_setting = db.query(StrategySettings).filter(StrategySettings.id == setting_id).first()
-    if db_setting is None:
-        raise HTTPException(status_code=404, detail="Strategy settings not found")
-    
-    update_data = setting.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_setting, key, value)
-    
-    db.commit()
-    db.refresh(db_setting)
-    return db_setting
 
 
 # Combined endpoints for updating both signals and settings
@@ -129,7 +41,7 @@ def update_strategy_signals_by_first(
     db: Session = Depends(get_db)
 ):
     """
-    Update the first strategy signals entry or create if it doesn't exist.
+    Обновить настройки сигналов стратегии или создать, если они не существуют.
     """
     # Validate required fields
     required_fields = [
@@ -196,7 +108,7 @@ def update_strategy_settings_by_first(
     db: Session = Depends(get_db)
 ):
     """
-    Update the first strategy settings entry or create if it doesn't exist.
+    Обновить общие настройки стратегии или создать, если они не существуют.
     """
     # Validate required fields
     required_fields = ["time", "auto_market", "quantity", "joint"]

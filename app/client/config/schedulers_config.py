@@ -52,7 +52,11 @@ def configure_market_scheduler():
     
     try:
         # Получаем конфигурацию через API-клиент
-        config_data = config_client.get_config()
+        try:
+            config_data = config_client.get_config()
+        except Exception as e:
+            logger.error(f"Failed to get configuration: {str(e)}")
+            return
         
         if not config_data:
             logger.error("Configuration data not found")
@@ -76,7 +80,11 @@ def configure_market_scheduler():
             market_updates_time = 60
         
         # Получаем список всех инструментов
-        instruments = instruments_client.get_all_instruments()
+        try:
+            instruments = instruments_client.get_all_instruments()
+        except Exception as e:
+            logger.error(f"Failed to get instruments: {str(e)}")
+            return
         
         if not instruments:
             logger.info('Нет активных инструментов для настройки уведомлений')

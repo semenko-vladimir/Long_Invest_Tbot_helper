@@ -3,52 +3,44 @@ from app.client.bot.bot import bot
 # Словарь для хранения ID последних сообщений для каждого чата
 last_messages = {}
 
-def send_or_edit_message(chat_id, text, reply_markup=None):
+def send_or_edit_message(chat_id, text, reply_markup=None, parse_mode=None):
     """
-    Отправляет новое сообщение или редактирует последнее отправленное.
+    Отправляет новое сообщение или редактирует существующее в зависимости от наличия ID последнего сообщения.
     
     Args:
         chat_id: ID чата
         text: Текст сообщения
-        reply_markup: Разметка клавиатуры (опционально)
-        
-    Returns:
-        Message: Объект сообщения
-    """
-    global last_messages
+        reply_markup: Клавиатура для сообщения (опционально)
+        parse_mode: Режим форматирования текста (опционально)
     
-    # Если для данного чата уже есть сообщение, редактируем его
-    if chat_id in last_messages:
-        try:
-            # Пытаемся отредактировать последнее сообщение
-            return bot.edit_message_text(
-                text=text,
-                chat_id=chat_id,
-                message_id=last_messages[chat_id],
-                parse_mode='Markdown',
-                reply_markup=reply_markup,
-                disable_web_page_preview=True
-            )
-        except Exception:
-            # Если не удалось отредактировать (например, сообщение слишком старое),
-            # отправляем новое
-            msg = bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                parse_mode='Markdown',
-                reply_markup=reply_markup,
-                disable_web_page_preview=True
-            )
-            last_messages[chat_id] = msg.message_id
-            return msg
-    else:
-        # Если сообщений еще не было, отправляем новое
+    Returns:
+        None
+    """
+    try:
+        # Проверяем, есть ли ID последнего сообщения для данного чата
+        if chat_id in last_messages:
+            try:
+                # Пробуем обновить существующее сообщение
+                bot.edit_message_text(
+                    text=text,
+                    chat_id=chat_id,
+                    message_id=last_messages[chat_id],
+                    reply_markup=reply_markup,
+                    parse_mode=parse_mode
+                )
+                return
+            except Exception as e:
+                # Если произошла ошибка (например, сообщение уже удалено), отправляем новое
+                print(f"Error editing message: {e}")
+        
+        # Отправляем новое сообщение
         msg = bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode='Markdown',
             reply_markup=reply_markup,
-            disable_web_page_preview=True
+            parse_mode=parse_mode
         )
+        # Сохраняем ID нового сообщения
         last_messages[chat_id] = msg.message_id
-        return msg
+    except Exception as e:
+        print(f"Error sending message: {e}")

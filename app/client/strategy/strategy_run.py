@@ -49,11 +49,16 @@ def get_token_and_sandbox_method():
         tuple: (token, sandbox_method)
     """
     tokens = get_tokens()
-    sandbox_trigger = config_client.get_sandbox_trigger()
     
-    if sandbox_trigger:
-        return tokens["sandbox_token"], True
-    else:
+    try:
+        sandbox_trigger = config_client.get_sandbox_trigger()
+        
+        if sandbox_trigger:
+            return tokens["sandbox_token"], True
+        else:
+            return tokens["token"], False
+    except Exception as e:
+        logger.error(f"Error getting sandbox_trigger: {str(e)}, using default token")
         return tokens["token"], False
 
 def get_current_profit(token, figi, ticker, sandbox_method):

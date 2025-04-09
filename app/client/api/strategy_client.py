@@ -14,8 +14,10 @@ class StrategyApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигналов стратегии или None, если не найдены
         """
-        data = self._get("strategy/signals/")
-        return data[0] if data else None
+        try:
+            return self._get("strategy/signals/")
+        except Exception:
+            return None
     
     def update_strategy_signals(
         self,
@@ -88,8 +90,10 @@ class StrategyApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Общие настройки стратегии или None, если не найдены
         """
-        data = self._get("strategy/settings/")
-        return data[0] if data else None
+        try:
+            return self._get("strategy/settings/")
+        except Exception:
+            return None
     
     def update_strategy_settings(
         self,

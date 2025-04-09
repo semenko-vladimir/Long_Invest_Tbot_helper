@@ -159,7 +159,7 @@ def percent_handler(call):
                     f'⬆️ Максимальная цена: `{max_price}`\n'
                     f'⬇️ Минимальная цена: `{min_price}`\n'
                 )
-                send_or_edit_message(chat_id, message_text)
+                bot.send_message(chat_id, message_text, parse_mode='Markdown')
         
         if not found_instruments:
             send_or_edit_message(

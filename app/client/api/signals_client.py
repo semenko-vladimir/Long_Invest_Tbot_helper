@@ -15,8 +15,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/tpsl/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/tpsl/")
+        except Exception:
+            return None
     
     def update_signal_tpsl(self, take_profit: float, stop_loss: float) -> Dict[str, Any]:
         """
@@ -29,11 +31,11 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_tpsl()
         data = {"take_profit": take_profit, "stop_loss": stop_loss}
+        existing = self.get_signal_tpsl()
         
         if existing:
-            return self._put(f"signals/tpsl/{existing['id']}", data)
+            return self._put("signals/tpsl/", data)
         else:
             return self._post("signals/tpsl/", data)
     
@@ -45,8 +47,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/rsi/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/rsi/")
+        except Exception:
+            return None
     
     def update_signal_rsi(self, period: float, high_level: float, low_level: float) -> Dict[str, Any]:
         """
@@ -60,11 +64,11 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_rsi()
         data = {"period": period, "hightLevel": high_level, "lowLevel": low_level}
+        existing = self.get_signal_rsi()
         
         if existing:
-            return self._put(f"signals/rsi/{existing['id']}", data)
+            return self._put("signals/rsi/", data)
         else:
             return self._post("signals/rsi/", data)
     
@@ -76,8 +80,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/sma/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/sma/")
+        except Exception:
+            return None
     
     def update_signal_sma(self, fast_length: int, slow_length: int) -> Dict[str, Any]:
         """
@@ -90,11 +96,11 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_sma()
         data = {"fastLength": fast_length, "slowLength": slow_length}
+        existing = self.get_signal_sma()
         
         if existing:
-            return self._put(f"signals/sma/{existing['id']}", data)
+            return self._put("signals/sma/", data)
         else:
             return self._post("signals/sma/", data)
     
@@ -106,8 +112,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/ema/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/ema/")
+        except Exception:
+            return None
     
     def update_signal_ema(self, fast_length: int, slow_length: int) -> Dict[str, Any]:
         """
@@ -120,11 +128,11 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_ema()
         data = {"fastLength": fast_length, "slowLength": slow_length}
+        existing = self.get_signal_ema()
         
         if existing:
-            return self._put(f"signals/ema/{existing['id']}", data)
+            return self._put("signals/ema/", data)
         else:
             return self._post("signals/ema/", data)
     
@@ -136,8 +144,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/bollinger/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/bollinger/")
+        except Exception:
+            return None
     
     def update_signal_bollinger(self, period: int, deviation: float, type_ma: str) -> Dict[str, Any]:
         """
@@ -151,11 +161,11 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_bollinger()
         data = {"period": period, "deviation": deviation, "type_ma": type_ma}
+        existing = self.get_signal_bollinger()
         
         if existing:
-            return self._put(f"signals/bollinger/{existing['id']}", data)
+            return self._put("signals/bollinger/", data)
         else:
             return self._post("signals/bollinger/", data)
     
@@ -167,8 +177,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/macd/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/macd/")
+        except Exception:
+            return None
     
     def update_signal_macd(self, fast_length: int, slow_length: int, signal_length: int) -> Dict[str, Any]:
         """
@@ -182,15 +194,15 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_macd()
         data = {
             "fastLength": fast_length, 
             "slowLength": slow_length, 
             "signalLength": signal_length
         }
+        existing = self.get_signal_macd()
         
         if existing:
-            return self._put(f"signals/macd/{existing['id']}", data)
+            return self._put("signals/macd/", data)
         else:
             return self._post("signals/macd/", data)
     
@@ -202,8 +214,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/alligator/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/alligator/")
+        except Exception:
+            return None
     
     def update_signal_alligator(
         self, 
@@ -228,7 +242,6 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_alligator()
         data = {
             "jaw_period": jaw_period, 
             "jaw_shift": jaw_shift, 
@@ -237,9 +250,10 @@ class SignalsApiClient(BaseApiClient):
             "lips_period": lips_period, 
             "lips_shift": lips_shift
         }
+        existing = self.get_signal_alligator()
         
         if existing:
-            return self._put(f"signals/alligator/{existing['id']}", data)
+            return self._put("signals/alligator/", data)
         else:
             return self._post("signals/alligator/", data)
     
@@ -251,8 +265,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Optional[Dict[str, Any]]: Настройки сигнала или None, если не найдены
         """
-        data = self._get("signals/gpt/")
-        return data[0] if data else None
+        try:
+            return self._get("signals/gpt/")
+        except Exception:
+            return None
     
     def update_signal_gpt(self, text: str) -> Dict[str, Any]:
         """
@@ -264,10 +280,10 @@ class SignalsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Обновленные настройки сигнала
         """
-        existing = self.get_signal_gpt()
         data = {"text": text}
+        existing = self.get_signal_gpt()
         
         if existing:
-            return self._put(f"signals/gpt/{existing['id']}", data)
+            return self._put("signals/gpt/", data)
         else:
             return self._post("signals/gpt/", data)

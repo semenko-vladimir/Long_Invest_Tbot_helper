@@ -12,16 +12,21 @@ user_tpsl_data = {}
 
 def validate_number(value):
     """
-    Проверка, что число больше 0 и меньше 100, целое и неотрицательное.
+    Проверка, что число больше 0 и меньше 100, может быть как целым, так и дробным.
     
     Args:
         value: Проверяемое значение
         
     Returns:
-        int: Проверенное значение, если оно валидно, иначе None
+        float: Проверенное значение, если оно валидно, иначе None
     """
     try:
-        value = int(value)
+        # Заменяем запятую на точку для корректной конвертации
+        if isinstance(value, str):
+            value = value.replace(',', '.')
+            
+        value = float(value)
+        
         if value <= 0 or value >= 100:
             raise ValueError("Число должно быть больше 0 и меньше 100.")
         return value

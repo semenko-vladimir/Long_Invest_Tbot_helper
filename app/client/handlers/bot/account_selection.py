@@ -62,9 +62,15 @@ def real_account(call):
         # Отправляем сообщение о начале обработки
         send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nНастраиваем боевой счет...")
         
-        # Используем API-клиент для установки флага sandbox_trigger
-        config_client.set_sandbox_trigger(False)
-        send_or_edit_message(chat_id, "✅ *Успешно*\n\nВы выбрали боевой счет")
+        try:
+            # Используем API-клиент для установки флага sandbox_trigger
+            config_client.set_sandbox_trigger(False)
+            send_or_edit_message(chat_id, "✅ *Успешно*\n\nВы выбрали боевой счет")
+        except Exception as e:
+            if hasattr(e, 'response') and e.response.status_code == 404:
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНастройки стратегии не найдены. Сначала настройте стратегию.")
+            else:
+                raise
     
     except Exception as e:
         send_or_edit_message(chat_id, f"❌ *Ошибка при выборе боевого счета*\n\n`{str(e)}`")
@@ -84,8 +90,15 @@ def sandbox_account(call):
         # Отправляем сообщение о начале обработки
         send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nНастраиваем режим песочницы...")
         
-        # Используем API-клиент для установки флага sandbox_trigger
-        config_client.set_sandbox_trigger(True)
+        try:
+            # Используем API-клиент для установки флага sandbox_trigger
+            config_client.set_sandbox_trigger(True)
+        except Exception as e:
+            if hasattr(e, 'response') and e.response.status_code == 404:
+                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nНастройки стратегии не найдены. Сначала настройте стратегию.")
+                return
+            else:
+                raise
 
         # Работа с песочницей Tinkoff API
         with Client(tokens["sandbox_token"]) as client:

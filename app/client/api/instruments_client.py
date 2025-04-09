@@ -15,7 +15,7 @@ class InstrumentsApiClient(BaseApiClient):
         Returns:
             List[Dict[str, Any]]: Список инструментов
         """
-        return self._get("trading/instruments/")
+        return self._get("instruments/")
     
     def get_instrument_by_ticker(self, ticker: str) -> Dict[str, Any]:
         """
@@ -31,7 +31,7 @@ class InstrumentsApiClient(BaseApiClient):
             requests.exceptions.HTTPError: Если инструмент не найден (404) или другая ошибка HTTP
         """
         try:
-            return self._get(f"trading/instruments/ticker/{ticker}")
+            return self._get(f"instruments/ticker/{ticker}")
         except requests.exceptions.HTTPError as e:
             print(f"HTTP Error: {e}")
             raise
@@ -50,7 +50,7 @@ class InstrumentsApiClient(BaseApiClient):
             requests.exceptions.HTTPError: Если инструмент не найден (404) или другая ошибка HTTP
         """
         try:
-            return self._get(f"trading/instruments/figi/{figi}")
+            return self._get(f"instruments/figi/{figi}")
         except requests.exceptions.HTTPError as e:
             print(f"HTTP Error: {e}")
             raise
@@ -71,7 +71,7 @@ class InstrumentsApiClient(BaseApiClient):
         """
         try:
             data = {"ticker": ticker, "figi": figi}
-            return self._post("trading/instruments/", data)
+            return self._post("instruments/", data)
         except requests.exceptions.HTTPError as e:
             print(f"HTTP Error: {e}")
             raise
@@ -86,7 +86,7 @@ class InstrumentsApiClient(BaseApiClient):
         Returns:
             Dict[str, Any]: Удаленный инструмент
         """
-        return self._delete(f"trading/instruments/ticker/{ticker}")
+        return self._delete(f"instruments/ticker/{ticker}")
     
     def delete_all_instruments(self) -> Dict[str, int]:
         """
@@ -95,4 +95,4 @@ class InstrumentsApiClient(BaseApiClient):
         Returns:
             Dict[str, int]: Количество удаленных инструментов
         """
-        return self._delete("trading/instruments/all")
+        return self._delete("instruments/all")

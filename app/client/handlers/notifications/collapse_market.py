@@ -5,6 +5,7 @@ from telebot import types
 from app.client.config.schedulers_config import configure_market_scheduler
 from app.client.handlers.notifications.utils.utils import stop_scheduler, get_interval_from_callback
 from app.client.handlers.utils.message_utils import send_or_edit_message
+import requests
 
 config_client = ConfigApiClient()
 instruments_client = InstrumentsApiClient()
@@ -21,13 +22,27 @@ def add_collapse_market_handler(call):
     
     try:
         # Получаем текущие настройки конфигурации
-        config = config_client.get_config()
+        try:
+            config = config_client.get_config()
+            
+            # Если конфигурация существует и обновления уже включены
+            if config and config.get('collapse_updates', False):
+                send_or_edit_message(chat_id, '📊 *Подписка на уведомления*\n\nВы уже подписаны на обновления падений рынка')
+                return
+            
+            send_or_edit_message(chat_id, '🔄 *Изменение подписки*\n\nВы автоматически будете отписаны от обновлений рынка')
         
-        if config and config.get('collapse_updates', False):
-            send_or_edit_message(chat_id, '📊 *Подписка на уведомления*\n\nВы уже подписаны на обновления падений рынка')
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                # Если конфигурация не найдена, продолжаем
+                pass
+            else:
+                # Если другая ошибка, сообщаем о ней пользователю
+                send_or_edit_message(chat_id, f"❌ *Ошибка при получении конфигурации*\n\n`{str(e)}`")
+                return
+        except Exception as e:
+            send_or_edit_message(chat_id, f"❌ *Ошибка при получении конфигурации*\n\n`{str(e)}`")
             return
-        
-        send_or_edit_message(chat_id, '🔄 *Изменение подписки*\n\nВы автоматически будете отписаны от обновлений рынка')
         
         # Получаем список всех инструментов
         instruments = instruments_client.get_all_instruments()
@@ -70,13 +85,28 @@ def collapse_interval_handler(call):
         # Преобразуем время в строку
         time_str = str(time_value)
         
-        # Обновляем настройки конфигурации через API-клиент
-        config_client.update_config_collapse(
-            time_str,       # collapse_updates_time
-            True,           # collapse_updates
-            "0",            # market_updates_time
-            False           # market_updates
-        )
+        # Проверяем, существует ли конфигурация
+        try:
+            config = config_client.get_config()
+            # Обновляем существующую конфигурацию
+            config_client.update_config(
+                time_str,       # collapse_updates_time
+                True,           # collapse_updates
+                "0",            # market_updates_time
+                False           # market_updates
+            )
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                # Если конфигурации нет, создаем новую
+                config_client.create_config(
+                    time_str,       # collapse_updates_time
+                    True,           # collapse_updates
+                    "0",            # market_updates_time
+                    False           # market_updates
+                )
+            else:
+                # Если другая ошибка, вызываем исключение
+                raise
         
         print("РАБОТАЮТ ПАДЕНИЯ РЫНКА")
         configure_market_scheduler()
@@ -101,7 +131,7 @@ def remove_collapse_market_handler(call):
     
     try:
         # Обновляем настройки конфигурации через API-клиент
-        config_client.update_config_collapse(
+        config_client.update_config(
             "0",            # collapse_updates_time
             False,          # collapse_updates
             "0",            # market_updates_time

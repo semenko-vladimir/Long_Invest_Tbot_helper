@@ -192,4 +192,4 @@ def send_ticker_summary(chat_id, name, type_of, ticker, price_change_percent, cl
         f'⬆️ Максимальная цена: `{max_price}`\n'
         f'⬇️ Минимальная цена: `{min_price}`\n'
     )
-    send_or_edit_message(chat_id, text)
+    bot.send_message(chat_id, text, parse_mode='Markdown')

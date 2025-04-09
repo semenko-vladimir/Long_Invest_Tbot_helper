@@ -355,8 +355,8 @@ def check_orders(token: str, chat_id=None, sandbox_method: bool=False):
         existing_order = [o for o in orders.orders if str(o.order_id) == order_id]
 
         if not existing_order:
-            # Удаляем ордер через API клиент
-            trading_client.delete_order_by_order_id(order_id)
+            # Удаляем ордер через API клиент, используя улучшенный метод
+            trading_client.delete_order(order_id)
 
             if operation_type == "buy":
                 # Создаем новую покупку через API клиент

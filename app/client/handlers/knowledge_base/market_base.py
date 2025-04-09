@@ -1,6 +1,7 @@
 from app.client.bot.bot import bot
 from telebot import types
 from app.client.handlers.utils.message_utils import send_or_edit_message
+from app.client.handlers.knowledge_base.back_handler import back_to_knowledge_base
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'base_market')

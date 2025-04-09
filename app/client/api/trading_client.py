@@ -99,9 +99,9 @@ class TradingApiClient(BaseApiClient):
         """
         return self._post("trading/orders/", data)
     
-    def delete_order(self, order_id: int) -> Dict[str, Any]:
+    def delete_order(self, order_id: str) -> Dict[str, Any]:
         """
-        Удаляет заказ по ID.
+        Удаляет заказ по order_id.
         
         Args:
             order_id: ID заказа
@@ -110,15 +110,3 @@ class TradingApiClient(BaseApiClient):
             Dict[str, Any]: Удаленный заказ
         """
         return self._delete(f"trading/orders/{order_id}")
-    
-    def delete_order_by_order_id(self, order_id: str) -> Dict[str, Any]:
-        """
-        Удаляет заказ по order_id.
-        
-        Args:
-            order_id: order_id заказа
-            
-        Returns:
-            Dict[str, Any]: Удаленный заказ
-        """
-        return self._delete(f"trading/orders/order_id/{order_id}")
