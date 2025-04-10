@@ -3,7 +3,7 @@ from app.client.bot.bot import bot
 # Словарь для хранения ID последних сообщений для каждого чата
 last_messages = {}
 
-def send_or_edit_message(chat_id, text, reply_markup=None, parse_mode=None):
+def send_or_edit_message(chat_id, text, reply_markup=None, parse_mode="Markdown"):
     """
     Отправляет новое сообщение или редактирует существующее в зависимости от наличия ID последнего сообщения.
     
