@@ -31,7 +31,6 @@ def plot_sma(chat_id, df):
     # Создаем список данных для candlestick_ohlc
     ohlc = df[['time', 'open', 'high', 'low', 'close']].values
 
-    # Параметры свечного графика (увеличена ширина свечей)
     candlestick_ohlc(ax, ohlc, width=0.8, colorup='green', colordown='red')
 
     # Добавление графиков SMA
@@ -48,11 +47,9 @@ def plot_sma(chat_id, df):
     # Сохранение графика во временный файл
     file_path = 'sma_candlestick_chart.png'
     plt.savefig(file_path)
-    plt.close(fig)  # Закрываем график, чтобы освободить ресурсы
+    plt.close(fig)  
 
-    # Отправляем файл в Telegram
     with open(file_path, 'rb') as photo:
         bot.send_photo(chat_id, photo)
 
-    # Удаляем файл после отправки (необязательно)
     os.remove(file_path)

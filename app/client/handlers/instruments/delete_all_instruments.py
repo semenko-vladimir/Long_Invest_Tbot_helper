@@ -20,8 +20,7 @@ def delete_all_instruments_handler(call):
         
         # Удаляем все инструменты через API-клиент
         result = instruments_client.delete_all_instruments()
-        count = result.get('count', 0)
-        send_or_edit_message(chat_id, f"🗑️ *Удаление инструментов*\n\n✅ Все инструменты были удалены\n\nВсего удалено: `{count}` инструментов")
+        send_or_edit_message(chat_id, f"🗑️ *Удаление инструментов*\n\n✅ Все инструменты были удалены\n")
     
     except Exception as e:
         send_or_edit_message(chat_id, f"❌ *Ошибка при удалении инструментов*\n\n`{str(e)}`")

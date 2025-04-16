@@ -108,7 +108,7 @@ def collapse_interval_handler(call):
                 # Если другая ошибка, вызываем исключение
                 raise
         
-        print("РАБОТАЮТ ПАДЕНИЯ РЫНКА")
+        send_or_edit_message(chat_id, '⏳ *Ожидайте...*\n\nПланировщики уведомлений создаются')
         configure_market_scheduler()
         
         send_or_edit_message(

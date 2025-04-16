@@ -52,11 +52,18 @@ def set_signals(call):
     for button in buttons:
         markup.add(button)
     
-    send_or_edit_message(
-        chat_id, 
-        "⚙️ *Настройка стратегии*\n\nВыберите, какие сигналы подключить к стратегии:", 
-        reply_markup=markup
-    )
+    # Формируем сообщение с учетом выбранных сигналов
+    message_text = "⚙️ *Настройка стратегии*\n\n"
+    
+    if selected_signals:
+        message_text += "Выбранные сигналы:\n"
+        for signal in selected_signals:
+            message_text += f"✅ {signal}\n"
+        message_text += "\nВыберите дополнительные сигналы или нажмите 'Ок' для продолжения:"
+    else:
+        message_text += "Выберите, какие сигналы подключить к стратегии:"
+    
+    send_or_edit_message(chat_id, message_text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_'))
@@ -72,93 +79,154 @@ def select_signal(call):
 
     # Проверяем, не выбран ли сигнал уже
     if selected_signals.get(signal):
-        send_or_edit_message(chat_id, f"ℹ️ *Информация*\n\nСигнал {signal} уже выбран.")
+        markup = create_signals_markup()
+        message_text = "⚙️ *Настройка стратегии*\n\n"
+        message_text += f"ℹ️ Сигнал {signal} уже выбран.\n\n"
+        message_text += "Выбранные сигналы:\n"
+        for selected_signal in selected_signals:
+            message_text += f"✅ {selected_signal}\n"
+        message_text += "\nВыберите дополнительные сигналы или нажмите 'Ок' для продолжения:"
+        send_or_edit_message(chat_id, message_text, reply_markup=markup)
         return
 
     # Проверяем, что все поля для сигнала заполнены
     try:
+        signal_added = False
+        error_message = None
+        
         if signal == 'RSI':
             current_settings = signals_client.get_signal_rsi()
             if current_settings:
                 selected_signals[signal] = True
                 rsi_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал RSI не настроен.")
+                error_message = "Сигнал RSI не настроен."
         
         elif signal == 'SMA':
             current_settings = signals_client.get_signal_sma()
             if current_settings:
                 selected_signals[signal] = True
                 sma_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал SMA не настроен.")
+                error_message = "Сигнал SMA не настроен."
         
         elif signal == 'EMA':
             current_settings = signals_client.get_signal_ema()
             if current_settings:
                 selected_signals[signal] = True
                 ema_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал EMA не настроен.")
+                error_message = "Сигнал EMA не настроен."
         
         elif signal == 'TAKE PROFIT/STOP LOSS':
             current_settings = signals_client.get_signal_tpsl()
             if current_settings:
                 selected_signals[signal] = True
                 tpsl_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал Take Profit/Stop Loss не настроен.")
+                error_message = "Сигнал Take Profit/Stop Loss не настроен."
         
         elif signal == 'ALLIGATOR':
             current_settings = signals_client.get_signal_alligator()
             if current_settings:
                 selected_signals[signal] = True
                 alligator_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал Alligator не настроен.")
+                error_message = "Сигнал Alligator не настроен."
         
         elif signal == 'GPT':
             current_settings = signals_client.get_signal_gpt()
             if current_settings:
                 selected_signals[signal] = True
                 gpt_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал GPT не настроен.")
+                error_message = "Сигнал GPT не настроен."
         
         elif signal == 'LSTM':
             selected_signals[signal] = True
             lstm_trigger = True
-            send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+            signal_added = True
         
         elif signal == 'BOLLINGER':
             current_settings = signals_client.get_signal_bollinger()
             if current_settings:
                 selected_signals[signal] = True
                 bollinger_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал Bollinger не настроен.")
+                error_message = "Сигнал Bollinger не настроен."
         
         elif signal == 'MACD':
             current_settings = signals_client.get_signal_macd()
             if current_settings:
                 selected_signals[signal] = True
                 macd_trigger = True
-                send_or_edit_message(chat_id, f"✅ *Успешно*\n\nСигнал `{signal}` добавлен.")
+                signal_added = True
             else:
-                send_or_edit_message(chat_id, "❌ *Ошибка*\n\nСигнал MACD не настроен.")
+                error_message = "Сигнал MACD не настроен."
+        
+        # Обновляем сообщение в зависимости от результата
+        markup = create_signals_markup()
+        message_text = "⚙️ *Настройка стратегии*\n\n"
+        
+        if error_message:
+            message_text += f"❌ *Ошибка*: {error_message}\n\n"
+        elif signal_added:
+            message_text += f"✅ Сигнал {signal} успешно добавлен!\n\n"
+        
+        # Добавляем информацию о выбранных сигналах
+        if selected_signals:
+            message_text += "Выбранные сигналы:\n"
+            for selected_signal in selected_signals:
+                message_text += f"✅ {selected_signal}\n"
+            message_text += "\nВыберите дополнительные сигналы или нажмите 'Ок' для продолжения:"
+        else:
+            message_text += "Выберите, какие сигналы подключить к стратегии:"
+        
+        send_or_edit_message(chat_id, message_text, reply_markup=markup)
     
     except Exception as e:
-        send_or_edit_message(chat_id, f"❌ *Ошибка при проверке настроек сигнала*\n\n`{str(e)}`")
+        markup = create_signals_markup()
+        message_text = "⚙️ *Настройка стратегии*\n\n"
+        message_text += f"❌ Ошибка при добавлении сигнала {signal}: {str(e)}\n\n"
+        
+        if selected_signals:
+            message_text += "Выбранные сигналы:\n"
+            for selected_signal in selected_signals:
+                message_text += f"✅ {selected_signal}\n"
+            message_text += "\nВыберите другие сигналы или нажмите 'Ок' для продолжения:"
+        else:
+            message_text += "Выберите, какие сигналы подключить к стратегии:"
+            
+        send_or_edit_message(chat_id, message_text, reply_markup=markup)
 
-    # Повторно выводим кнопки для выбора сигналов
-    set_signals(call)
+
+# Вспомогательная функция для создания разметки с сигналами
+def create_signals_markup():
+    """
+    Создает и возвращает разметку с кнопками для выбора сигналов.
+    """
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    signal_emojis = {
+        'RSI': '📊', 'SMA': '📈', 'EMA': '📉', 
+        'TAKE PROFIT/STOP LOSS': '🎯', 'ALLIGATOR': '🐊',
+        'GPT': '🤖', 'LSTM': '🧠', 'BOLLINGER': '📊', 'MACD': '📈'
+    }
+    
+    buttons = [types.InlineKeyboardButton(f"{signal_emojis.get(signal, '')} {signal}", callback_data=f'select_{signal.lower()}') for signal in available_signals]
+    buttons.append(types.InlineKeyboardButton('✅ Ок', callback_data='ok'))
+    buttons.append(types.InlineKeyboardButton('❌ Отмена', callback_data='cancel'))
+    
+    for button in buttons:
+        markup.add(button)
+    
+    return markup
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'ok')
