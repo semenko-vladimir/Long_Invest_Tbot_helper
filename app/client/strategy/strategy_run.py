@@ -28,6 +28,9 @@ config_client = ConfigApiClient()
 
 logger = setup_logger(__name__)
 
+load_dotenv()
+BROKER_FEE = os.getenv('BROKER_FEE')
+
 def get_tokens():
     """
     Получает токены из переменных окружения.
@@ -82,8 +85,7 @@ def get_current_profit(token, figi, ticker, sandbox_method):
         with Client(token) as client:
             current_price_sell, _ = get_current_price(figi, client, 'fast')
         
-        broker_fee = 0.3
-        return calculate_profit(average_position_price, cast_money(current_price_sell), broker_fee)
+        return calculate_profit(average_position_price, cast_money(current_price_sell), BROKER_FEE)
     
     return 0
 

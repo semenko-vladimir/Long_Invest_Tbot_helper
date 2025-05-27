@@ -48,6 +48,7 @@ def verify_tokens():
         CHAT_ID = os.getenv('CHAT_ID')
         TOKEN = os.getenv('TOKEN')
         SANDBOX_TOKEN = os.getenv('SANDBOX_TOKEN')
+        BROKER_FEE = os.getenv('BROKER_FEE')
         
         # Проверка, что переменные окружения существуют и не пусты
         if not BOT_TOKEN or BOT_TOKEN.strip() == '':
@@ -61,6 +62,9 @@ def verify_tokens():
         
         if not SANDBOX_TOKEN or SANDBOX_TOKEN.strip() == '':
             raise TokenVerificationError("Отсутствует или пуст токен песочницы (SANDBOX_TOKEN)")
+        
+        if not BROKER_FEE or BROKER_FEE.strip() == '':
+            raise TokenVerificationError("Отсутствует или пуста комиссия брокера (BROKER_FEE)")
         
         logger.info("Все необходимые токены успешно проверены")
     

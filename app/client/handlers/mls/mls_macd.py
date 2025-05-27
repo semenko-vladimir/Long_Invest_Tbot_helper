@@ -21,6 +21,9 @@ signals_client = SignalsApiClient()
 
 logger = setup_logger(__name__)
 
+load_dotenv()
+BROKER_FEE = os.getenv('BROKER_FEE')
+
 # Функция для получения токенов из переменных окружения
 def get_tokens():
     """
@@ -161,8 +164,7 @@ def calculate_mls_macd(call):
             with Client(token) as client:
                 current_price_sell, _ = get_current_price(figi, client, 'fast')
             
-            broker_fee = 0.3
-            current_profit = calculate_profit(average_position_price, cast_money(current_price_sell), broker_fee)
+            current_profit = calculate_profit(average_position_price, cast_money(current_price_sell), BROKER_FEE)
         
         # Определяем временной интервал
         if mls_interval == '6':
