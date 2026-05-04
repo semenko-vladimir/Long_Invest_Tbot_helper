@@ -84,6 +84,27 @@ class ResearchApiTests(unittest.TestCase):
         )
         return TestClient(app)
 
+    def test_research_web_entry_is_read_only_and_links_to_api(self):
+        response = self.build_client([SuccessfulAdapter()]).get("/api/research")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+        body = response.text
+        self.assertIn("Read-only ticker research", body)
+        self.assertIn("/api/research/", body)
+        self.assertIn("data_gaps", body)
+        self.assertIn("errors", body)
+        self.assertIn("does not submit broker orders", body)
+        self.assertNotIn("signal", body.lower())
+        self.assertNotIn("trade recommendation", body.lower())
+        self.assertNotIn("auto-trade", body.lower())
+        self.assertNotIn("buy now", body.lower())
+
+    def test_research_web_entry_does_not_accept_posts(self):
+        response = self.build_client([SuccessfulAdapter()]).post("/api/research")
+
+        self.assertEqual(response.status_code, 405)
+
     def test_get_research_endpoint_returns_report_for_successful_adapter(self):
         response = self.build_client([SuccessfulAdapter()]).get("/api/research/sber")
 
