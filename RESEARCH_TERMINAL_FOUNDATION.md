@@ -71,7 +71,12 @@ ResearchReport
 
 The first implementation should keep `educational_rating` empty or absent. Ratings are a future capability, not part of the current v1 runtime.
 
-The first read-only API endpoint, `GET /api/research/{ticker}`, returns this report shape as JSON. It should return partial reports with explicit `data_gaps` and `errors` when a source is missing or fails, rather than guessing unavailable data.
+Implemented foundation entries:
+
+- `GET /api/research/{ticker}` returns this report shape as JSON.
+- `GET /api/research` provides a minimal local read-only web entry with a ticker input and JSON report display.
+
+Both entries return partial reports with explicit `data_gaps` and `errors` when a source is missing or fails, rather than guessing unavailable data. They do not create broker orders, provide trading signals, or compute ratings.
 
 ## Future Educational Ratings
 
@@ -120,7 +125,7 @@ Use:
 1. Add pure schemas/dataclasses and adapter interface with unit tests; no UI and no broker orders.
 2. Add `TInvestDataAdapter` for identity, price, and dividend inputs using read-only broker APIs.
 3. Add `TickerResearchService` and `ResearchReportService` to assemble reports with gaps and freshness metadata.
-4. Add read-only web endpoint/page and Telegram command for ticker research.
+4. Add read-only web endpoint/page for ticker research. Implemented for the first API/web entry; Telegram command remains future work.
 5. Add optional local persistence for report snapshots if useful.
 6. Add optional macro/OSINT adapters behind the same `DataSourceAdapter` contract.
 7. Add optional local LLM analysis adapter only after structured output, freshness, confidence, and hallucination-safety rules are implemented.

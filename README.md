@@ -146,10 +146,13 @@ FastAPI also serves a local investor terminal at `http://localhost:8000/`. The w
 - `Sell`
 - `Dividends`
 - `Watchlist`
+- `Research`
 - `Plans`
 - `Settings`
 
 Plan screens create recurring investment plan definitions and manual proposals. They do not create broker orders from analysis or trading signals.
+
+Read-only ticker research is available at `http://localhost:8000/api/research`. Enter a ticker to call `GET /api/research/{ticker}` and display the partial research report JSON. The report includes sources, freshness metadata, `data_gaps`, `errors`, the educational disclaimer, and an empty or null `educational_rating`. This research entry does not create broker orders, does not provide trading signals, and does not recommend trades.
 
 ## Legacy Code Status
 
