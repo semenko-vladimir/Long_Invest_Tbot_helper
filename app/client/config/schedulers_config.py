@@ -180,6 +180,7 @@ def configure_strategy_scheduler():
     
     Собирает информацию о всех активных стратегиях и настраивает планировщик.
     """
+    # Legacy strategy scheduling is outside the active investor v1 runtime and remains opt-in.
     global strategy_scheduler
     
     try:

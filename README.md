@@ -1,230 +1,172 @@
-# Tbot - Система для автоматизированного трейдинга и управления финансовыми активами (включает в себя торгового робота). Работает с брокером Т-Инвестиции (Тинькофф Инвестиции)
+# Tbot v1 - Local Long-Term Investor Assistant
 
-# ⚠️ВНИМАНИЕ! Любые операции, действия и (или) пояснения НЕ ЯВЛЯЮТСЯ индивидуальной инвестиционной рекомендацией (ИИР).
+Tbot v1 is a local, sandbox-first assistant for a private long-term investor. It uses Telegram as the primary UI, FastAPI as a local backend and web terminal, SQLite for local storage, and the T-Invest API for portfolio, instrument, dividend, and manual order operations.
 
-Учтите, что у системы могут быть неточности!
+This project is not an investment adviser and does not make financial recommendations. Production trading is treated as dangerous and remains blocked unless `APP_MODE="prod"`, a production `TOKEN`, and `ALLOW_PROD_TRADING="true"` are explicitly configured.
 
----
+## What It Does
 
-🟢Если предложите помощь по доработке/изменению/добавлению функционала, буду только рад.🟢
+- Shows portfolio and current positions.
+- Supports manual buy and sell by ticker and lot count.
+- Tracks a watchlist of tickers.
+- Shows dividend-related information for watchlist instruments.
+- Shows basic text statistics for stored manual trading records.
+- Can prepare investment plan proposals and optional daily investor reminders without signals or trade advice.
+- Provides a local FastAPI/web terminal for portfolio, watchlist, dividends, manual orders, plans, and settings.
+- Runs in sandbox mode by default.
 
-## Обзор проекта
+Investor v1 intentionally does not include runtime RSI/MACD/EMA/SMA signals, GPT/LSTM analysis, scalping flows, BUY/HOLD/SELL/WATCH/AVOID recommendations, or automatic broker order execution. Manual orders are the only active order path.
 
-Tbot - это автоматизированный торговый бот для работы с Т-Инвестиции (Тинькофф Инвестиции) API. Приложение состоит из FastAPI бэкенда и Telegram бота, который предоставляет интерфейс для управления торговыми стратегиями, получения уведомлений о состоянии рынка, анализа портфеля и многого другого.
+## Install
 
-## Основные возможности
+Use Python 3.12 if available.
 
-- 🤖 **Telegram бот** для удобного управления всеми функциями
-- 📊 **Анализ портфеля** и отслеживание его состояния
-- 📈 **Торговые сигналы** на основе различных индикаторов (RSI, MACD, EMA, SMA, Bollinger Bands, Alligator)
-- 🔔 **Уведомления** о важных событиях на рынке
-- 📉 **Отслеживание состояния рынка** (рост, падение, изменения)
-- 💹 **Автоматические торговые стратегии**
-- 💰 **Информация о дивидендах**
-- 📝 **Управление инструментами**
-- 📊 **Статистика** по торговым операциям
-- 📚 **База знаний** по трейдингу и инвестициям
-- 🌐 **API** для интеграции с другими системами
-
-## Системные требования
-
-- Python 3.8 или выше
-- Доступ к Интернету для взаимодействия с API Тинькофф Инвестиций
-- Telegram аккаунт для использования бота
-- Аккаунт Тинькофф Инвестиций и API токен
-
-## Установка
-
-### 1. Клонирование репозитория
-
-```bash
-git clone https://github.com/your-username/Tbot.git
-cd Tbot
-```
-
-### 2. Создание виртуального окружения (рекомендуется)
-
-```bash
+```powershell
 python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements-base.txt
 ```
 
-#### Активация виртуального окружения
+Compatibility aliases:
 
-**Windows:**
-
-```bash
-venv\Scripts\activate
+```powershell
+python -m pip install -r requirements-v1.txt
 ```
 
-**Linux/macOS:**
+Optional legacy analytics, charting, signal, and ML dependencies are separated:
 
-```bash
-source venv/bin/activate
+```powershell
+python -m pip install -r requirements-optional.txt
 ```
 
-### 3. Установка зависимостей
+Development tooling:
 
-```bash
-pip install -r requirements.txt
+```powershell
+python -m pip install -r requirements-dev.txt
 ```
 
-## Конфигурация
+The legacy T-Invest SDK packages used here are quarantined on PyPI, so `requirements-base.txt` pins them through direct PyPI wheel URLs. Revisit those pins before production use.
 
-### 1. Настройка переменных окружения
+## Configure `.env`
 
-Создайте файл `.env` в корневой директории проекта со следующими параметрами:
+Copy the example and fill only local secrets in `.env`:
 
-```
-# Токен бота telegram
-BOT_TOKEN = "ваш_токен_телеграм_бота"
-# Токен тинькофф инвестиции
-TOKEN = "ваш_токен_тинькофф_инвестиций"
-# Токен тинькофф sandbox
-SANDBOX_TOKEN = "ваш_токен_тинькофф_sandbox"
-# Id чата telegram
-CHAT_ID = "ваш_id_чата_telegram"
-# Комиссия брокера
-BROKER_FEE = 0.3 (по умолчанию)
+```powershell
+Copy-Item .env.example .env
 ```
 
-#### Как получить токены:
+Required for sandbox v1:
 
-1. **BOT_TOKEN**: Создайте нового бота через [@BotFather](https://t.me/BotFather) в Telegram и получите токен
-2. **TOKEN**: Получите токен в [личном кабинете Тинькофф Инвестиций](https://www.tinkoff.ru/invest/settings/api/)
-3. **SANDBOX_TOKEN**: Получите токен песочницы там же в настройках API Тинькофф Инвестиций
-4. **CHAT_ID**: Отправьте сообщение боту [@userinfobot](https://t.me/userinfobot) в Telegram, чтобы узнать ваш ID
+```env
+BOT_TOKEN = "your_telegram_bot_token"
+SANDBOX_TOKEN = "your_sandbox_token"
+CHAT_ID = "your_telegram_chat_id"
+BROKER_FEE = 0.3
+APP_MODE = "sandbox"
+ALLOW_PROD_TRADING = "false"
+ENABLE_BACKGROUND_SCHEDULERS = "false"
+ENABLE_INVESTOR_REMINDERS = "false"
+INVESTOR_REMINDER_TIME = "09:00"
+API_BASE_URL = "http://localhost:8000"
+```
 
-### 2. Настройка базы данных
+`INVEST_MODE="sandbox"` may remain as a legacy alias, but `APP_MODE` is the primary mode variable. `TOKEN` is only required for production mode.
 
-База данных настраивается автоматически при первом запуске приложения. По умолчанию используется SQLite.
+Production trading requires all of these values:
 
-## Запуск приложения
+```env
+APP_MODE = "prod"
+TOKEN = "your_prod_token"
+ALLOW_PROD_TRADING = "true"
+```
 
-### Стандартный запуск
+## Launch In Sandbox
 
-```bash
+```powershell
 python app/run.py
 ```
 
-При запуске приложения:
+Startup path:
 
-1. Инициализируется база данных (если это первый запуск)
-2. Настраиваются планировщики задач
-3. Запускается FastAPI сервер на http://localhost:8000
-4. Запускается Telegram бот
+1. Validate required environment variables.
+2. Initialize SQLite in the repo root.
+3. Start FastAPI at `http://localhost:8000`.
+4. Configure disabled-by-default schedulers/reminders.
+5. Start Telegram polling.
 
-### Запуск через Docker (опционально)
+Smoke checks after startup:
 
-```bash
-docker-compose up -d
+```powershell
+curl http://localhost:8000/
+curl http://localhost:8000/api/instruments/
 ```
 
-## API документация
+## Use Buy/Sell By Ticker
 
-После запуска приложения API документация доступна по следующим адресам:
+In Telegram:
 
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## Использование Telegram бота
-
-1. Найдите вашего бота в Telegram (по имени, которое вы указали при создании через BotFather)
-2. Отправьте команду `/start`
-3. Бот проверит ваш CHAT_ID с тем, что указан в файле `.env`
-4. После успешной авторизации вы получите доступ к основному меню с кнопками:
-   - Получить портфолио
-   - Инструменты
-   - Уведомления
-   - Состояние рынка
-   - Настройка сигналов
-   - Торговый робот
-   - Дивиденды
-   - Middle/Long сигналы(Графики)
-   - База знаний
-   - Статистика
-
-## Структура проекта
-
-```
-Tbot/
-├── app/
-│   ├── run.py                      # Основной файл запуска приложения
-│   ├── backend/                    # Бэкенд на FastAPI
-│   │   ├── main_api.py             # Основной файл FastAPI приложения
-│   │   ├── api/                    # API эндпоинты
-│   │   │   ├── endpoints/          # Конечные точки API
-│   │   │   │   ├── config.py       # Конфигурация API
-│   │   │   │   ├── signals.py      # API для сигналов
-│   │   │   │   ├── strategy.py     # API для стратегий
-│   │   │   │   └── trading.py      # API для торговли
-│   │   ├── models/                 # Модели данных
-│   │   └── schemas/                # Схемы Pydantic
-│   ├── client/                     # Клиентская часть (Telegram бот)
-│   │   ├── api/                    # Взаимодействие через API
-│   │   ├── bot/                    # Основной код бота
-│   │   ├── config/                 # Конфигурация клиента
-│   │   ├── graphics/               # Генерация графиков
-│   │   ├── handlers/               # Обработчики команд бота
-│   │   ├── log/                    # Логирование
-│   │   ├── orders/                 # Работа с ордерами
-│   │   ├── signals/                # Генерация торговых сигналов
-│   │   ├── store/                  # Хранилище данных
-│   │   ├── strategy/               # Торговые стратегии
-│   │   └── utils/                  # Вспомогательные функции
-├── .env                            # Файл с переменными окружения
-├── .gitignore                      # Файл .gitignore
-├── docker-compose.yml              # Конфигурация Docker Compose
-├── Dockerfile                      # Dockerfile
-├── MIGRATION_PLAN.md               # План миграции
-└── requirements.txt                # Зависимости проекта
+```text
+/start
+/help
 ```
 
-## Торговые индикаторы и стратегии
+Menu:
 
-Бот поддерживает следующие индикаторы:
+- `Portfolio`
+- `Buy`
+- `Sell`
+- `Dividends`
+- `Watchlist`
+- `Stats`
+- `Reports`
+- `Help`
 
-- RSI (Relative Strength Index)
-- MACD (Moving Average Convergence Divergence)
-- EMA (Exponential Moving Average)
-- SMA (Simple Moving Average)
-- Bollinger Bands
-- Alligator
-- TPSL (Take Profit / Stop Loss)
-- GPT (на основе искусственного интеллекта)
-- LSTM (модель, предсказывающая цену)
+Manual trading:
 
-## Устранение неполадок
+```text
+buy SBER 1
+sell SBER 1
+```
 
-### Проблемы с запуском
+You can also tap `Buy` or `Sell` and then enter:
 
-1. **Ошибка импорта модулей**:
+```text
+SBER 1
+```
 
-   - Убедитесь, что вы запускаете приложение из корневой директории проекта
-   - Проверьте, что все зависимости установлены: `pip install -r requirements.txt`
+The bot resolves the ticker, blocks ambiguous/not-found tickers, checks sandbox account availability, checks cash before buy, checks available position quantity before sell, and logs every manual trade attempt without logging secrets.
 
-2. **Ошибка доступа к API Тинькофф**:
+## Local Web Terminal
 
-   - Проверьте правильность токенов в файле `.env`
-   - Убедитесь, что у вас есть доступ к API Тинькофф Инвестиций
+FastAPI also serves a local investor terminal at `http://localhost:8000/`. The web UI is intended for calm portfolio review and manual workflows:
 
-3. **Telegram бот не отвечает**:
+- `Portfolio`
+- `Buy`
+- `Sell`
+- `Dividends`
+- `Watchlist`
+- `Plans`
+- `Settings`
 
-   - Проверьте правильность BOT_TOKEN в файле `.env`
-   - Убедитесь, что ваш CHAT_ID указан правильно
-   - Проверьте, что бот запущен и активен
+Plan screens create recurring investment plan definitions and manual proposals. They do not create broker orders from analysis or trading signals.
 
-4. **Ошибки базы данных**:
-   - Проверьте права доступа к директории, где создается база данных
-   - При необходимости удалите файл базы данных и перезапустите приложение для его пересоздания
+## Legacy Code Status
 
-### Логи
+Older signal, strategy, ML, GPT/LSTM, chart, and market-notification modules remain in the repository as legacy code for migration safety and reversibility. They are not part of the active investor v1 menu or active API router, and this v1 runtime must not be treated as an auto-trading or signal bot.
 
-Логи приложения сохраняются в директории `app/client/log/`. Проверьте их для получения дополнительной информации об ошибках.
+## Known Limitations
 
-## Лицензия
+- Full runtime validation requires real Telegram and T-Invest sandbox credentials.
+- Manual order prices use the current order book and may fail when the book is empty or the market is unavailable.
+- Manual order history stores limited metadata; some statistics are all-time rather than interval-filtered.
+- Optional investor reminders require `APScheduler` from `requirements-base.txt` and are off by default.
+- Legacy signal, strategy, ML, GPT/LSTM, chart, and market-notification modules remain in the repository for reversibility but are not part of the active investor v1 runtime.
+- Pydantic v2 emits a warning for old `orm_mode` schema config; this is non-blocking.
 
-[MIT License](LICENSE)
+## More Docs
 
-## Контакты
-
-Если у вас возникли вопросы или предложения по улучшению проекта, пожалуйста, создайте issue в репозитории или свяжитесь с автором.
+- `README_LOCAL_SETUP.md` - Windows-first laptop setup.
+- `INVESTOR_MODE.md` - investor-mode workflow.
+- `V1_SCOPE.md` - v1 feature scope.
+- `MIGRATION_AUDIT.md` - migration audit notes.

@@ -9,18 +9,18 @@ from app.client.handlers.bot.strategy_remove import remove_strategy_handler
 @bot.message_handler(func=lambda message: message.text == 'Торговый робот')
 def bot_handler(message):
     """
-    Основной обработчик для раздела "Торговый робот".
+    Основной обработчик legacy-раздела стратегий, не входящего в активный investor v1 runtime.
     
-    Отображает меню с доступными опциями для работы с торговым роботом.
+    Отображает legacy-меню для обратной совместимости без представления его как активного v1 workflow.
     """
     chat_id = message.chat.id
     
     inline_keyboard = types.InlineKeyboardMarkup()
     buttons = [
-        types.InlineKeyboardButton(text='⚙️ Настроить стратегию', callback_data='strategy_set'),
-        types.InlineKeyboardButton(text='🛑 Отключить стратегию', callback_data='strategy_remove'),
-        types.InlineKeyboardButton(text='💼 Выбор счета', callback_data='account_selection'),
-        types.InlineKeyboardButton(text='ℹ️ Информация о песочнице', callback_data='sandbox_info'),
+        types.InlineKeyboardButton(text='⚙️ Legacy strategy settings', callback_data='strategy_set'),
+        types.InlineKeyboardButton(text='🛑 Legacy strategy stop', callback_data='strategy_remove'),
+        types.InlineKeyboardButton(text='💼 Account selection (legacy)', callback_data='account_selection'),
+        types.InlineKeyboardButton(text='ℹ️ Sandbox info', callback_data='sandbox_info'),
     ]
     
     for button in buttons:
@@ -29,7 +29,7 @@ def bot_handler(message):
     # Отправляем новое сообщение для первого обработчика
     msg = bot.send_message(
         chat_id=chat_id, 
-        text='🤖 *Торговый робот*\n\nВыберите опцию для работы с торговым роботом:', 
+        text='*Legacy strategy tools*\n\nThis area is retained for migration safety and is not part of the active investor v1 manual workflow.',
         reply_markup=inline_keyboard
     )
     

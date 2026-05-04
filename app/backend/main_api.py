@@ -11,8 +11,8 @@ from app.backend.models import create_all_tables
 
 # Create FastAPI app
 app = FastAPI(
-    title="Trading Bot API",
-    description="API for the Trading Bot application",
+    title="Long-Term Investor Assistant API",
+    description="Local sandbox-first API for portfolio, watchlist, dividends, and manual orders",
     version="1.0.0",
 )
 
@@ -37,7 +37,7 @@ def startup_event():
 @app.get("/")
 def read_root():
     return {
-        "message": "Welcome to the Trading Bot API",
+        "message": "Long-Term Investor Assistant API is running",
         "docs_url": "/docs",
         "redoc_url": "/redoc",
     }

@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from app.backend.api.endpoints import config, strategy, signals, trading, instruments
 
 app = FastAPI(
-    title="Trading Bot API",
-    description="API for trading bot operations",
+    title="Long-Term Investor Assistant API",
+    description="Local sandbox-first API for investor assistant operations",
     version="1.0.0",
 )
 
@@ -19,4 +19,4 @@ def read_root():
     """
     Root endpoint to check API health.
     """
-    return {"status": "ok", "message": "Trading Bot API is running"}
+    return {"status": "ok", "message": "Long-Term Investor Assistant API is running"}

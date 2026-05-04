@@ -113,7 +113,7 @@ def start(message):
         keyboard.row(statistics_button)
         
         # Отправляем приветственное сообщение с клавиатурой
-        bot.send_message(message.chat.id, 'Добро пожаловать!', reply_markup=keyboard)
+        bot.send_message(message.chat.id, 'Investor v1 is sandbox-first. Use portfolio, instruments, dividends, statistics, and manual review workflows; legacy signal/strategy items are not the active v1 runtime.', reply_markup=keyboard)
     
     except Exception as e:
         logger.error(f"Ошибка при обработке команды /start: {str(e)}")
