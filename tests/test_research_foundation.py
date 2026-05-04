@@ -78,7 +78,6 @@ class ResearchFoundationTests(unittest.TestCase):
         forbidden_prefixes = (
             "app.services.orders",
             "app.client.orders",
-            "app.integrations.tinvest",
             "app.client.signals",
             "app.client.strategy",
             "app.client.handlers.signals",
