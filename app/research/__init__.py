@@ -9,6 +9,7 @@ from app.research.schemas import (
     ResearchReport,
     SourceFreshness,
 )
+from app.research.services import ResearchReportService, TickerResearchService
 from app.research.tinvest_adapter import TInvestDataAdapter
 
 __all__ = [
@@ -17,7 +18,9 @@ __all__ = [
     "DataSourceAdapter",
     "InstrumentIdentity",
     "MarketSnapshot",
+    "ResearchReportService",
     "ResearchReport",
     "SourceFreshness",
+    "TickerResearchService",
     "TInvestDataAdapter",
 ]

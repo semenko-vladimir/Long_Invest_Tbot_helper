@@ -64,6 +64,7 @@ class ResearchReport:
     news_osint: Optional[list[dict[str, Any]]] = None
     risks: list[str] = field(default_factory=list)
     data_gaps: list[DataGap] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     confidence: Optional[float] = None
     disclaimer: str = (
         "Educational long-term research only. This is not personal investment advice "
