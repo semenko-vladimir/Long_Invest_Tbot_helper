@@ -63,12 +63,15 @@ ResearchReport
 - news_osint
 - risks[]
 - data_gaps[]
+- errors[]
 - educational_rating: null by default
 - confidence
 - disclaimer
 ```
 
 The first implementation should keep `educational_rating` empty or absent. Ratings are a future capability, not part of the current v1 runtime.
+
+The first read-only API endpoint, `GET /api/research/{ticker}`, returns this report shape as JSON. It should return partial reports with explicit `data_gaps` and `errors` when a source is missing or fails, rather than guessing unavailable data.
 
 ## Future Educational Ratings
 
