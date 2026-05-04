@@ -18,7 +18,8 @@ The active v1 runtime is limited to:
 - manual buy and sell orders by ticker and lot count;
 - local manual order history and basic statistics;
 - investment plans and reminders for manual review;
-- local settings and mode visibility.
+- local settings and mode visibility;
+- read-only ticker research in the web terminal and Telegram.
 
 Manual orders are the only active broker order path.
 

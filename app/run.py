@@ -25,6 +25,7 @@ from app.client.handlers.bot.bot_handler import bot_handler
 from app.client.handlers.signals.signals_handler import show_signals_handler
 from app.client.handlers.mls.mls_handler import mls_handler
 from app.client.handlers.knowledge_base.knowledge_base_handler import knowledge_base_handler
+from app.client.handlers.research.research_handler import research_command_handler, research_text_command_handler
 from app.client.handlers.statistics.statistics_handler import statistics_handler
 
 logger = setup_logger(__name__)

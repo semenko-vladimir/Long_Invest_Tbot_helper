@@ -137,6 +137,15 @@ SBER 1
 
 The bot resolves the ticker, blocks ambiguous/not-found tickers, checks sandbox account availability, checks cash before buy, checks available position quantity before sell, and logs every manual trade attempt without logging secrets.
 
+Read-only ticker research:
+
+```text
+/research SBER
+research SBER
+```
+
+The Telegram research command returns a compact educational summary with source names, instrument identity when available, market snapshot when available, data gaps, errors, and a non-advice disclaimer. It does not show runtime ratings or trading signals and does not create or prepare broker orders.
+
 ## Local Web Terminal
 
 FastAPI also serves a local investor terminal at `http://localhost:8000/`. The web UI is intended for calm portfolio review and manual workflows:
@@ -152,7 +161,7 @@ FastAPI also serves a local investor terminal at `http://localhost:8000/`. The w
 
 Plan screens create recurring investment plan definitions and manual proposals. They do not create broker orders from analysis or trading signals.
 
-Read-only ticker research is available at `http://localhost:8000/api/research`. Enter a ticker to call `GET /api/research/{ticker}` and display the partial research report JSON. The report includes sources, freshness metadata, `data_gaps`, `errors`, the educational disclaimer, and an empty or null `educational_rating`. This research entry does not create broker orders, does not provide trading signals, and does not recommend trades.
+Read-only ticker research is available at `http://localhost:8000/api/research`. Enter a ticker to call `GET /api/research/{ticker}` and display the partial research report JSON. The report includes sources, freshness metadata, `data_gaps`, `errors`, the educational disclaimer, and an empty or null `educational_rating`. This research entry does not create broker orders, does not provide trading signals, and does not recommend trades. Telegram also exposes the same read-only research flow through `/research SBER` or `research SBER`.
 
 ## Legacy Code Status
 
