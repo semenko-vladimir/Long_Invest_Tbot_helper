@@ -9,6 +9,7 @@ from app.backend.models.signals import (
     SignalBollinger, SignalMACD, SignalAlligator
 )
 from app.backend.models.strategy import StrategySignals, StrategySettings
+from app.backend.models.research import ResearchSnapshot
 from app.backend.models.trading import Margin, Buy, Instrument, Order
 
 # Create all tables in the database

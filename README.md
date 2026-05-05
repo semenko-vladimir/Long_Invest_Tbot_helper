@@ -163,6 +163,8 @@ Plan screens create recurring investment plan definitions and manual proposals. 
 
 Read-only ticker research is available at `http://localhost:8000/api/research`. Enter a ticker to call `GET /api/research/{ticker}` and display the partial research report JSON. The report includes sources, freshness metadata, `data_gaps`, `errors`, the educational disclaimer, and an empty or null `educational_rating`. This research entry does not create broker orders, does not provide trading signals, and does not recommend trades. Telegram also exposes the same read-only research flow through `/research SBER` or `research SBER`.
 
+Generated API reports are saved as local read-only snapshots when SQLite is available. Use `GET /api/research/snapshots` or `GET /api/research/snapshots?ticker=SBER` to review recent snapshots, and `GET /api/research/snapshots/{id}` to load one stored report.
+
 ## Legacy Code Status
 
 Older signal, strategy, ML, GPT/LSTM, chart, and market-notification modules remain in the repository as legacy code for migration safety and reversibility. They are not part of the active investor v1 menu or active API router, and this v1 runtime must not be treated as an auto-trading or signal bot.

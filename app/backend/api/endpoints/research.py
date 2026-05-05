@@ -1,10 +1,14 @@
 from dataclasses import asdict, dataclass
+from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse
+from sqlalchemy.orm import Session
 
+from app.backend.models.database import get_db
 from app.research.services import ResearchReportService, TickerResearchService
+from app.research.snapshots import ResearchSnapshotService, snapshot_to_dict
 from app.research.tinvest_adapter import TInvestDataAdapter
 
 
@@ -90,11 +94,44 @@ def research_page():
 </html>"""
 
 
+@router.get("/snapshots")
+def list_research_snapshots(
+    ticker: Optional[str] = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    snapshots = ResearchSnapshotService(db).list_recent(ticker=ticker, limit=limit)
+    return jsonable_encoder([snapshot_to_dict(snapshot) for snapshot in snapshots])
+
+
+@router.get("/snapshots/{snapshot_id}")
+def read_research_snapshot(
+    snapshot_id: int,
+    db: Session = Depends(get_db),
+):
+    snapshot = ResearchSnapshotService(db).get_snapshot(snapshot_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Research snapshot not found.")
+    return jsonable_encoder(snapshot_to_dict(snapshot))
+
+
 @router.get("/{ticker}")
 def read_ticker_research(
     ticker: str,
     services: ResearchServices = Depends(get_research_services),
+    db: Session = Depends(get_db),
 ):
     adapter_results = services.ticker_research.collect(ticker)
     report = services.report_builder.build_report(ticker, adapter_results)
+    _try_save_report_snapshot(report, db)
     return jsonable_encoder(asdict(report))
+
+
+def _try_save_report_snapshot(report, db: Session) -> None:
+    try:
+        ResearchSnapshotService(db).save_report(report)
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
