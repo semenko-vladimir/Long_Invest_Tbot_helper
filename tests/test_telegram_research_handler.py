@@ -147,9 +147,33 @@ class TelegramResearchHandlerTests(unittest.TestCase):
         text = research_handler.format_research_report(report)
 
         self.assertIn("Instrument identity: unavailable.", text)
+        self.assertIn("Company profile: unavailable.", text)
+        self.assertIn("Sector/industry: unavailable.", text)
+        self.assertIn("Financials: unavailable.", text)
         self.assertIn("Market snapshot: unavailable.", text)
         self.assertIn("Data gaps: none reported.", text)
         self.assertIn("Errors: none reported.", text)
+
+    def test_formatter_includes_available_profile_and_sector_fields(self):
+        report = ResearchReport(
+            ticker="SBER",
+            generated_at=datetime(2026, 5, 4, 12, 30),
+            sources=["local-fundamentals"],
+            company_profile={"name": "Sberbank of Russia PJSC", "country": "Russia"},
+            sector_industry={"sector": "Financials", "industry": "Banks"},
+            financials={"reporting_currency": "RUB"},
+        )
+
+        text = research_handler.format_research_report(report)
+
+        self.assertIn("Company profile:", text)
+        self.assertIn("name: Sberbank of Russia PJSC", text)
+        self.assertIn("Sector/industry:", text)
+        self.assertIn("sector: Financials", text)
+        self.assertIn("Financials:", text)
+        self.assertIn("reporting currency: RUB", text)
+        for forbidden_rating in ("BUY", "HOLD", "SELL", "WATCH", "AVOID"):
+            self.assertNotIn(forbidden_rating, text)
 
     def test_telegram_research_handler_imports_no_order_signal_or_llm_modules(self):
         forbidden_prefixes = (

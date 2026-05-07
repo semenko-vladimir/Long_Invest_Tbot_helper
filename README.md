@@ -161,7 +161,9 @@ FastAPI also serves a local investor terminal at `http://localhost:8000/`. The w
 
 Plan screens create recurring investment plan definitions and manual proposals. They do not create broker orders from analysis or trading signals.
 
-Read-only ticker research is available at `http://localhost:8000/api/research`. Enter a ticker to call `GET /api/research/{ticker}` and display the partial research report JSON. The report includes sources, freshness metadata, `data_gaps`, `errors`, the educational disclaimer, and an empty or null `educational_rating`. This research entry does not create broker orders, does not provide trading signals, and does not recommend trades. Telegram also exposes the same read-only research flow through `/research SBER` or `research SBER`.
+Read-only ticker research is available at `http://localhost:8000/api/research`. Enter a ticker to call `GET /api/research/{ticker}` and display the partial research report JSON. The report includes sources, freshness metadata, local company profile fields when configured, `data_gaps`, `errors`, the educational disclaimer, and an empty or null `educational_rating`. This research entry does not create broker orders, does not provide trading signals, and does not recommend trades. Telegram also exposes the same read-only research flow through `/research SBER` or `research SBER`.
+
+Local company/fundamental profile data is loaded from `app/research/data/local_fundamentals.json` through a read-only `LocalFundamentalsAdapter`. The file is optional and intentionally incomplete: missing tickers or fields are reported as `data_gaps`, not guessed. Do not store tokens, API keys, or other secrets in local research data.
 
 Generated API reports are saved as local read-only snapshots when SQLite is available. Use `GET /api/research/snapshots` or `GET /api/research/snapshots?ticker=SBER` to review recent snapshots, and `GET /api/research/snapshots/{id}` to load one stored report.
 

@@ -10,6 +10,7 @@ from app.research.schemas import (
     SourceFreshness,
 )
 from app.research.services import ResearchReportService, TickerResearchService
+from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
 from app.research.tinvest_adapter import TInvestDataAdapter
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "DataGap",
     "DataSourceAdapter",
     "InstrumentIdentity",
+    "LocalFundamentalsAdapter",
     "MarketSnapshot",
     "ResearchReportService",
     "ResearchReport",

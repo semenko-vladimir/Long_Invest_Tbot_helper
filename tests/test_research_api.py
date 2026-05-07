@@ -147,6 +147,13 @@ class ResearchApiTests(unittest.TestCase):
         self.assertIn("not personal investment advice", payload["disclaimer"])
         self.assertIn("must not trigger broker orders", payload["disclaimer"])
 
+    def test_default_research_services_include_local_fundamentals_adapter(self):
+        services = get_research_services()
+        source_names = [adapter.source_name for adapter in services.ticker_research.adapters]
+
+        self.assertIn("t-invest", source_names)
+        self.assertIn("local-fundamentals", source_names)
+
     def test_research_api_imports_no_order_signal_or_llm_modules(self):
         forbidden_prefixes = (
             "app.services.orders",

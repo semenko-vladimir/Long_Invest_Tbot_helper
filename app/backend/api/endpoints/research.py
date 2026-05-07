@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.backend.models.database import get_db
+from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.snapshots import ResearchSnapshotService, snapshot_to_dict
 from app.research.tinvest_adapter import TInvestDataAdapter
@@ -23,7 +24,7 @@ class ResearchServices:
 
 def get_research_services() -> ResearchServices:
     return ResearchServices(
-        ticker_research=TickerResearchService([TInvestDataAdapter()]),
+        ticker_research=TickerResearchService([TInvestDataAdapter(), LocalFundamentalsAdapter()]),
         report_builder=ResearchReportService(),
     )
 

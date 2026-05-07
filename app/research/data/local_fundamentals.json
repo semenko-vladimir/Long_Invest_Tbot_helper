@@ -1,0 +1,22 @@
+{
+  "source": {
+    "name": "local-fundamentals",
+    "description": "Local static company profile data for read-only educational research. Values are manually configured and may be incomplete.",
+    "as_of_date": "2026-05-05"
+  },
+  "tickers": {
+    "SBER": {
+      "as_of_date": "2026-05-05",
+      "company_profile": {
+        "name": "Sberbank of Russia PJSC",
+        "description": "Locally configured company profile for long-term research reports.",
+        "country": "Russia",
+        "website": "https://www.sberbank.com"
+      },
+      "sector_industry": {
+        "sector": "Financials",
+        "industry": "Banks"
+      }
+    }
+  }
+}

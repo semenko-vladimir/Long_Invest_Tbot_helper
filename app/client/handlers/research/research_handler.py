@@ -5,6 +5,7 @@ from typing import Optional, Sequence
 
 from app.client.bot.bot import bot
 from app.client.handlers.utils.message_utils import last_messages
+from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
 from app.research.schemas import DataGap, ResearchReport
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.tinvest_adapter import TInvestDataAdapter
@@ -28,7 +29,7 @@ class TelegramResearchServices:
 
 def get_telegram_research_services() -> TelegramResearchServices:
     return TelegramResearchServices(
-        ticker_research=TickerResearchService([TInvestDataAdapter()]),
+        ticker_research=TickerResearchService([TInvestDataAdapter(), LocalFundamentalsAdapter()]),
         report_builder=ResearchReportService(),
     )
 
@@ -76,6 +77,12 @@ def format_research_report(report: ResearchReport) -> str:
         f"Sources: {_format_sources(report.sources)}",
         "",
         _format_instrument_identity(report),
+        "",
+        _format_company_profile(report),
+        "",
+        _format_sector_industry(report),
+        "",
+        _format_financials(report),
         "",
         _format_market_snapshot(report),
         "",
@@ -153,6 +160,39 @@ def _format_market_snapshot(report: ResearchReport) -> str:
         details.append(f"captured_at: {_format_datetime(snapshot.captured_at)}")
 
     return f"Market snapshot: {'; '.join(details) if details else 'partial data only'}."
+
+
+def _format_company_profile(report: ResearchReport) -> str:
+    profile = report.company_profile or {}
+    if not profile:
+        return "Company profile: unavailable."
+
+    return f"Company profile: {_format_mapping(profile)}."
+
+
+def _format_sector_industry(report: ResearchReport) -> str:
+    sector_industry = report.sector_industry or {}
+    if not sector_industry:
+        return "Sector/industry: unavailable."
+
+    return f"Sector/industry: {_format_mapping(sector_industry)}."
+
+
+def _format_financials(report: ResearchReport) -> str:
+    financials = report.financials or {}
+    if not financials:
+        return "Financials: unavailable."
+
+    return f"Financials: {_format_mapping(financials)}."
+
+
+def _format_mapping(values: dict) -> str:
+    details = [
+        f"{str(key).replace('_', ' ')}: {value}"
+        for key, value in values.items()
+        if _has_value(value)
+    ]
+    return "; ".join(details) if details else "partial data only"
 
 
 def _format_data_gaps(data_gaps: Sequence[DataGap]) -> str:
