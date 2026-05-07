@@ -1,8 +1,14 @@
 import ast
 from dataclasses import dataclass
 from datetime import datetime
+import json
+import os
 from pathlib import Path
 import unittest
+from unittest import mock
+
+from grpc import StatusCode
+from tinkoff.invest import RequestError
 
 from app.research.schemas import InstrumentIdentity, MarketSnapshot
 from app.research.tinvest_adapter import TInvestDataAdapter
@@ -106,6 +112,161 @@ class TInvestDataAdapterTests(unittest.TestCase):
         self.assertTrue(any(gap.category == "instrument_identity" for gap in result.gaps))
         self.assertTrue(any(gap.category == "market_snapshot" for gap in result.gaps))
         self.assertTrue(any(gap.category == "dividends" for gap in result.gaps))
+
+    def test_sandbox_mode_selects_sandbox_token_without_token(self):
+        broker = FakeReadOnlyBroker()
+        adapter = TInvestDataAdapter(
+            broker=broker,
+            now_provider=lambda: datetime(2026, 5, 4, 12, 0),
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APP_MODE": "sandbox",
+                "SANDBOX_TOKEN": "sandbox-token",
+            },
+            clear=True,
+        ), mock.patch("app.client.config.load_dotenv"):
+            result = adapter.fetch("SBER")
+
+        self.assertEqual(result.errors, [])
+        self.assertEqual(broker.calls[0], ("resolve_unique_instrument", "sandbox-token", "SBER"))
+        self.assertTrue(all(call[1] == "sandbox-token" for call in broker.calls))
+        self.assertIn("selected token variable: SANDBOX_TOKEN", result.freshness.notes)
+
+    def test_prod_mode_selects_token_without_sandbox_fallback(self):
+        broker = FakeReadOnlyBroker()
+        adapter = TInvestDataAdapter(
+            broker=broker,
+            now_provider=lambda: datetime(2026, 5, 4, 12, 0),
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APP_MODE": "prod",
+                "TOKEN": "prod-token",
+                "SANDBOX_TOKEN": "sandbox-token",
+            },
+            clear=True,
+        ), mock.patch("app.client.config.load_dotenv"):
+            result = adapter.fetch("SBER")
+
+        self.assertEqual(result.errors, [])
+        self.assertEqual(broker.calls[0], ("resolve_unique_instrument", "prod-token", "SBER"))
+        self.assertTrue(all(call[1] == "prod-token" for call in broker.calls))
+        self.assertIn("selected token variable: TOKEN", result.freshness.notes)
+
+    def test_prod_mode_does_not_fall_back_to_sandbox_token_when_token_missing(self):
+        broker = FakeReadOnlyBroker()
+        adapter = TInvestDataAdapter(
+            broker=broker,
+            now_provider=lambda: datetime(2026, 5, 4, 12, 0),
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APP_MODE": "prod",
+                "SANDBOX_TOKEN": "sandbox-token",
+            },
+            clear=True,
+        ), mock.patch("app.client.config.load_dotenv"):
+            result = adapter.fetch("SBER")
+
+        self.assertEqual(broker.calls, [])
+        self.assertTrue(any("selected TOKEN" in error for error in result.errors))
+        self.assertTrue(any(gap.category == "instrument_identity" for gap in result.gaps))
+        self.assertIn("token is missing", result.freshness.notes)
+
+    def test_missing_or_placeholder_selected_token_returns_structured_error(self):
+        broker = FakeReadOnlyBroker()
+        adapter = TInvestDataAdapter(
+            broker=broker,
+            now_provider=lambda: datetime(2026, 5, 4, 12, 0),
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APP_MODE": "sandbox",
+                "SANDBOX_TOKEN": "your_sandbox_token",
+            },
+            clear=True,
+        ), mock.patch("app.client.config.load_dotenv"):
+            result = adapter.fetch("SBER")
+
+        self.assertEqual(broker.calls, [])
+        self.assertTrue(any("selected SANDBOX_TOKEN" in error for error in result.errors))
+        self.assertTrue(any(gap.category == "instrument_identity" for gap in result.gaps))
+        self.assertTrue(any(gap.category == "market_snapshot" for gap in result.gaps))
+        self.assertTrue(any(gap.category == "dividends" for gap in result.gaps))
+        serialized = json.dumps(
+            {
+                "errors": result.errors,
+                "gaps": [gap.description for gap in result.gaps],
+                "freshness": result.freshness.notes,
+            }
+        )
+        self.assertNotIn("your_sandbox_token", serialized)
+
+    def test_unauthenticated_error_is_sanitized_without_token_leak(self):
+        secret_token = "sandbox-secret-token"
+        broker = FakeReadOnlyBroker(
+            identity_error=RequestError(
+                StatusCode.UNAUTHENTICATED,
+                "40003",
+                {"message": "Authentication token is missing or invalid"},
+            )
+        )
+        adapter = TInvestDataAdapter(
+            broker=broker,
+            now_provider=lambda: datetime(2026, 5, 4, 12, 0),
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APP_MODE": "sandbox",
+                "SANDBOX_TOKEN": secret_token,
+            },
+            clear=True,
+        ), mock.patch("app.client.config.load_dotenv"):
+            result = adapter.fetch("SBER")
+
+        self.assertTrue(any("selected SANDBOX_TOKEN appears invalid for sandbox mode" in error for error in result.errors))
+        serialized = json.dumps(
+            {
+                "errors": result.errors,
+                "gaps": [gap.description for gap in result.gaps],
+                "freshness": result.freshness.notes,
+            }
+        )
+        self.assertNotIn(secret_token, serialized)
+        self.assertNotIn("StatusCode.UNAUTHENTICATED", serialized)
+        self.assertNotIn("40003", serialized)
+
+    def test_non_auth_broker_error_redacts_selected_token_value(self):
+        secret_token = "sandbox-secret-token"
+        broker = FakeReadOnlyBroker(identity_error=RuntimeError(f"failed for token {secret_token}"))
+        adapter = TInvestDataAdapter(
+            broker=broker,
+            now_provider=lambda: datetime(2026, 5, 4, 12, 0),
+        )
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APP_MODE": "sandbox",
+                "SANDBOX_TOKEN": secret_token,
+            },
+            clear=True,
+        ), mock.patch("app.client.config.load_dotenv"):
+            result = adapter.fetch("SBER")
+
+        self.assertTrue(any("[redacted]" in error for error in result.errors))
+        self.assertNotIn(secret_token, " ".join(result.errors))
 
     def test_adapter_produces_no_educational_rating(self):
         result = self.build_adapter(FakeReadOnlyBroker()).fetch("SBER")

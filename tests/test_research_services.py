@@ -1,8 +1,14 @@
 import ast
 from datetime import datetime
+import os
 from pathlib import Path
 import unittest
+from unittest import mock
 
+from grpc import StatusCode
+from tinkoff.invest import RequestError
+
+from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
 from app.research.schemas import (
     AdapterResult,
     DataGap,
@@ -11,6 +17,7 @@ from app.research.schemas import (
     SourceFreshness,
 )
 from app.research.services import ResearchReportService, TickerResearchService
+from app.research.tinvest_adapter import TInvestDataAdapter
 
 
 class SuccessfulAdapter:
@@ -55,6 +62,21 @@ class FailingAdapter:
 
     def fetch(self, ticker: str) -> AdapterResult:
         raise RuntimeError("source unavailable")
+
+
+class AuthFailingTInvestBroker:
+    def resolve_unique_instrument(self, token: str, ticker: str):
+        raise RequestError(
+            StatusCode.UNAUTHENTICATED,
+            "40003",
+            {"message": "Authentication token is missing or invalid"},
+        )
+
+    def get_price(self, token: str, figi: str, operation: str) -> float:
+        raise AssertionError("Market data should not be requested after auth failure.")
+
+    def get_dividend_info(self, token: str, figi: str, period_days: int):
+        raise AssertionError("Dividends should not be requested after auth failure.")
 
 
 class ResearchServicesTests(unittest.TestCase):
@@ -123,6 +145,36 @@ class ResearchServicesTests(unittest.TestCase):
         self.assertEqual(report.ticker, "")
         self.assertTrue(any(gap.category == "ticker" for gap in report.data_gaps))
         self.assertTrue(report.errors)
+
+    def test_local_fundamentals_survive_tinvest_auth_failure(self):
+        tinvest_adapter = TInvestDataAdapter(
+            broker=AuthFailingTInvestBroker(),
+            now_provider=self.now_provider,
+        )
+        local_adapter = LocalFundamentalsAdapter(now_provider=self.now_provider)
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APP_MODE": "sandbox",
+                "SANDBOX_TOKEN": "sandbox-secret-token",
+            },
+            clear=True,
+        ), mock.patch("app.client.config.load_dotenv"):
+            results = TickerResearchService(
+                [tinvest_adapter, local_adapter],
+                now_provider=self.now_provider,
+            ).collect("SBER")
+
+        report = ResearchReportService(now_provider=self.now_provider).build_report("SBER", results)
+
+        self.assertEqual(report.ticker, "SBER")
+        self.assertEqual(report.company_profile["name"], "Sberbank of Russia PJSC")
+        self.assertEqual(report.sector_industry["sector"], "Financials")
+        self.assertIsNone(report.educational_rating)
+        self.assertTrue(any("selected SANDBOX_TOKEN appears invalid" in error for error in report.errors))
+        self.assertTrue(any(gap.category == "source_errors" for gap in report.data_gaps))
+        self.assertNotIn("sandbox-secret-token", " ".join(report.errors))
 
     def test_services_expose_no_order_methods(self):
         forbidden_methods = {"place_order", "post_order", "buy", "sell", "execute_order"}
