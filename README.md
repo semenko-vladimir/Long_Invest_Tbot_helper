@@ -129,13 +129,27 @@ buy SBER 1
 sell SBER 1
 ```
 
+These commands create an order preview only. To submit the order after reviewing the preview, send:
+
+```text
+confirm_order <preview_token>
+```
+
+In production mode, the confirmation command must also include the ticker shown in the preview:
+
+```text
+confirm_order <preview_token> SBER
+```
+
+To discard a preview, send `cancel_order <preview_token>`.
+
 You can also tap `Buy` or `Sell` and then enter:
 
 ```text
 SBER 1
 ```
 
-The bot resolves the ticker, blocks ambiguous/not-found tickers, checks sandbox account availability, checks cash before buy, checks available position quantity before sell, and logs every manual trade attempt without logging secrets.
+The bot resolves the ticker, blocks ambiguous/not-found tickers, checks sandbox account availability, checks cash before buy, checks available position quantity before sell, and logs every manual trade attempt without logging secrets. No Telegram buy/sell command submits a broker order until the separate confirmation command is sent.
 
 Read-only ticker research:
 
