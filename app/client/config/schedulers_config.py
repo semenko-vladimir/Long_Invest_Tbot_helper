@@ -1,22 +1,12 @@
-from app.client.api.config_client import ConfigApiClient
-from app.client.api.instruments_client import InstrumentsApiClient
-from app.client.api.strategy_client import StrategyApiClient
-from app.client.handlers.notifications.send import send_price_change_notification
 from app.client.log.logger import setup_logger
 from app.client.utils.methods import get_info_by_ticker
-from app.client.store.store import strategy_scheduler, market_scheduler
-from apscheduler.schedulers.background import BackgroundScheduler
+from app.client.store.store import market_scheduler
 from app.client.bot.bot import bot
 from datetime import datetime, timedelta
 from tinkoff.invest import CandleInterval
-from app.client.strategy.strategy_run import strategy_run
 from dotenv import load_dotenv
 import os
-import re
-
-config_client = ConfigApiClient()
-instruments_client = InstrumentsApiClient()
-strategy_client = StrategyApiClient()
+from app.client.config import background_schedulers_enabled
 
 logger = setup_logger(__name__)
 
@@ -51,6 +41,12 @@ def configure_market_scheduler():
     global market_scheduler
     
     try:
+        from app.client.api.config_client import ConfigApiClient
+        from app.client.api.instruments_client import InstrumentsApiClient
+
+        config_client = ConfigApiClient()
+        instruments_client = InstrumentsApiClient()
+
         # Получаем конфигурацию через API-клиент
         try:
             config_data = config_client.get_config()
@@ -104,6 +100,8 @@ def configure_market_scheduler():
         
         # Создаем новый планировщик
         if collapse_updates or market_updates:
+            from apscheduler.schedulers.background import BackgroundScheduler
+
             market_scheduler = BackgroundScheduler()
             market_scheduler.start()
             
@@ -132,6 +130,8 @@ def setup_market_jobs(scheduler, instruments, update_time, chat_id, update_type)
         update_type: Тип уведомления ('Падения рынка' или 'Обновления рынка')
     """
     try:
+        from app.client.handlers.notifications.send import send_price_change_notification
+
         for instrument in instruments:
             ticker = instrument.get('ticker')
             figi = instrument.get('figi')
@@ -176,112 +176,17 @@ def calculate_start_time_and_interval(update_time):
 
 def configure_strategy_scheduler():
     """
-    Настраивает планировщик стратегий.
-    
-    Собирает информацию о всех активных стратегиях и настраивает планировщик.
-    """
-    # Legacy strategy scheduling is outside the active investor v1 runtime and remains opt-in.
-    global strategy_scheduler
-    
-    try:
-        # Получаем настройки стратегий через API-клиент
-        strategy_signals = strategy_client.get_strategy_signals()
-        strategy_settings = strategy_client.get_strategy_settings()
-        
-        if not strategy_signals or not strategy_settings:
-            logger.error("Strategy configuration not found")
-            return
-        
-        # Определяем активные стратегии
-        active_strategies = {
-            "tpsl": strategy_signals.get('tpls_trigger', 0),
-            "rsi": strategy_signals.get('rsi_trigger', 0),
-            "sma": strategy_signals.get('sma_trigger', 0),
-            "ema": strategy_signals.get('ema_trigger', 0),
-            "alligator": strategy_signals.get('alligator_trigger', 0),
-            "gpt": strategy_signals.get('gpt_trigger', 0),
-            "lstm": strategy_signals.get('lstm_trigger', 0),
-            "bollinger": strategy_signals.get('bollinger_trigger', 0),
-            "macd": strategy_signals.get('macd_trigger', 0),
-        }
-        
-        # Получаем интервал времени для запуска стратегий
-        time_interval = strategy_settings.get('time', 60)
-        
-        # Проверяем, активна ли хотя бы одна стратегия
-        if not is_any_strategy_active(active_strategies):
-            logger.info("No active strategies found")
-            return
-        
-        # Получаем chat_id из переменных окружения для отправки уведомлений
-        load_dotenv()
-        chat_id = os.getenv('CHAT_ID')
-        
-        if not chat_id:
-            logger.error("Chat ID is not available in environment variables")
-            return
-        
-        # Если планировщик уже существует, останавливаем его
-        if strategy_scheduler:
-            strategy_scheduler.shutdown()
-        
-        # Создаем новый планировщик
-        strategy_scheduler = BackgroundScheduler()
-        strategy_scheduler.start()
-        
-        # Преобразуем time_interval в число минут
-        minutes = parse_time_interval(time_interval)
-        
-        # Добавляем задачу в планировщик
-        strategy_scheduler.add_job(strategy_run, 'interval', minutes=minutes)
-        logger.info(f"Планировщик стратегий успешно настроен с интервалом {minutes} минут")
-    
-    except Exception as e:
-        logger.error(f"Error configuring strategy scheduler: {str(e)}")
+    Compatibility no-op for the legacy strategy scheduler.
 
-
-def is_any_strategy_active(strategies):
+    Strategy automation is not part of the active investor v1 runtime.
     """
-    Проверяет, активна ли хотя бы одна стратегия.
-    
-    Args:
-        strategies: Словарь с активными стратегиями
-        
-    Returns:
-        bool: True, если хотя бы одна стратегия активна, иначе False
-    """
-    return any(strategy == 1 for strategy in strategies.values())
-
-
-def parse_time_interval(time_interval):
-    """
-    Преобразует строку времени в число минут.
-    
-    Args:
-        time_interval: Строка времени (например, '60', '09:00')
-        
-    Returns:
-        int: Число минут
-    """
-    # Если time_interval уже число, просто возвращаем его
-    if isinstance(time_interval, int):
-        return time_interval
-    
-    # Если time_interval строка, пробуем преобразовать в число
-    if isinstance(time_interval, str):
-        # Проверяем, является ли строка числом
-        if time_interval.isdigit():
-            return int(time_interval)
-        
-        # Проверяем, является ли строка временем в формате HH:MM
-        time_match = re.match(r'^(\d{1,2}):(\d{2})$', time_interval)
-        if time_match:
-            hours = int(time_match.group(1))
-            minutes = int(time_match.group(2))
-            return hours * 60 + minutes
-    
-    # По умолчанию возвращаем 60 минут
-    return 60
+    load_dotenv()
+    if os.getenv("ENABLE_STRATEGY_SCHEDULER", "false").strip().lower() in {"1", "true", "yes", "on"}:
+        logger.warning(
+            "ENABLE_STRATEGY_SCHEDULER is ignored: legacy strategy scheduling is disabled for investor v1."
+        )
+    else:
+        logger.info("Legacy strategy scheduling is disabled for investor v1.")
 
 
 def configure_schedulers():
@@ -291,5 +196,9 @@ def configure_schedulers():
     Собирает информацию о всех чатах, настраивает планировщик для отправки 
     уведомлений о падениях рынка и для запуска стратегий.
     """
+    if not background_schedulers_enabled():
+        logger.info("Фоновые планировщики отключены для sandbox-first v1")
+        return
+
     configure_market_scheduler()
     configure_strategy_scheduler()

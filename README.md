@@ -95,6 +95,8 @@ Startup path:
 4. Configure disabled-by-default schedulers/reminders.
 5. Start Telegram polling.
 
+`ENABLE_STRATEGY_SCHEDULER` is intentionally ignored in investor v1; legacy strategy automation cannot be reactivated from `.env`.
+
 Smoke checks after startup:
 
 ```powershell
