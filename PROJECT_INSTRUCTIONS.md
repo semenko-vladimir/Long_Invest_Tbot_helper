@@ -23,6 +23,12 @@ The active v1 runtime is limited to:
 
 Manual orders are the only active broker order path.
 
+The default dependency set for v1 is `requirements-base.txt`. The
+`requirements.txt` and `requirements-v1.txt` files are compatibility aliases to
+that active runtime set. Legacy analytics, charting, signal, ML, and GPT
+dependencies belong only in `requirements-optional.txt` and must remain
+explicitly opt-in.
+
 ## Safety Rules
 
 - Keep the app sandbox-first by default.

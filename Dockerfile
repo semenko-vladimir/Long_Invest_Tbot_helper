@@ -4,11 +4,9 @@ ENV PYTHONUNBUFFERED=1
 
 RUN pip install --upgrade pip
 
-COPY ./requirements.txt /requirements.txt
+COPY ./requirements-base.txt /requirements-base.txt
 
-RUN echo "tensorflow==2.17.0" > docker-requirements.txt \
-    && grep -ivE "tensorflow|tensorflow-intel|tensorboard" /requirements.txt >> docker-requirements.txt \
-    && pip install -r docker-requirements.txt
+RUN pip install -r /requirements-base.txt
 
 WORKDIR /app 
 

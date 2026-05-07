@@ -19,7 +19,8 @@ Investor v1 intentionally does not include runtime RSI/MACD/EMA/SMA signals, GPT
 
 ## Install
 
-Use Python 3.12 if available.
+Use Python 3.12 if available. The recommended investor v1 install uses only
+the active runtime dependency set:
 
 ```powershell
 python -m venv venv
@@ -28,13 +29,17 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements-base.txt
 ```
 
-Compatibility aliases:
+Default compatibility aliases also install only the active v1 runtime
+dependencies and do not include optional legacy packages:
 
 ```powershell
+python -m pip install -r requirements.txt
 python -m pip install -r requirements-v1.txt
 ```
 
-Optional legacy analytics, charting, signal, and ML dependencies are separated:
+Optional legacy analytics, charting, signal, ML, and GPT dependencies are not
+part of the active investor v1 runtime. Install them only when explicitly
+working with quarantined legacy modules:
 
 ```powershell
 python -m pip install -r requirements-optional.txt

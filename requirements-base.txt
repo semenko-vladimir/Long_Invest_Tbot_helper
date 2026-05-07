@@ -1,0 +1,17 @@
+fastapi==0.110.0
+jinja2==3.1.4
+uvicorn==0.29.0
+pyTelegramBotAPI==4.23.0
+python-dotenv==1.0.1
+requests==2.32.3
+SQLAlchemy==2.0.30
+pandas==2.2.2
+pytz==2024.1
+APScheduler==3.10.4
+
+# The legacy T-Invest SDK packages used by this codebase are quarantined on PyPI,
+# so pip cannot currently resolve them by package name from the simple index.
+# These URLs pin the same versions as the previous requirements and must be
+# revisited before production use.
+tinkoff @ https://files.pythonhosted.org/packages/99/b6/0abbb6570ab7f8623a55ed9d8e2c05594d7944ecc0b335a89addfb8f40e1/tinkoff-0.1.1-py3-none-any.whl#sha256=971ec61e7a00c44deab5a959df93207dc7ff7b499ba335ead05ed9f974418ec1
+tinkoff-investments @ https://files.pythonhosted.org/packages/21/bf/4b08b045dc9639bfb388047de153d02319782800e98e1631f530fb03d256/tinkoff_investments-0.2.0b105-py3-none-any.whl#sha256=5ddbd0e0f8533b6505f6d2fb26d78ba0860da5fe7d092571cddbed95248647b6
