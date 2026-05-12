@@ -6,6 +6,7 @@ from typing import Optional
 from telebot import types
 
 from app.client.bot.bot import bot
+from app.client.handlers.user_context import get_telegram_services_or_notify
 from app.client.handlers.utils.message_utils import last_messages, send_or_edit_message
 from app.client.log.logger import setup_logger
 from app.services.orders import (
@@ -21,7 +22,7 @@ from app.services.orders import (
 
 
 logger = setup_logger(__name__)
-order_service = OrderService()
+order_service: Optional[OrderService] = None
 
 MANUAL_ORDER_INPUT_RE = re.compile(r"^([A-Z0-9-]+)\s+([1-9][0-9]*)$")
 MANUAL_TRADE_COMMAND_RE = re.compile(r"^\s*(buy|sell)\s+([A-Z0-9-]+)\s+([1-9][0-9]*)\s*$", re.IGNORECASE)
@@ -68,9 +69,20 @@ class TelegramOrderPreview:
     ticker: str
     lots: int
     created_at: float
+    user_id: str = ""
 
 
 telegram_order_previews: dict[str, TelegramOrderPreview] = {}
+
+
+def get_order_service_for_chat(chat_id: int) -> tuple[Optional[OrderService], str]:
+    if order_service is not None:
+        return order_service, "test"
+
+    services = get_telegram_services_or_notify(chat_id)
+    if services is None:
+        return None, ""
+    return services.order_service, services.user.user_id
 
 
 def parse_manual_trade_command(text: Optional[str]) -> Optional[ManualTradeCommand]:
@@ -283,15 +295,20 @@ def manual_order_exit_handler(call):
 
 def preview_manual_order(chat_id: int, operation: str, ticker: str, lots: int) -> None:
     _cleanup_telegram_order_previews()
+    selected_order_service, user_id = get_order_service_for_chat(chat_id)
+    if selected_order_service is None:
+        return
+
     logger.info(
-        "Manual order preview requested: operation=%s ticker=%s lots=%s status=received",
+        "Manual order preview requested: user_id=%s operation=%s ticker=%s lots=%s status=received",
+        user_id,
         operation,
         ticker,
         lots,
     )
 
     try:
-        preview = order_service.preview(
+        preview = selected_order_service.preview(
             OrderPreviewRequest(
                 operation=operation,
                 ticker=ticker,
@@ -311,6 +328,7 @@ def preview_manual_order(chat_id: int, operation: str, ticker: str, lots: int) -
 
     telegram_order_previews[preview.confirm_token] = TelegramOrderPreview(
         chat_id=chat_id,
+        user_id=user_id,
         operation=preview.operation,
         ticker=preview.ticker,
         lots=preview.lots,
@@ -321,6 +339,10 @@ def preview_manual_order(chat_id: int, operation: str, ticker: str, lots: int) -
 
 def confirm_manual_order(chat_id: int, confirm_token: str, ticker_confirmation: Optional[str] = None) -> None:
     _cleanup_telegram_order_previews()
+    selected_order_service, user_id = get_order_service_for_chat(chat_id)
+    if selected_order_service is None:
+        return
+
     preview = telegram_order_previews.get(confirm_token)
     if preview is None:
         send_or_edit_message(chat_id, "Order preview was not found or has expired. Create a new preview.")
@@ -328,9 +350,12 @@ def confirm_manual_order(chat_id: int, confirm_token: str, ticker_confirmation: 
     if preview.chat_id != chat_id:
         send_or_edit_message(chat_id, "This order preview belongs to another chat and cannot be confirmed here.")
         return
+    if preview.user_id and preview.user_id != user_id:
+        send_or_edit_message(chat_id, "This order preview belongs to another user and cannot be confirmed here.")
+        return
 
     try:
-        result = order_service.execute(
+        result = selected_order_service.execute(
             OrderConfirmCommand(
                 operation=preview.operation,
                 ticker=preview.ticker,
@@ -375,6 +400,10 @@ def confirm_manual_order(chat_id: int, confirm_token: str, ticker_confirmation: 
 
 def cancel_manual_order(chat_id: int, confirm_token: str) -> None:
     _cleanup_telegram_order_previews()
+    selected_order_service, user_id = get_order_service_for_chat(chat_id)
+    if selected_order_service is None:
+        return
+
     preview = telegram_order_previews.get(confirm_token)
     if preview is None:
         send_or_edit_message(chat_id, "Order preview was not found or has already expired.")
@@ -382,9 +411,12 @@ def cancel_manual_order(chat_id: int, confirm_token: str) -> None:
     if preview.chat_id != chat_id:
         send_or_edit_message(chat_id, "This order preview belongs to another chat and cannot be cancelled here.")
         return
+    if preview.user_id and preview.user_id != user_id:
+        send_or_edit_message(chat_id, "This order preview belongs to another user and cannot be cancelled here.")
+        return
 
     telegram_order_previews.pop(confirm_token, None)
-    order_service.cancel_preview(confirm_token)
+    selected_order_service.cancel_preview(confirm_token)
     send_or_edit_message(chat_id, f"Order preview for `{preview.ticker}` was cancelled. No broker order was sent.")
 
 

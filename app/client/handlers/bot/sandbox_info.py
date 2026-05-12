@@ -1,27 +1,11 @@
 from telebot import types
 from app.client.bot.bot import bot
-from tinkoff.invest import Client, RequestError
+from tinkoff.invest import Client
 from tinkoff.invest.services import SandboxService
 from app.client.utils.helpers import to_money_value
-from app.client.utils.methods import get_sandbox_portfolio
 from tinkoff.invest import MoneyValue
-from dotenv import load_dotenv
-import os
+from app.client.handlers.user_context import get_telegram_services_or_notify
 from app.client.handlers.utils.message_utils import send_or_edit_message
-
-# Функция для получения токенов из переменных окружения
-def get_tokens():
-    """
-    Получает токены из переменных окружения.
-    
-    Returns:
-        dict: Словарь с токенами
-    """
-    load_dotenv()
-    return {
-        "token": os.getenv('TOKEN'),
-        "sandbox_token": os.getenv('SANDBOX_TOKEN')
-    }
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'sandbox_info')
@@ -32,9 +16,11 @@ def sandbox_info_handler(call):
     Отображает меню с опциями для работы с песочницей.
     """
     chat_id = call.message.chat.id
-    tokens = get_tokens()
-    
-    if not tokens["sandbox_token"]:
+    services = get_telegram_services_or_notify(chat_id)
+    if services is None:
+        return
+
+    if not services.user.sandbox_token:
         send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
@@ -62,14 +48,16 @@ def set_sandbox_balance(call):
     Запрашивает у пользователя сумму для пополнения.
     """
     chat_id = call.message.chat.id
-    tokens = get_tokens()
-    
-    if not tokens["sandbox_token"]:
+    services = get_telegram_services_or_notify(chat_id)
+    if services is None:
+        return
+
+    if not services.user.sandbox_token:
         send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
     msg = send_or_edit_message(chat_id, "💰 *Пополнение баланса*\n\nВведите сумму в рублях для пополнения баланса:")
-    bot.register_next_step_handler(call.message, set_sandbox_balance_2)
+    bot.register_next_step_handler(msg, set_sandbox_balance_2)
 
 
 def set_sandbox_balance_2(message):
@@ -79,9 +67,11 @@ def set_sandbox_balance_2(message):
     Пополняет баланс в песочнице на указанную сумму.
     """
     chat_id = message.chat.id
-    tokens = get_tokens()
-    
-    if not tokens["sandbox_token"]:
+    services = get_telegram_services_or_notify(chat_id)
+    if services is None:
+        return
+
+    if not services.user.sandbox_token:
         send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
@@ -92,7 +82,7 @@ def set_sandbox_balance_2(message):
         # Отправляем сообщение о начале обработки
         send_or_edit_message(chat_id, f"⏳ *Обработка запроса*\n\nПополняем баланс на {money_value} руб...")
         
-        with Client(tokens["sandbox_token"]) as client:
+        with Client(services.user.sandbox_token) as client:
             sb: SandboxService = client.sandbox
 
             accounts = sb.get_sandbox_accounts()
@@ -124,9 +114,11 @@ def get_sandbox(call):
     Отображает информацию о портфолио в песочнице.
     """
     chat_id = call.message.chat.id
-    tokens = get_tokens()
-    
-    if not tokens["sandbox_token"]:
+    services = get_telegram_services_or_notify(chat_id)
+    if services is None:
+        return
+
+    if not services.user.sandbox_token:
         send_or_edit_message(chat_id, "❌ *Ошибка*\n\nУ вас нет открытого счета в песочнице")
         return
     
@@ -134,7 +126,7 @@ def get_sandbox(call):
         # Отправляем сообщение о начале обработки
         send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nПолучаем данные портфолио в песочнице...")
         
-        portfolio = get_sandbox_portfolio(tokens["sandbox_token"])
+        portfolio = services.broker.get_portfolio(services.user.sandbox_token, sandbox=True)
         positions = portfolio['positions']
 
         text = (

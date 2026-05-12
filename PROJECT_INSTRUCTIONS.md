@@ -8,6 +8,14 @@ Tbot v1 is a local, sandbox-first assistant for a private long-term investor. It
 
 The product direction is a calm local research terminal for long-term investing. It is not an auto-trading bot, signal bot, scalping tool, or investment adviser.
 
+Phase 1 extends the local setup toward multiple configured users. User metadata
+and per-user T-Invest tokens belong in a local `users.json` file ignored by git.
+The web terminal remains local/no-auth for this phase and selects its current
+user through `DEFAULT_WEB_USER_ID` or the first enabled configured user. Runtime
+services and mounted user-data API endpoints must use the selected user's
+configured SQLite `db_path`; avoid adding new direct `SessionLocal()` calls in
+service code.
+
 ## Current V1 Runtime
 
 The active v1 runtime is limited to:
@@ -38,7 +46,7 @@ explicitly opt-in.
 - Do not create broker orders from analysis, ratings, signals, reminders, plans, or LLM output.
 - Production trading must remain blocked unless all are explicitly configured:
   - `APP_MODE="prod"`;
-  - production `TOKEN`;
+  - production token for the active user;
   - `ALLOW_PROD_TRADING="true"`.
 - Do not weaken safety guards in `ModeService`, `OrderService`, `TInvestBroker`, manual order handlers, or broker integration helpers.
 - Do not mount or enable legacy signal or strategy routers unless a future task explicitly reactivates them with a new safety design.
@@ -62,6 +70,11 @@ Future work may add long-term research workflows such as:
 - risk summaries and data-quality notes.
 
 Local LLM support may be added later only through explicit adapter/service layers. Future LLM work must use structured outputs and include confidence, data gaps, freshness metadata, source attribution where available, and hallucination-safety checks.
+
+Preferred future local/private-VM LLM for the research adapter:
+`Qwen/Qwen3-235B-A22B-Instruct-2507-FP8`. This records the model choice only;
+it must not enable runtime LLM behavior, trading signals, ratings, or broker
+order integration by itself.
 
 ## Future Educational Ratings
 

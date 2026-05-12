@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Portfolio</p>
+  <h2>{{ portfolio.total_value_display }}</h2>
+  <p>Current total value for the active broker mode.</p>
+</section>
+
+{% if portfolio.error %}
+  <section class="notice error">
+    <h3>Portfolio unavailable</h3>
+    <p>{{ portfolio.error }}</p>
+  </section>
+{% elif portfolio.empty %}
+  <section class="notice">
+    <h3>No positions yet</h3>
+    <p>The active account has no open positions to show.</p>
+  </section>
+{% else %}
+  <section class="table-shell" aria-label="Portfolio positions">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Name</th>
+          <th>Quantity</th>
+          <th>Average price</th>
+          <th>Current price</th>
+          <th>PNL</th>
+          <th>Return</th>
+          <th>Currency</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for position in portfolio.positions %}
+          <tr>
+            <td><strong>{{ position.ticker }}</strong></td>
+            <td>{{ position.name }}</td>
+            <td>{{ position.quantity_display }}</td>
+            <td>{{ position.average_price_display }}</td>
+            <td>{{ position.current_price_display }}</td>
+            <td class="performance {{ position.pnl_class }}">{{ position.pnl_display }}</td>
+            <td class="performance {{ position.pnl_class }}">{{ position.return_display }}</td>
+            <td>{{ position.currency }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+
+{% if mode.mode == "prod" and not mode.trading_available %}
+  <section class="notice warning">
+    <h3>Read-only production mode</h3>
+    <p>Portfolio viewing is available. Buy and sell actions remain blocked until production trading is explicitly enabled.</p>
+  </section>
+{% endif %}
+{% endblock %}

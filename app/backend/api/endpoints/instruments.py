@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.backend.models.database import get_db
+from app.backend.api.dependencies import get_default_web_db
 from app.backend.models.trading import Instrument
 from app.backend.schemas.trading import (
     InstrumentCreate, InstrumentUpdate, InstrumentResponse
@@ -13,7 +13,7 @@ router = APIRouter()
 # Instrument endpoints
 @router.get("/", response_model=List[InstrumentResponse])
 def read_instruments(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_default_web_db)
 ):
     """
     Получить все инструменты.
@@ -23,7 +23,7 @@ def read_instruments(
 
 
 @router.get("/ticker/{ticker}", response_model=InstrumentResponse)
-def read_instrument_by_ticker(ticker: str, db: Session = Depends(get_db)):
+def read_instrument_by_ticker(ticker: str, db: Session = Depends(get_default_web_db)):
     """
     Получить инструмент по тикеру.
     """
@@ -34,7 +34,7 @@ def read_instrument_by_ticker(ticker: str, db: Session = Depends(get_db)):
 
 
 @router.get("/figi/{figi}", response_model=InstrumentResponse)
-def read_instrument_by_figi(figi: str, db: Session = Depends(get_db)):
+def read_instrument_by_figi(figi: str, db: Session = Depends(get_default_web_db)):
     """
     Получить инструмент по FIGI.
     """
@@ -45,7 +45,7 @@ def read_instrument_by_figi(figi: str, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=InstrumentResponse)
-def create_instrument(instrument: InstrumentCreate, db: Session = Depends(get_db)):
+def create_instrument(instrument: InstrumentCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новый инструмент.
     """
@@ -62,7 +62,7 @@ def create_instrument(instrument: InstrumentCreate, db: Session = Depends(get_db
 
 
 @router.delete("/ticker/{ticker}", response_model=InstrumentResponse)
-def delete_instrument_by_ticker(ticker: str, db: Session = Depends(get_db)):
+def delete_instrument_by_ticker(ticker: str, db: Session = Depends(get_default_web_db)):
     """
     Удалить инструмент по тикеру.
     """
@@ -76,7 +76,7 @@ def delete_instrument_by_ticker(ticker: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/all", response_model=dict)
-def delete_all_instruments(db: Session = Depends(get_db)):
+def delete_all_instruments(db: Session = Depends(get_default_web_db)):
     """
     Удалить все инструменты.
     """

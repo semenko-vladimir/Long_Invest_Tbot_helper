@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Sell</p>
+  <h2>Manual sell order</h2>
+  <p>Validate portfolio availability, review the preview, then confirm execution.</p>
+</section>
+
+{% include "partials/order_form.html" %}
+{% include "partials/order_feedback.html" %}
+{% endblock %}

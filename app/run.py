@@ -2,7 +2,6 @@ import sys
 import os
 import threading
 import uvicorn
-from telebot import types
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -12,23 +11,25 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 
 from app.client.bot.bot import bot
+from app.client.config.investor_reminders import configure_investor_reminders
 from app.client.config.schedulers_config import configure_schedulers
+from app.client.config import ConfigError, get_invest_mode, validate_startup_config
 from app.client.config.db_config import configure_database, DatabaseConfigError
 from app.client.log.logger import setup_logger
 from app.backend.main_api import app as fastapi_app
+from app.client.handlers.menu.main_menu import send_main_menu
 from app.client.handlers.portfolio.portfolio_handler import get_portfolio_handler
 from app.client.handlers.instruments.instruments_handler import instruments_handler
 from app.client.handlers.dividends.dividends_handler import dividends_handler
-from app.client.handlers.market.market_handler import market_handler
-from app.client.handlers.notifications.notification_handler import notification_handler
 from app.client.handlers.bot.bot_handler import bot_handler
-from app.client.handlers.signals.signals_handler import show_signals_handler
-from app.client.handlers.mls.mls_handler import mls_handler
-from app.client.handlers.knowledge_base.knowledge_base_handler import knowledge_base_handler
+from app.client.handlers.orders.manual_order_handler import manual_order_handler
 from app.client.handlers.research.research_handler import research_command_handler, research_text_command_handler
 from app.client.handlers.statistics.statistics_handler import statistics_handler
+from app.client.handlers.help.help_handler import help_handler
+from app.services.user_context import UnknownUserError, UserContextResolver
 
 logger = setup_logger(__name__)
+user_context_resolver = UserContextResolver()
 
 class TokenVerificationError(Exception):
     """Исключение, возникающее при ошибке проверки токенов."""
@@ -43,34 +44,12 @@ def verify_tokens():
     """
     try:
         load_dotenv()
+        validate_startup_config()
         
-        # Получение переменных окружения
-        BOT_TOKEN = os.getenv('BOT_TOKEN')
-        CHAT_ID = os.getenv('CHAT_ID')
-        TOKEN = os.getenv('TOKEN')
-        SANDBOX_TOKEN = os.getenv('SANDBOX_TOKEN')
-        BROKER_FEE = os.getenv('BROKER_FEE')
-        
-        # Проверка, что переменные окружения существуют и не пусты
-        if not BOT_TOKEN or BOT_TOKEN.strip() == '':
-            raise TokenVerificationError("Отсутствует или пуст токен бота (BOT_TOKEN)")
-        
-        if not CHAT_ID or CHAT_ID.strip() == '':
-            raise TokenVerificationError("Отсутствует или пуст идентификатор чата (CHAT_ID)")
-        
-        if not TOKEN or TOKEN.strip() == '':
-            raise TokenVerificationError("Отсутствует или пуст основной токен API (TOKEN)")
-        
-        if not SANDBOX_TOKEN or SANDBOX_TOKEN.strip() == '':
-            raise TokenVerificationError("Отсутствует или пуст токен песочницы (SANDBOX_TOKEN)")
-        
-        if not BROKER_FEE or BROKER_FEE.strip() == '':
-            raise TokenVerificationError("Отсутствует или пуста комиссия брокера (BROKER_FEE)")
-        
-        logger.info("Все необходимые токены успешно проверены")
+        logger.info(f"Все необходимые токены успешно проверены. Режим: {get_invest_mode()}")
     
-    except TokenVerificationError as e:
-        raise
+    except (ConfigError, TokenVerificationError) as e:
+        raise TokenVerificationError(str(e)) from e
     except Exception as e:
         error_msg = f"Непредвиденная ошибка при проверке токенов: {str(e)}"
         raise TokenVerificationError(error_msg)
@@ -88,33 +67,15 @@ def start(message):
     chat_id = message.chat.id
     
     try:
-        # Создаем клавиатуру с кнопками
-        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        portfolio_button = types.KeyboardButton('Получить портфолио')
-        tickers_button = types.KeyboardButton('Инструменты')
-        notifications_button = types.KeyboardButton('Уведомления')
-        strategies_button = types.KeyboardButton('Торговый робот')
-        signals_button = types.KeyboardButton('Настройка сигналов')
-        market_button = types.KeyboardButton('Состояние рынка')
-        dividents_button = types.KeyboardButton('Дивиденды')
-        long_strategy_button = types.KeyboardButton('Middle/Long сигналы(Графики)')
-        statistics_button = types.KeyboardButton('Статистика')
-        knowledge_button = types.KeyboardButton('База знаний')
-        
-        # Добавляем кнопки на клавиатуру
-        keyboard.row(portfolio_button)
-        keyboard.row(tickers_button)
-        keyboard.row(notifications_button)
-        keyboard.row(market_button)
-        keyboard.row(signals_button)
-        keyboard.row(strategies_button)
-        keyboard.row(dividents_button)
-        keyboard.row(long_strategy_button)
-        keyboard.row(knowledge_button)
-        keyboard.row(statistics_button)
-        
-        # Отправляем приветственное сообщение с клавиатурой
-        bot.send_message(message.chat.id, 'Investor v1 is sandbox-first. Use portfolio, instruments, dividends, statistics, and manual review workflows; legacy signal/strategy items are not the active v1 runtime.', reply_markup=keyboard)
+        user_context = user_context_resolver.resolve_telegram_chat(chat_id)
+        send_main_menu(
+            chat_id,
+            f'Investor mode is ready for {user_context.display_name}. '
+            'Use the menu or type `buy SBER 1` / `sell SBER 1`.',
+        )
+    except UnknownUserError:
+        logger.warning("Unauthorized Telegram /start attempt: chat_id=%s", chat_id)
+        bot.send_message(chat_id, "This Telegram chat is not authorized for this local investor assistant.")
     
     except Exception as e:
         logger.error(f"Ошибка при обработке команды /start: {str(e)}")
@@ -126,7 +87,9 @@ def run_api():
     Запускает FastAPI сервер.
     """
     try:
-        uvicorn.run(fastapi_app, host="0.0.0.0", port=8000)
+        api_host = os.getenv("API_HOST", "127.0.0.1")
+        api_port = int(os.getenv("API_PORT", "8000"))
+        uvicorn.run(fastapi_app, host=api_host, port=api_port)
     
     except Exception as e:
         logger.error(f"Ошибка при запуске API сервера: {str(e)}")
@@ -156,6 +119,7 @@ if __name__ == '__main__':
         # Настройка планировщиков
         configure_schedulers()
         logger.info("Планировщики успешно настроены")
+        configure_investor_reminders()
         
         # Запуск бота
         logger.info("Запуск бота...")

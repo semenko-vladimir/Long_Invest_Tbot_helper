@@ -1,0 +1,10 @@
+<section class="mode-banner {% if not mode.trading_available %}blocked{% endif %}" aria-label="Application mode">
+  <div>
+    <p class="eyebrow">Local session</p>
+    <h1>{{ mode.banner_title }}</h1>
+    <p>{{ mode.banner_message }}</p>
+  </div>
+  <span class="mode-pill {% if mode.trading_available %}open{% else %}blocked{% endif %}">
+    {% if mode.trading_available %}Trading available{% else %}Read-only{% endif %}
+  </span>
+</section>

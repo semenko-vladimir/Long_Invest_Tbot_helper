@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Order history</p>
+  <h2>Manual orders</h2>
+  <p>Stored manual broker orders from the local database.</p>
+</section>
+
+{% if order_history.error %}
+  <section class="notice error">
+    <h3>Order history unavailable</h3>
+    <p>{{ order_history.error }}</p>
+  </section>
+{% elif order_history.empty %}
+  <section class="notice">
+    <h3>No orders yet</h3>
+    <p>Manual buy and sell orders will appear here after they are confirmed and stored.</p>
+  </section>
+{% else %}
+  <section class="table-shell" aria-label="Order history">
+    <table>
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Ticker</th>
+          <th>Operation</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in order_history.orders %}
+          <tr>
+            <td title="{{ order.order_id }}">{{ order.order_id_display }}</td>
+            <td><strong>{{ order.ticker }}</strong></td>
+            <td><span class="operation-badge {{ order.operation_class }}">{{ order.operation_label }}</span></td>
+            <td>{{ order.bm_value_display }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+{% endblock %}

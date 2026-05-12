@@ -5,7 +5,6 @@ from typing import Optional
 from tinkoff.invest import Client, InstrumentIdType, OrderDirection, OrderType
 from tinkoff.invest.services import SandboxService
 
-from app.backend.models.database import SessionLocal
 from app.backend.models.trading import Order
 from app.client.utils.helpers import cast_money
 from app.client.utils.methods import (
@@ -17,6 +16,7 @@ from app.client.utils.methods import (
     get_portfolio,
     get_sandbox_portfolio,
 )
+from app.services.user_database import SessionFactory, get_default_session_factory
 
 
 SUPPORTED_INSTRUMENT_METHODS = ("shares", "bonds", "etfs", "currencies", "futures")
@@ -50,6 +50,9 @@ class DividendLookup:
 
 class TInvestBroker:
     """Small adapter that keeps T-Invest SDK details out of services and views."""
+
+    def __init__(self, *, session_factory: Optional[SessionFactory] = None):
+        self.session_factory = session_factory or get_default_session_factory()
 
     def get_portfolio(self, token: str, *, sandbox: bool) -> dict:
         if sandbox:
@@ -201,7 +204,7 @@ class TInvestBroker:
         return accounts[0].id
 
     def _record_order(self, order_id: str, ticker: str, total_value: float, operation: str) -> None:
-        db = SessionLocal()
+        db = self.session_factory()
         try:
             db.add(
                 Order(

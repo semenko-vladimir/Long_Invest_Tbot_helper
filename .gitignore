@@ -1,6 +1,12 @@
 database.db
+*.db-wal
+*.db-shm
 .env
+users.json
+data/users/
+.test-user-dbs/
 venv
+venv*/
 log/log.txt
 __pycache__/
 *.pyc
@@ -8,3 +14,4 @@ log.txt
 logs.log
 TODO.txt
 .idea
+.claude/settings.local.json

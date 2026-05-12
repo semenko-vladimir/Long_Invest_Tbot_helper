@@ -1,0 +1,13 @@
+<section class="order-panel">
+  <form method="post" action="{{ preview_url }}" class="order-form">
+    <div class="field">
+      <label for="{{ operation }}-ticker">Ticker</label>
+      <input id="{{ operation }}-ticker" name="ticker" value="{{ values.ticker }}" autocomplete="off" required>
+    </div>
+    <div class="field">
+      <label for="{{ operation }}-lots">Lots</label>
+      <input id="{{ operation }}-lots" name="lots" type="number" min="1" step="1" value="{{ values.lots }}" required>
+    </div>
+    <button type="submit">Preview {{ operation_label }}</button>
+  </form>
+</section>

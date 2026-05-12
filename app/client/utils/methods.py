@@ -1,4 +1,3 @@
-from pandas import DataFrame
 import tinkoff
 from tinkoff.invest import Client, RequestError, InstrumentStatus, PositionsResponse
 from tinkoff.invest.services import InstrumentsService
@@ -9,6 +8,8 @@ from app.client.utils.helpers import cast_money, create_df, format_date
 from tinkoff.invest import InstrumentIdType
 from dotenv import load_dotenv
 import os
+from app.client.config import get_active_invest_token
+from typing import Optional
 
 logger = setup_logger(__name__)
 
@@ -78,8 +79,7 @@ def get_historic_candles(figi: str, start_time, end_time, interval):
     Returns:
         HistoricCandle: Исторические свечи.
     """
-    load_dotenv()
-    TOKEN = os.getenv('TOKEN')
+    TOKEN = get_active_invest_token()
 
     with Client(TOKEN) as client:
         market_data = client.market_data
@@ -131,7 +131,7 @@ def get_current_price(figi: str, client, type_op: str):
 
 
 
-def get_figi_by_ticker(ticker: str):
+def get_figi_by_ticker(ticker: str, token: Optional[str] = None):
 
     """
     Получает FIGI инструмента по тикеру.
@@ -140,8 +140,7 @@ def get_figi_by_ticker(ticker: str):
 
     :return: FIGI инструмента.
     """
-    load_dotenv()
-    TOKEN = os.getenv('TOKEN')
+    TOKEN = token or get_active_invest_token()
 
     with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
@@ -156,7 +155,7 @@ def get_figi_by_ticker(ticker: str):
 
         return None
     
-def get_ticker_by_figi(figi: str, instrument_type: str):
+def get_ticker_by_figi(figi: str, instrument_type: str, token: Optional[str] = None):
 
     """
     Получает тикер инструмента по FIGI.
@@ -166,8 +165,7 @@ def get_ticker_by_figi(figi: str, instrument_type: str):
 
     :return: Тикер инструмента, если он найден, иначе None.
     """
-    load_dotenv()
-    TOKEN = os.getenv('TOKEN')
+    TOKEN = token or get_active_invest_token()
 
     with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
@@ -204,8 +202,9 @@ def get_share_info_by_ticker(ticker: str):
     :return: DataFrame с информацией о акции (название, FIGI, тикер, код класса)
     """
     
-    load_dotenv()
-    TOKEN = os.getenv('TOKEN')
+    from pandas import DataFrame
+
+    TOKEN = get_active_invest_token()
 
     with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
@@ -227,8 +226,9 @@ def get_info_by_ticker(ticker: str):
     :return: DataFrame с информацией о инструменте (название, FIGI, тикер, тип инструмента)
     """
 
-    load_dotenv()
-    TOKEN = os.getenv('TOKEN')
+    from pandas import DataFrame
+
+    TOKEN = get_active_invest_token()
 
     with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
@@ -264,8 +264,9 @@ def get_info_by_figi(figi: str):
     :return: DataFrame с информацией о инструменте (название, FIGI, тикер, тип инструмента)
     """
 
-    load_dotenv()
-    TOKEN = os.getenv('TOKEN')
+    from pandas import DataFrame
+
+    TOKEN = get_active_invest_token()
 
     with Client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
@@ -325,7 +326,7 @@ def get_portfolio(token: str):
 
     for position in portfolio.positions:
 
-        position_ticker = get_ticker_by_figi(position.figi, position.instrument_type)
+        position_ticker = get_ticker_by_figi(position.figi, position.instrument_type, token)
 
         if position_ticker is None:
             position_ticker = "Нет информации"
@@ -418,7 +419,7 @@ def get_sandbox_portfolio(token: str):
 
     for position in portfolio.positions:
 
-        position_ticker = get_ticker_by_figi(position.figi, position.instrument_type)
+        position_ticker = get_ticker_by_figi(position.figi, position.instrument_type, token)
 
         if position_ticker is None:
             position_ticker = "Нет информации"

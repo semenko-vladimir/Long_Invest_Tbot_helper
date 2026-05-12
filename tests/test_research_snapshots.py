@@ -18,8 +18,9 @@ else:
     TESTCLIENT_IMPORT_ERROR = ""
 
 from app.backend.api import api_router
+from app.backend.api.dependencies import get_default_web_db
 from app.backend.api.endpoints.research import ResearchServices, get_research_services
-from app.backend.models.database import Base, get_db
+from app.backend.models.database import Base
 from app.research.schemas import (
     AdapterResult,
     DataGap,
@@ -231,7 +232,7 @@ class ResearchSnapshotApiTests(unittest.TestCase):
             finally:
                 db.close()
 
-        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_default_web_db] = override_get_db
         app.dependency_overrides[get_research_services] = lambda: ResearchServices(
             ticker_research=TickerResearchService([SnapshotAdapter()], now_provider=lambda: now),
             report_builder=ResearchReportService(now_provider=lambda: now),

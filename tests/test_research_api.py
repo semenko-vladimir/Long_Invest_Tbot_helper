@@ -1,9 +1,14 @@
 import ast
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 from fastapi import FastAPI
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 try:
     from fastapi.testclient import TestClient
@@ -14,7 +19,9 @@ else:
     TESTCLIENT_IMPORT_ERROR = ""
 
 from app.backend.api import api_router
+from app.backend.api.dependencies import get_default_web_db
 from app.backend.api.endpoints.research import ResearchServices, get_research_services
+from app.backend.models.database import Base
 from app.research.schemas import (
     AdapterResult,
     DataGap,
@@ -77,11 +84,26 @@ class ResearchApiTests(unittest.TestCase):
         app = FastAPI()
         app.include_router(api_router, prefix="/api")
         now = datetime(2026, 5, 4, 12, 30)
+        engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        Base.metadata.create_all(bind=engine)
+
+        def override_get_default_web_db():
+            db = SessionLocal()
+            try:
+                yield db
+            finally:
+                db.close()
 
         app.dependency_overrides[get_research_services] = lambda: ResearchServices(
             ticker_research=TickerResearchService(adapters, now_provider=lambda: now),
             report_builder=ResearchReportService(now_provider=lambda: now),
         )
+        app.dependency_overrides[get_default_web_db] = override_get_default_web_db
         return TestClient(app)
 
     def test_research_web_entry_is_read_only_and_links_to_api(self):
@@ -147,12 +169,23 @@ class ResearchApiTests(unittest.TestCase):
         self.assertIn("not personal investment advice", payload["disclaimer"])
         self.assertIn("must not trigger broker orders", payload["disclaimer"])
 
-    def test_default_research_services_include_local_fundamentals_adapter(self):
-        services = get_research_services()
-        source_names = [adapter.source_name for adapter in services.ticker_research.adapters]
+    def test_default_research_services_use_default_web_user_services(self):
+        expected = ResearchServices(
+            ticker_research=TickerResearchService([SuccessfulAdapter()]),
+            report_builder=ResearchReportService(),
+        )
 
-        self.assertIn("t-invest", source_names)
-        self.assertIn("local-fundamentals", source_names)
+        with mock.patch(
+            "app.backend.api.endpoints.research.get_web_services",
+            return_value=SimpleNamespace(
+                ticker_research=expected.ticker_research,
+                report_builder=expected.report_builder,
+            ),
+        ):
+            services = get_research_services()
+
+        self.assertIs(services.ticker_research, expected.ticker_research)
+        self.assertIs(services.report_builder, expected.report_builder)
 
     def test_research_api_imports_no_order_signal_or_llm_modules(self):
         forbidden_prefixes = (

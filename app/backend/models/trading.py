@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, Float, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.backend.models.database import Base
@@ -41,3 +41,31 @@ class Order(Base):
     signal = Column(String)
     bm_value = Column(Float)
     operation_type = Column(String)
+
+
+class InvestmentPlan(Base):
+    __tablename__ = "investment_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String, index=True)
+    lots = Column(Integer)
+    schedule = Column(String)
+    time = Column(String)
+    price_rule = Column(String)
+    order_type = Column(String)
+    confirmation_required = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class InvestmentPlanExecution(Base):
+    __tablename__ = "investment_plan_executions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plan_id = Column(Integer, index=True)
+    order_id = Column(String, nullable=True)
+    ticker = Column(String, index=True)
+    amount_rub = Column(Float, default=0.0)
+    status = Column(String, index=True)
+    execution_mode = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)

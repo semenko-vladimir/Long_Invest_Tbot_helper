@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.backend.models.database import get_db
+from app.backend.api.dependencies import get_default_web_db
 from app.backend.models.trading import Margin, Buy, Order
 from app.backend.schemas.trading import (
     MarginCreate, MarginResponse,
@@ -16,7 +16,7 @@ router = APIRouter()
 # Margin endpoints
 @router.get("/margin/", response_model=List[MarginResponse])
 def read_margins(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_default_web_db)
 ):
     """
     Получить все маржинальные позиции.
@@ -26,7 +26,7 @@ def read_margins(
 
 
 @router.post("/margin/", response_model=MarginResponse)
-def create_margin(margin: MarginCreate, db: Session = Depends(get_db)):
+def create_margin(margin: MarginCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новую маржинальную позицию.
     """
@@ -40,7 +40,7 @@ def create_margin(margin: MarginCreate, db: Session = Depends(get_db)):
 # Buy endpoints
 @router.get("/buy/", response_model=List[BuyResponse])
 def read_buys(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_default_web_db)
 ):
     """
     Получить все покупки.
@@ -50,7 +50,7 @@ def read_buys(
 
 
 @router.post("/buy/", response_model=BuyResponse)
-def create_buy(buy: BuyCreate, db: Session = Depends(get_db)):
+def create_buy(buy: BuyCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новую покупку.
     """
@@ -64,7 +64,7 @@ def create_buy(buy: BuyCreate, db: Session = Depends(get_db)):
 # Order endpoints
 @router.get("/orders/", response_model=List[OrderResponse])
 def read_orders(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_default_web_db)
 ):
     """
     Получить все торговые поручения.
@@ -74,7 +74,7 @@ def read_orders(
 
 
 @router.post("/orders/", response_model=OrderResponse)
-def create_order(order: OrderCreate, db: Session = Depends(get_db)):
+def create_order(order: OrderCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новое торговое поручение.
     """
@@ -86,7 +86,7 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/orders/{order_id}", response_model=OrderResponse)
-def delete_order(order_id: str, db: Session = Depends(get_db)):
+def delete_order(order_id: str, db: Session = Depends(get_default_web_db)):
     """
     Удалить заказ по order_id.
     """

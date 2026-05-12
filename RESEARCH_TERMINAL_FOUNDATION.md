@@ -23,6 +23,19 @@ The workflow must not create broker orders, generate runtime trading signals, or
 
 These modules should live outside manual order execution paths and should not import or call broker order placement APIs.
 
+## Local LLM Model Decision
+
+Decision date: 2026-05-11.
+
+Preferred future model for `LocalLLMAdapter`:
+
+- `Qwen/Qwen3-235B-A22B-Instruct-2507-FP8`
+
+This is a recorded architecture preference only. It does not enable LLM runtime
+behavior, add a dependency, create ratings, generate trading signals, or connect
+LLM output to broker orders. When implemented later, serve it behind an
+OpenAI-compatible local or private VM endpoint, preferably via vLLM or SGLang.
+
 ## Data Categories
 
 Research reports should be designed to support these categories as sources become available:

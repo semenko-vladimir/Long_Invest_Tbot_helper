@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Statistics</p>
+  <h2>Trading records</h2>
+  <p>Summary of manual orders and stored trading records. Period filter applies to timestamped records only.</p>
+  <p><a href="/orders" class="button secondary">View order history</a></p>
+</section>
+
+<section class="order-panel">
+  <form method="get" action="/stats" class="order-form">
+    <div class="field">
+      <label for="stats-period">Last N days (leave blank for all time)</label>
+      <input id="stats-period" name="period_days" type="number" min="1" max="365"
+             value="{{ period_days_input }}" placeholder="e.g. 30" autocomplete="off">
+    </div>
+    <button type="submit">Filter</button>
+    {% if period_days_input %}
+      <a href="/stats" class="button-link">Clear filter</a>
+    {% endif %}
+  </form>
+</section>
+
+{% if stats.error %}
+  <section class="notice error">
+    <h3>Statistics unavailable</h3>
+    <p>{{ stats.error }}</p>
+  </section>
+{% elif stats.empty %}
+  <section class="notice">
+    <h3>No records yet</h3>
+    <p>Statistics will appear here after manual orders or trading records are stored.</p>
+  </section>
+{% else %}
+
+  <section class="stats-period-label">
+    <span class="eyebrow">Period: {{ stats.period_label }}</span>
+  </section>
+
+  <section class="table-shell" aria-label="Manual orders">
+    <h3>Manual orders</h3>
+    <table>
+      <tbody>
+        <tr>
+          <th scope="row">Total orders</th>
+          <td>{{ stats.order_count }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Buys</th>
+          <td>{{ stats.order_buy_count }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Sells</th>
+          <td>{{ stats.order_sell_count }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Order value</th>
+          <td>{{ stats.order_value_display }}</td>
+        </tr>
+      </tbody>
+    </table>
+    {% if stats.orders_no_timestamp_note %}
+      <p class="table-footnote">Manual orders do not store timestamps yet — order totals reflect all time regardless of the period filter.</p>
+    {% endif %}
+  </section>
+
+  {% if stats.buy_record_count > 0 or stats.margin_record_count > 0 %}
+  <section class="table-shell" aria-label="Legacy records">
+    <h3>Legacy signal records</h3>
+    <table>
+      <tbody>
+        <tr>
+          <th scope="row">Buy records</th>
+          <td>{{ stats.buy_record_count }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Buy record value</th>
+          <td>{{ stats.buy_record_value_display }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Margin records</th>
+          <td>{{ stats.margin_record_count }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Margin total</th>
+          <td>{{ "%.2f"|format(stats.margin_record_total) }}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% if stats.top_tickers %}
+  <section class="table-shell" aria-label="Top tickers">
+    <h3>Top tickers</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Records</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in stats.top_tickers %}
+          <tr>
+            <td><strong>{{ item.ticker }}</strong></td>
+            <td>{{ item.count }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+{% endif %}
+{% endblock %}

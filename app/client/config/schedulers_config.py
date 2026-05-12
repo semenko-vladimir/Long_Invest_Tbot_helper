@@ -1,7 +1,5 @@
 from app.client.log.logger import setup_logger
-from app.client.utils.methods import get_info_by_ticker
 from app.client.store.store import market_scheduler
-from app.client.bot.bot import bot
 from datetime import datetime, timedelta
 from tinkoff.invest import CandleInterval
 from dotenv import load_dotenv
@@ -129,34 +127,9 @@ def setup_market_jobs(scheduler, instruments, update_time, chat_id, update_type)
         chat_id: ID чата, в который нужно отправить уведомления
         update_type: Тип уведомления ('Падения рынка' или 'Обновления рынка')
     """
-    try:
-        from app.client.handlers.notifications.send import send_price_change_notification
-
-        for instrument in instruments:
-            ticker = instrument.get('ticker')
-            figi = instrument.get('figi')
-            
-            # Получаем дополнительную информацию об инструменте
-            info = get_info_by_ticker(ticker)
-            name = info['name'].values[0:1][0]
-            type_of = info['type'].values[0:1][0]
-            
-            # Вычисляем временной интервал
-            start_time, candle_interval = calculate_start_time_and_interval(update_time)
-            end_time = datetime.now()
-            
-            logger.info(f"{update_type} уведомления добавлены для {ticker}")
-            
-            # Добавляем задачу в планировщик
-            scheduler.add_job(
-                send_price_change_notification, 
-                'interval', 
-                minutes=update_time, 
-                args=(figi, start_time, end_time, candle_interval, bot, chat_id, name, type_of, ticker)
-            )
-    
-    except Exception as e:
-        logger.error(f"Error setting up market jobs: {str(e)}")
+    # disabled in v1; notifications/ handler removed
+    logger.info("Market notification jobs are disabled for investor v1.")
+    return
 
 
 def calculate_start_time_and_interval(update_time):

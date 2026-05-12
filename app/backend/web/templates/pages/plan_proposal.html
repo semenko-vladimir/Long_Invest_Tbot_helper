@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Plan proposal</p>
+  <h2>{{ proposal.plan.ticker }} proposal</h2>
+  <p>This proposal is not an order.</p>
+</section>
+
+<section class="order-preview" aria-label="Investment plan proposal">
+  <p class="eyebrow">Manual review</p>
+  <h3>Review before confirmation</h3>
+  <p>{{ proposal.execution_note }}</p>
+
+  <dl class="summary-grid">
+    <div><dt>Ticker</dt><dd>{{ proposal.plan.ticker }}</dd></div>
+    <div><dt>Schedule</dt><dd>{{ proposal.plan.schedule_label }} at {{ proposal.plan.time }}</dd></div>
+    <div><dt>Lots</dt><dd>{{ proposal.proposed_lots }}</dd></div>
+    <div><dt>Next review</dt><dd>{{ proposal.plan.next_run_display }}</dd></div>
+    <div><dt>Proposed price</dt><dd>{{ proposal.proposed_limit_price_display }}</dd></div>
+    <div><dt>Order type</dt><dd>{{ proposal.plan.order_type_label }}</dd></div>
+    <div><dt>Price rule</dt><dd>{{ proposal.plan.price_rule_label }}</dd></div>
+    <div><dt>Generated</dt><dd>{{ proposal.generated_at }}</dd></div>
+  </dl>
+
+  {% if proposal.preview.warnings %}
+    <div class="notice warning compact">
+      {% for warning in proposal.preview.warnings %}
+        <p>{{ warning }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="order-actions">
+    <a class="button" href="{{ buy_url }}">Go to confirmation</a>
+    <a class="button secondary" href="/plans">Back to plans</a>
+  </div>
+</section>
+{% endblock %}

@@ -105,6 +105,11 @@ def get_investor_reminder_time() -> str:
 
 def get_tokens() -> dict:
     load_dotenv()
+    from app.client.config.users import get_default_web_user_config, users_config_is_configured
+
+    if users_config_is_configured(load_env=False):
+        return get_default_web_user_config().tokens
+
     return {
         "token": os.getenv("TOKEN"),
         "sandbox_token": os.getenv("SANDBOX_TOKEN"),
@@ -116,6 +121,20 @@ def get_active_invest_token() -> Optional[str]:
     return tokens["sandbox_token"] if is_sandbox_mode() else tokens["token"]
 
 
+def get_broker_fee() -> float:
+    load_dotenv()
+    from app.client.config.users import get_default_web_user_config, users_config_is_configured
+
+    if users_config_is_configured(load_env=False):
+        return get_default_web_user_config().broker_fee
+
+    broker_fee = require_env("BROKER_FEE", placeholder_values=set())
+    try:
+        return float(broker_fee)
+    except ValueError as exc:
+        raise ConfigError("Environment variable BROKER_FEE must be a number, for example 0.3.") from exc
+
+
 def get_api_base_url() -> str:
     load_dotenv()
     return os.getenv("API_BASE_URL", "http://localhost:8000").strip() or "http://localhost:8000"
@@ -123,13 +142,14 @@ def get_api_base_url() -> str:
 
 def validate_startup_config() -> None:
     require_env("BOT_TOKEN")
-    require_env("CHAT_ID")
-    broker_fee = require_env("BROKER_FEE", placeholder_values=set())
+    from app.client.config.users import users_config_is_configured, validate_users_config_for_mode
 
-    try:
-        float(broker_fee)
-    except ValueError as exc:
-        raise ConfigError("Environment variable BROKER_FEE must be a number, for example 0.3.") from exc
+    if users_config_is_configured(load_env=False):
+        validate_users_config_for_mode(get_invest_mode())
+        return
+
+    require_env("CHAT_ID")
+    get_broker_fee()
 
     if is_sandbox_mode():
         require_env("SANDBOX_TOKEN")

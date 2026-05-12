@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Plans</p>
+  <h2>Recurring investment plans</h2>
+  <p>Plans prepare calm buy proposals. They never send orders automatically.</p>
+</section>
+
+{% if plans.error %}
+  <section class="notice error">
+    <h3>Plan update failed</h3>
+    <p>{{ plans.error }}</p>
+  </section>
+{% endif %}
+
+{% if plans.notice %}
+  <section class="notice success">
+    <h3>Plans updated</h3>
+    <p>{{ plans.notice }}</p>
+  </section>
+{% endif %}
+
+<section class="settings-list policy-list" aria-label="Investment plan safety settings">
+  <div>
+    <span>Plans</span>
+    <strong>{% if plan_policy.plans_enabled %}Enabled{% else %}Unavailable{% endif %}</strong>
+  </div>
+  <div>
+    <span>Auto-investing</span>
+    <strong>{% if plan_policy.auto_investing_allowed %}Constrained{% else %}Manual confirmation only{% endif %}</strong>
+  </div>
+  <div>
+    <span>Max order</span>
+    <strong>{{ plan_policy.max_order_rub_display }}</strong>
+  </div>
+  <div>
+    <span>Max daily invest</span>
+    <strong>{{ plan_policy.max_daily_invest_rub_display }}</strong>
+  </div>
+  <div>
+    <span>Used today</span>
+    <strong>{{ plan_policy.daily_used_rub_display }}</strong>
+  </div>
+</section>
+
+{% if plan_policy.blocked_reasons %}
+  <section class="notice warning">
+    <h3>Automation is constrained</h3>
+    {% for reason in plan_policy.blocked_reasons %}
+      <p>{{ reason }}</p>
+    {% endfor %}
+  </section>
+{% endif %}
+
+{% if not plan_policy.plans_enabled %}
+  <section class="notice">
+    <h3>Investment plans are unavailable</h3>
+    <p>Set ENABLE_INVESTMENT_PLANS=true to create plans and generate manual proposals.</p>
+  </section>
+{% else %}
+
+<section class="order-panel">
+  <p class="eyebrow">Plan definition</p>
+  <h3>Create a recurring plan</h3>
+  <form method="post" action="/plans/create" class="plan-form">
+    <div class="field">
+      <label for="plan-ticker">Ticker</label>
+      <input id="plan-ticker" name="ticker" value="{{ plan_defaults.ticker }}" autocomplete="off" required>
+    </div>
+    <div class="field">
+      <label for="plan-lots">Lots</label>
+      <input id="plan-lots" name="lots" type="number" min="1" step="1" value="{{ plan_defaults.lots }}" required>
+    </div>
+    <div class="field">
+      <label for="plan-schedule">Schedule</label>
+      <select id="plan-schedule" name="schedule">
+        <option value="daily" {% if plan_defaults.schedule == "daily" %}selected{% endif %}>Daily</option>
+        <option value="weekly" {% if plan_defaults.schedule == "weekly" %}selected{% endif %}>Weekly</option>
+        <option value="monthly" {% if plan_defaults.schedule == "monthly" %}selected{% endif %}>Monthly</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="plan-time">Time</label>
+      <input id="plan-time" name="time" type="time" value="{{ plan_defaults.time }}" required>
+    </div>
+    <div class="field">
+      <label for="plan-price-rule">Price rule</label>
+      <select id="plan-price-rule" name="price_rule">
+        <option value="current_market" selected>Current market price</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="plan-order-type">Order type</label>
+      <select id="plan-order-type" name="order_type">
+        <option value="limit" selected>Limit</option>
+      </select>
+    </div>
+    <label class="checkbox-field">
+      <input type="hidden" name="confirmation_required" value="false">
+      <input type="checkbox" name="confirmation_required" value="true" checked>
+      Require confirmation
+    </label>
+    <button type="submit">Create plan</button>
+  </form>
+</section>
+
+{% if proposal %}
+  <section class="order-preview" aria-label="Today's plan proposal">
+    <p class="eyebrow">Today's plan</p>
+    <h3>{{ proposal.plan.ticker }} proposal</h3>
+    <p>{{ proposal.execution_note }}</p>
+    <dl class="summary-grid">
+      <div><dt>Plan</dt><dd>{{ proposal.plan.schedule_label }} at {{ proposal.plan.time }}</dd></div>
+      <div><dt>Proposed lots</dt><dd>{{ proposal.proposed_lots }}</dd></div>
+      <div><dt>Proposed limit price</dt><dd>{{ proposal.proposed_limit_price_display }}</dd></div>
+      <div><dt>Price rule</dt><dd>{{ proposal.plan.price_rule_label }}</dd></div>
+      <div><dt>Order type</dt><dd>{{ proposal.plan.order_type_label }}</dd></div>
+      <div><dt>Generated</dt><dd>{{ proposal.generated_at }}</dd></div>
+    </dl>
+
+    {% if proposal.preview.warnings %}
+      <div class="notice warning compact">
+        {% for warning in proposal.preview.warnings %}
+          <p>{{ warning }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="order-actions">
+      <form method="post" action="/buy/preview">
+        <input type="hidden" name="ticker" value="{{ proposal.plan.ticker }}">
+        <input type="hidden" name="lots" value="{{ proposal.proposed_lots }}">
+        <button type="submit">Send order</button>
+      </form>
+      <form method="post" action="/plans/{{ proposal.plan.id }}/proposal/skip">
+        <button type="submit" class="secondary-button">Skip</button>
+      </form>
+      <form method="post" action="/plans/{{ proposal.plan.id }}/proposal">
+        <button type="submit" class="secondary-button">Change price</button>
+      </form>
+    </div>
+  </section>
+{% endif %}
+
+<section class="page-header">
+  <p class="eyebrow">Plan definitions</p>
+  <h2>Saved plans</h2>
+  <p>Each plan can generate one proposal for manual review.</p>
+</section>
+
+{% if plans.empty %}
+  <section class="notice">
+    <h3>No plans yet</h3>
+    <p>Create a plan when you want a recurring reminder to review a buy proposal.</p>
+  </section>
+{% else %}
+  <section class="plan-list" aria-label="Investment plans">
+    {% for plan in plans.plans %}
+      <article class="plan-item">
+        <div class="plan-item-header">
+          <div>
+            <p class="eyebrow">Plan definition</p>
+            <h3>{{ plan.ticker }}</h3>
+            <p>Next review: {{ plan.next_run_display }}</p>
+          </div>
+          <a class="button" href="/plans/{{ plan.id }}/proposal">View proposal</a>
+        </div>
+
+        <form method="post" action="/plans/{{ plan.id }}/update" class="plan-form compact">
+          <div class="field">
+            <label for="plan-{{ plan.id }}-ticker">Ticker</label>
+            <input id="plan-{{ plan.id }}-ticker" name="ticker" value="{{ plan.ticker }}" autocomplete="off" required>
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-lots">Lots</label>
+            <input id="plan-{{ plan.id }}-lots" name="lots" type="number" min="1" step="1" value="{{ plan.lots }}" required>
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-schedule">Schedule</label>
+            <select id="plan-{{ plan.id }}-schedule" name="schedule">
+              <option value="daily" {% if plan.schedule == "daily" %}selected{% endif %}>Daily</option>
+              <option value="weekly" {% if plan.schedule == "weekly" %}selected{% endif %}>Weekly</option>
+              <option value="monthly" {% if plan.schedule == "monthly" %}selected{% endif %}>Monthly</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-time">Time</label>
+            <input id="plan-{{ plan.id }}-time" name="time" type="time" value="{{ plan.time }}" required>
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-price-rule">Price rule</label>
+            <select id="plan-{{ plan.id }}-price-rule" name="price_rule">
+              <option value="current_market" {% if plan.price_rule == "current_market" %}selected{% endif %}>Current market price</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-order-type">Order type</label>
+            <select id="plan-{{ plan.id }}-order-type" name="order_type">
+              <option value="limit" {% if plan.order_type == "limit" %}selected{% endif %}>Limit</option>
+            </select>
+          </div>
+          <label class="checkbox-field">
+            <input type="hidden" name="confirmation_required" value="false">
+            <input type="checkbox" name="confirmation_required" value="true" {% if plan.confirmation_required %}checked{% endif %}>
+            Confirmation: {{ plan.confirmation_label }}
+          </label>
+          <button type="submit">Update plan</button>
+        </form>
+
+        <form method="post" action="/plans/{{ plan.id }}/delete" class="inline-form plan-delete-form">
+          <button type="submit" class="danger-button">Delete plan</button>
+        </form>
+      </article>
+    {% endfor %}
+  </section>
+{% endif %}
+
+{% endif %}
+{% endblock %}

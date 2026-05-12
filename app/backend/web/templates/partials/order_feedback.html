@@ -1,0 +1,67 @@
+{% if error %}
+  <section class="notice error">
+    <h3>Order cannot continue</h3>
+    <p>{{ error }}</p>
+  </section>
+{% endif %}
+
+{% if preview %}
+  <section class="order-preview" aria-label="Order preview">
+    <p class="eyebrow">Preview</p>
+    <h3>{{ preview.operation_label }} {{ preview.ticker }}</h3>
+    <dl class="summary-grid">
+      <div><dt>Ticker</dt><dd>{{ preview.ticker }}</dd></div>
+      <div><dt>Name</dt><dd>{{ preview.instrument_name }}</dd></div>
+      <div><dt>Lots</dt><dd>{{ preview.lots }}</dd></div>
+      <div><dt>Estimated price</dt><dd>{{ preview.estimated_price_display }}</dd></div>
+      <div><dt>Estimated value</dt><dd>{{ preview.estimated_value_display }}</dd></div>
+      <div><dt>Mode</dt><dd>{{ preview.mode.banner_title }}</dd></div>
+      <div><dt>Trading</dt><dd>{% if preview.trading_enabled %}Enabled{% else %}Disabled{% endif %}</dd></div>
+      <div><dt>Order type</dt><dd>{{ preview.order_type }}</dd></div>
+    </dl>
+
+    {% if preview.warnings %}
+      <div class="notice warning compact">
+        {% for warning in preview.warnings %}
+          <p>{{ warning }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="order-actions">
+      <form method="post" action="{{ confirm_url }}">
+        <input type="hidden" name="ticker" value="{{ preview.ticker }}">
+        <input type="hidden" name="lots" value="{{ preview.lots }}">
+        <input type="hidden" name="confirm_token" value="{{ preview.confirm_token }}">
+
+        {% if preview.requires_ticker_confirmation %}
+          <div class="field confirm-field">
+            <label for="{{ operation }}-ticker-confirmation">Type {{ preview.ticker }} to confirm a real order</label>
+            <input id="{{ operation }}-ticker-confirmation" name="ticker_confirmation" autocomplete="off" required pattern="{{ preview.ticker }}" data-confirm-source data-confirm-ticker="{{ preview.ticker }}">
+          </div>
+        {% endif %}
+
+        <button type="submit" {% if not preview.can_execute or preview.requires_ticker_confirmation %}disabled{% endif %} data-confirm-button>
+          Confirm {{ preview.operation_label }}
+        </button>
+      </form>
+      <a class="button secondary" href="/{{ operation }}">Cancel</a>
+    </div>
+  </section>
+{% endif %}
+
+{% if result %}
+  <section class="order-result" aria-label="Executed order">
+    <p class="eyebrow">Executed</p>
+    <h3>{{ result.message }}</h3>
+    <dl class="summary-grid">
+      <div><dt>Order ID</dt><dd>{{ result.order_id }}</dd></div>
+      <div><dt>Side</dt><dd>{{ result.operation_label }}</dd></div>
+      <div><dt>Ticker</dt><dd>{{ result.ticker }}</dd></div>
+      <div><dt>Lots</dt><dd>{{ result.lots }}</dd></div>
+      <div><dt>Executed price</dt><dd>{{ result.executed_price_display }}</dd></div>
+      <div><dt>Total value</dt><dd>{{ result.total_value_display }}</dd></div>
+      <div><dt>Mode</dt><dd>{{ result.mode.banner_title }}</dd></div>
+    </dl>
+  </section>
+{% endif %}

@@ -39,19 +39,19 @@ v1 runtime:
 python -m pip install -r requirements-optional.txt
 ```
 
-## 3. Create `.env`
+## 3. Create `.env` and `users.json`
 
 ```powershell
 Copy-Item .env.example .env
+Copy-Item users.example.json users.json
 ```
 
-Fill these required values in `.env`:
+Fill these app-level values in `.env`:
 
 ```env
 BOT_TOKEN = "your_telegram_bot_token"
-SANDBOX_TOKEN = "your_sandbox_token"
-CHAT_ID = "your_telegram_chat_id"
-BROKER_FEE = 0.3
+USERS_CONFIG_PATH = "users.json"
+DEFAULT_WEB_USER_ID = "default"
 APP_MODE = "sandbox"
 INVEST_MODE = "sandbox"
 ALLOW_PROD_TRADING = "false"
@@ -61,7 +61,12 @@ INVESTOR_REMINDER_TIME = "09:00"
 API_BASE_URL = "http://localhost:8000"
 ```
 
-`APP_MODE` is the canonical mode variable. `INVEST_MODE` is kept as a legacy alias for older local configs. `TOKEN` is only required when `APP_MODE="prod"`. Production trading is blocked unless `ALLOW_PROD_TRADING="true"` is set explicitly.
+Fill per-user `telegram_chat_id`, `sandbox_token`, `broker_fee`, and `db_path`
+in `users.json`. The file is ignored by git and should contain local secrets
+only. Each enabled user gets a separate SQLite DB file at their configured
+`db_path`.
+
+`APP_MODE` is the canonical mode variable. `INVEST_MODE` is kept as a legacy alias for older local configs. A production token is only required in `users.json` when `APP_MODE="prod"`. Production trading is blocked unless `ALLOW_PROD_TRADING="true"` is set explicitly.
 
 ## 4. Launch locally
 
@@ -72,6 +77,7 @@ python app/run.py
 Expected startup path:
 
 - SQLite creates `database.db` in the repo root.
+- With `users.json`, SQLite creates per-user DB files instead.
 - FastAPI starts on `http://localhost:8000`.
 - Telegram polling starts.
 - Background schedulers remain disabled unless explicitly enabled.
@@ -107,7 +113,7 @@ Expected v1 menu:
 
 Sandbox smoke-test scenario:
 
-1. Fill `BOT_TOKEN`, `SANDBOX_TOKEN`, and `CHAT_ID`.
+1. Fill `BOT_TOKEN` in `.env`, then `sandbox_token` and `telegram_chat_id` in `users.json`.
 2. Keep `APP_MODE="sandbox"` and `ALLOW_PROD_TRADING="false"`.
 3. Start the app with `python app/run.py`.
 4. In Telegram, send `/start`.
@@ -129,8 +135,8 @@ The script creates `venv`, installs `requirements-v1.txt` (a compatibility alias
 
 ## Common Blockers
 
-- `BOT_TOKEN`, `SANDBOX_TOKEN`, and `CHAT_ID` must be real values, not placeholders.
-- `TOKEN` can stay empty for sandbox mode.
+- `BOT_TOKEN`, user `sandbox_token`, and user `telegram_chat_id` must be real values, not placeholders.
+- User `token` can stay empty for sandbox mode.
 - If `fastapi`, `telebot`, `tinkoff`, or `sqlalchemy` imports fail, install `requirements-base.txt` inside the active `venv`.
 - If pip cannot resolve `tinkoff` or `tinkoff-investments`, check the quarantine note in `requirements-base.txt`; normal package-name installs are currently blocked by PyPI quarantine.
 - If Telegram handlers cannot reach the API, check `API_BASE_URL` and confirm `http://localhost:8000/` responds.

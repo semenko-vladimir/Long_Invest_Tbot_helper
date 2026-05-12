@@ -4,11 +4,15 @@ from datetime import datetime
 from typing import Optional, Sequence
 
 from app.client.bot.bot import bot
+from app.client.config import get_invest_mode
 from app.client.handlers.utils.message_utils import last_messages
+from app.integrations.tinvest import TInvestBroker
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
 from app.research.schemas import DataGap, ResearchReport
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.tinvest_adapter import TInvestDataAdapter
+from app.services.user_context import UnknownUserError, UserContext, UserContextResolver
+from app.services.user_database import session_factory_for_user
 
 
 RESEARCH_TEXT_COMMAND_RE = re.compile(r"^\s*research(?:\s+(.+))?\s*$", re.IGNORECASE)
@@ -27,9 +31,30 @@ class TelegramResearchServices:
     report_builder: ResearchReportService
 
 
-def get_telegram_research_services() -> TelegramResearchServices:
+_user_context_resolver = UserContextResolver()
+
+
+def get_telegram_research_services(chat_id: Optional[int | str] = None) -> TelegramResearchServices:
+    if chat_id is None:
+        return TelegramResearchServices(
+            ticker_research=TickerResearchService([TInvestDataAdapter(), LocalFundamentalsAdapter()]),
+            report_builder=ResearchReportService(),
+        )
+
+    return build_telegram_research_services(_user_context_resolver.resolve_telegram_chat(chat_id))
+
+
+def build_telegram_research_services(user_context: UserContext) -> TelegramResearchServices:
+    session_factory = session_factory_for_user(user_context)
+    broker = TInvestBroker(session_factory=session_factory)
+    token_provider = lambda: user_context.active_token(get_invest_mode())
     return TelegramResearchServices(
-        ticker_research=TickerResearchService([TInvestDataAdapter(), LocalFundamentalsAdapter()]),
+        ticker_research=TickerResearchService(
+            [
+                TInvestDataAdapter(broker=broker, token_provider=token_provider),
+                LocalFundamentalsAdapter(),
+            ]
+        ),
         report_builder=ResearchReportService(),
     )
 
@@ -107,8 +132,10 @@ def send_research_report(chat_id: int, ticker: str) -> None:
         return
 
     try:
-        report = build_research_report(normalized_ticker)
+        report = build_research_report(normalized_ticker, get_telegram_research_services(chat_id))
         text = format_research_report(report)
+    except UnknownUserError:
+        text = "This Telegram chat is not authorized for this local investor assistant."
     except Exception as exc:
         text = (
             "Read-only research could not be built.\n\n"

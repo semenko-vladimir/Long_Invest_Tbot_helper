@@ -6,11 +6,10 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from app.backend.models.database import get_db
-from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
+from app.backend.api.dependencies import get_default_web_db
+from app.backend.web.context import get_web_services
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.snapshots import ResearchSnapshotService, snapshot_to_dict
-from app.research.tinvest_adapter import TInvestDataAdapter
 
 
 router = APIRouter()
@@ -23,9 +22,10 @@ class ResearchServices:
 
 
 def get_research_services() -> ResearchServices:
+    web_services = get_web_services()
     return ResearchServices(
-        ticker_research=TickerResearchService([TInvestDataAdapter(), LocalFundamentalsAdapter()]),
-        report_builder=ResearchReportService(),
+        ticker_research=web_services.ticker_research,
+        report_builder=web_services.report_builder,
     )
 
 
@@ -99,7 +99,7 @@ def research_page():
 def list_research_snapshots(
     ticker: Optional[str] = None,
     limit: int = 20,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_default_web_db),
 ):
     snapshots = ResearchSnapshotService(db).list_recent(ticker=ticker, limit=limit)
     return jsonable_encoder([snapshot_to_dict(snapshot) for snapshot in snapshots])
@@ -108,7 +108,7 @@ def list_research_snapshots(
 @router.get("/snapshots/{snapshot_id}")
 def read_research_snapshot(
     snapshot_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_default_web_db),
 ):
     snapshot = ResearchSnapshotService(db).get_snapshot(snapshot_id)
     if snapshot is None:
@@ -120,7 +120,7 @@ def read_research_snapshot(
 def read_ticker_research(
     ticker: str,
     services: ResearchServices = Depends(get_research_services),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_default_web_db),
 ):
     adapter_results = services.ticker_research.collect(ticker)
     report = services.report_builder.build_report(ticker, adapter_results)

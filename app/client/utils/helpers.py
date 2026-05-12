@@ -1,4 +1,3 @@
-from pandas import DataFrame
 from tinkoff.invest import HistoricCandle
 import pytz
 
@@ -84,6 +83,8 @@ def create_df(candles: [HistoricCandle]):
              где 'time' - время свечи, 'volume' - объем, 'open' - цена открытия,
              'high' - максимальная цена, 'low' - минимальная цена, 'close' - цена закрытия.
     """
+
+    from pandas import DataFrame
 
     df = DataFrame([{
         'time': c.time,

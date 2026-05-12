@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Dividends</p>
+  <h2>Dividend review</h2>
+  <p>Uses the current watchlist as the source set.</p>
+</section>
+
+<section class="order-panel">
+  <form method="get" action="/dividends" class="order-form">
+    <div class="field">
+      <label for="period-days">Look ahead days</label>
+      <input id="period-days" name="period_days" type="number" min="1" max="1825" step="1" value="{{ dividends.period_days }}" required>
+    </div>
+    <button type="submit">Refresh dividends</button>
+  </form>
+</section>
+
+{% if dividends.error %}
+  <section class="notice error">
+    <h3>Dividend data unavailable</h3>
+    <p>{{ dividends.error }}</p>
+  </section>
+{% elif dividends.empty_watchlist %}
+  <section class="notice">
+    <h3>No watchlist tickers</h3>
+    <p>Add tickers to the watchlist before checking dividend data.</p>
+  </section>
+{% else %}
+  <section class="table-shell" aria-label="Dividend summary">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Name</th>
+          <th>Next dividend date</th>
+          <th>Expected dividend</th>
+          <th>Estimated yield</th>
+          <th>Last buy date</th>
+          <th>Record date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in dividends.items %}
+          <tr class="{% if not item.has_data %}muted-row{% endif %}">
+            <td><strong>{{ item.ticker }}</strong></td>
+            <td>{{ item.name }}</td>
+            <td>{{ item.next_dividend_date }}</td>
+            <td>{{ item.expected_dividend }}</td>
+            <td>{{ item.estimated_yield }}</td>
+            <td>{{ item.last_buy_date }}</td>
+            <td>{{ item.record_date }}</td>
+            <td>{{ item.status }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+{% endblock %}

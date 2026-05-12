@@ -1,0 +1,7 @@
+<nav class="nav" aria-label="Main navigation">
+  {% for item in nav_items %}
+    <a class="nav-link {% if active == item.key %}active{% endif %}" href="{{ item.url }}">
+      {{ item.label }}
+    </a>
+  {% endfor %}
+</nav>

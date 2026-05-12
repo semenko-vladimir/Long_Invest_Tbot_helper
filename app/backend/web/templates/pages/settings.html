@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Settings</p>
+  <h2>Local settings</h2>
+  <p>{{ settings.change_note }}</p>
+</section>
+
+<section class="settings-list">
+  <div>
+    <span>Web user</span>
+    <strong>{{ current_user.display_name }} ({{ current_user.user_id }})</strong>
+  </div>
+  <div>
+    <span>User DB</span>
+    <strong>{{ current_user.db_path }}</strong>
+  </div>
+  <div>
+    <span>Active mode</span>
+    <strong>{{ settings.active_mode }}</strong>
+  </div>
+  <div>
+    <span>Mode meaning</span>
+    <strong>{{ settings.active_mode_meaning }}</strong>
+  </div>
+  <div>
+    <span>Trading</span>
+    <strong>{% if settings.mode.trading_available %}Available{% else %}Read-only{% endif %}</strong>
+  </div>
+</section>
+
+<section class="page-header settings-section">
+  <p class="eyebrow">Broker access</p>
+  <h2>Token status</h2>
+  <p>Only whether each token is configured is shown. Secret values are never printed.</p>
+</section>
+
+<section class="settings-list">
+  <div>
+    <span>SANDBOX_TOKEN configured</span>
+    <strong>{% if settings.sandbox_token_configured %}Yes{% else %}No{% endif %}</strong>
+  </div>
+  <div>
+    <span>TOKEN configured</span>
+    <strong>{% if settings.token_configured %}Yes{% else %}No{% endif %}</strong>
+  </div>
+</section>
+
+<section class="page-header settings-section">
+  <p class="eyebrow">Runtime flags</p>
+  <h2>Environment-backed values</h2>
+  <p>These values are read at runtime from the application config helpers.</p>
+</section>
+
+<section class="settings-list">
+  <div>
+    <span>ALLOW_PROD_TRADING</span>
+    <strong>{% if settings.allow_prod_trading %}true{% else %}false{% endif %}</strong>
+  </div>
+  <div>
+    <span>ENABLE_BACKGROUND_SCHEDULERS</span>
+    <strong>{% if settings.background_schedulers_enabled %}true{% else %}false{% endif %}</strong>
+  </div>
+  <div>
+    <span>ENABLE_INVESTMENT_PLANS</span>
+    <strong>{% if settings.investment_plans_enabled %}true{% else %}false{% endif %}</strong>
+  </div>
+  <div>
+    <span>API_BASE_URL</span>
+    <strong>{{ settings.api_base_url }}</strong>
+  </div>
+  <div>
+    <span>ENABLE_INVESTOR_REMINDERS</span>
+    <strong>{% if settings.investor_reminders_enabled %}true{% else %}false{% endif %}</strong>
+  </div>
+  <div>
+    <span>INVESTOR_REMINDER_TIME</span>
+    <strong>{{ settings.investor_reminder_time }}</strong>
+  </div>
+</section>
+
+<section class="page-header settings-section">
+  <p class="eyebrow">Plan safety</p>
+  <h2>Investment plan guards</h2>
+  <p>{{ plan_policy.summary }}</p>
+</section>
+
+<section class="settings-list">
+  <div>
+    <span>Plans</span>
+    <strong>{% if plan_policy.plans_enabled %}Enabled{% else %}Unavailable{% endif %}</strong>
+  </div>
+  <div>
+    <span>Auto-investing</span>
+    <strong>{% if plan_policy.auto_investing_allowed %}Constrained{% else %}Manual confirmation only{% endif %}</strong>
+  </div>
+  <div>
+    <span>Automation mode</span>
+    <strong>{% if plan_policy.automation_mode_allowed %}Allowed{% else %}Blocked{% endif %}</strong>
+  </div>
+  <div>
+    <span>Max order</span>
+    <strong>{{ plan_policy.max_order_rub_display }}</strong>
+  </div>
+  <div>
+    <span>Max daily invest</span>
+    <strong>{{ plan_policy.max_daily_invest_rub_display }}</strong>
+  </div>
+  <div>
+    <span>Used today</span>
+    <strong>{{ plan_policy.daily_used_rub_display }}</strong>
+  </div>
+  <div>
+    <span>Remaining today</span>
+    <strong>{{ plan_policy.daily_remaining_rub_display }}</strong>
+  </div>
+</section>
+
+{% if plan_policy.blocked_reasons %}
+  <section class="notice warning settings-section">
+    <h3>Blocked or constrained</h3>
+    {% for reason in plan_policy.blocked_reasons %}
+      <p>{{ reason }}</p>
+    {% endfor %}
+  </section>
+{% endif %}
+{% endblock %}

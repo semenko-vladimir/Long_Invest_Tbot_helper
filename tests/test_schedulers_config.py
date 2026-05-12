@@ -88,7 +88,6 @@ class SchedulerConfigSafetyTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         checked_paths = [
             root / "app" / "client" / "config" / "investor_reminders.py",
-            root / "app" / "client" / "handlers" / "notifications" / "send.py",
         ]
 
         forbidden_imports = {
@@ -128,6 +127,10 @@ class SchedulerConfigSafetyTests(unittest.TestCase):
                 self.assertTrue(imported_modules.isdisjoint(forbidden_imports))
                 self.assertTrue(imported_names.isdisjoint(forbidden_names))
                 self.assertTrue(attribute_names.isdisjoint(forbidden_attributes))
+
+    def test_legacy_notifications_handler_is_removed(self):
+        root = Path(__file__).resolve().parents[1]
+        self.assertFalse((root / "app" / "client" / "handlers" / "notifications").exists())
 
 
 if __name__ == "__main__":

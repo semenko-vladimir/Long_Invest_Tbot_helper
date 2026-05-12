@@ -1,5 +1,6 @@
 import requests
 from typing import Dict, Any, Optional
+from app.client.config import get_api_base_url
 
 
 class BaseApiClient:
@@ -8,15 +9,15 @@ class BaseApiClient:
     Предоставляет общую функциональность для всех клиентов API.
     """
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: Optional[str] = None):
         """
         Инициализирует базовый клиент API.
         
         Args:
             base_url: Базовый URL API-сервера
         """
-        self.base_url = base_url
-        self.api_url = f"{base_url}/api"
+        self.base_url = base_url or get_api_base_url()
+        self.api_url = f"{self.base_url}/api"
     
     def _get(self, endpoint: str) -> Any:
         """

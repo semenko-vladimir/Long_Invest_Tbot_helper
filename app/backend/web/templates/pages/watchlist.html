@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-header">
+  <p class="eyebrow">Watchlist</p>
+  <h2>Tracked tickers</h2>
+  <p>Maintain the tickers used for long-term review and dividend checks.</p>
+</section>
+
+<section class="order-panel">
+  <form method="post" action="/watchlist/add" class="order-form">
+    <div class="field">
+      <label for="watchlist-ticker">Ticker</label>
+      <input id="watchlist-ticker" name="ticker" autocomplete="off" required>
+    </div>
+    <button type="submit">Add ticker</button>
+  </form>
+</section>
+
+{% if watchlist.error %}
+  <section class="notice error">
+    <h3>Watchlist update failed</h3>
+    <p>{{ watchlist.error }}</p>
+  </section>
+{% endif %}
+
+{% if watchlist.notice %}
+  <section class="notice success">
+    <h3>Watchlist updated</h3>
+    <p>{{ watchlist.notice }}</p>
+  </section>
+{% endif %}
+
+{% if watchlist.empty %}
+  <section class="notice">
+    <h3>No tickers yet</h3>
+    <p>Add a ticker to start tracking dividends and long-term review items.</p>
+  </section>
+{% else %}
+  <section class="table-shell" aria-label="Watchlist tickers">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>FIGI</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in watchlist.items %}
+          <tr>
+            <td><strong>{{ item.ticker }}</strong></td>
+            <td>{{ item.figi }}</td>
+            <td>
+              <form method="post" action="/watchlist/remove" class="inline-form">
+                <input type="hidden" name="ticker" value="{{ item.ticker }}">
+                <button type="submit" class="danger-button">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+{% endblock %}
