@@ -2,6 +2,8 @@ import shutil
 import unittest
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 
 from app.backend.models.database import Base
@@ -98,7 +100,8 @@ class UserDatabaseTests(unittest.TestCase):
         try:
             with engine.connect() as conn:
                 version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-                self.assertEqual(version, "677b093fb5a9")
+                script = ScriptDirectory.from_config(Config("alembic.ini"))
+                self.assertEqual(version, script.get_current_head())
         finally:
             engine.dispose()
 

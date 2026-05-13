@@ -15,8 +15,10 @@ from app.services.user_database import SessionFactory, get_default_session_facto
 
 
 SUPPORTED_SCHEDULES = {"daily", "weekly", "monthly"}
-SUPPORTED_PRICE_RULES = {"current_market"}
+SUPPORTED_OPERATIONS = {"buy", "sell"}
+SUPPORTED_PRICE_RULES = {"any", "current_market", "max_price", "pct_from_avg"}
 SUPPORTED_ORDER_TYPES = {"limit"}
+SUPPORTED_CONFIRMATION_MODES = {"telegram_confirm", "auto"}
 
 SCHEDULE_LABELS = {
     "daily": "Daily",
@@ -25,7 +27,10 @@ SCHEDULE_LABELS = {
 }
 
 PRICE_RULE_LABELS = {
+    "any": "Any price",
     "current_market": "Current market price",
+    "max_price": "Fixed price limit",
+    "pct_from_avg": "% from moving average",
 }
 
 ORDER_TYPE_LABELS = {
@@ -46,6 +51,11 @@ class PlanDefinition:
     price_rule: str = "current_market"
     order_type: str = "limit"
     confirmation_required: bool = True
+    operation: str = "buy"
+    price_limit: Optional[float] = None
+    pct_threshold: Optional[float] = None
+    avg_period_days: Optional[int] = None
+    confirmation_mode: str = "telegram_confirm"
 
 
 @dataclass(frozen=True)
@@ -64,6 +74,12 @@ class InvestmentPlanView:
     confirmation_label: str
     next_run_at: str
     next_run_display: str
+    operation: str = "buy"
+    price_limit: Optional[float] = None
+    pct_threshold: Optional[float] = None
+    avg_period_days: Optional[int] = None
+    confirmation_mode: str = "telegram_confirm"
+    price_condition_display: str = "Текущая рыночная"
 
 
 @dataclass(frozen=True)
@@ -156,7 +172,7 @@ class NextRunCalculator:
 
 class ProposedPriceCalculator:
     def calculate(self, *, plan: InvestmentPlanView, preview: OrderPreviewResult) -> ProposedPrice:
-        if plan.price_rule != "current_market":
+        if plan.price_rule not in SUPPORTED_PRICE_RULES:
             raise InvestmentPlanServiceError("Unsupported plan price rule.")
 
         return ProposedPrice(
@@ -214,8 +230,13 @@ class InvestmentPlanService:
                 schedule=definition.schedule,
                 time=definition.time,
                 price_rule=definition.price_rule,
+                operation=definition.operation,
+                price_limit=definition.price_limit,
+                pct_threshold=definition.pct_threshold,
+                avg_period_days=definition.avg_period_days,
                 order_type=definition.order_type,
                 confirmation_required=definition.confirmation_required,
+                confirmation_mode=definition.confirmation_mode,
             )
             db.add(plan)
             db.commit()
@@ -238,8 +259,13 @@ class InvestmentPlanService:
             plan.schedule = definition.schedule
             plan.time = definition.time
             plan.price_rule = definition.price_rule
+            plan.operation = definition.operation
+            plan.price_limit = definition.price_limit
+            plan.pct_threshold = definition.pct_threshold
+            plan.avg_period_days = definition.avg_period_days
             plan.order_type = definition.order_type
             plan.confirmation_required = definition.confirmation_required
+            plan.confirmation_mode = definition.confirmation_mode
             plan.updated_at = datetime.utcnow()
             db.commit()
             db.refresh(plan)
@@ -308,7 +334,7 @@ class InvestmentPlanService:
 
     def build_order_preview_request(self, plan: InvestmentPlanView) -> OrderPreviewRequest:
         return OrderPreviewRequest(
-            operation="buy",
+            operation=plan.operation,
             ticker=plan.ticker,
             lots=plan.lots,
             order_type=plan.order_type,
@@ -327,6 +353,14 @@ class InvestmentPlanService:
 
     def _to_view(self, plan: InvestmentPlan) -> InvestmentPlanView:
         created_at = plan.created_at or datetime.utcnow()
+        operation = str(getattr(plan, "operation", None) or "buy").strip().lower()
+        operation = operation if operation in SUPPORTED_OPERATIONS else "buy"
+        price_rule = str(plan.price_rule or "current_market").strip().lower()
+        price_limit = getattr(plan, "price_limit", None)
+        pct_threshold = getattr(plan, "pct_threshold", None)
+        avg_period_days = getattr(plan, "avg_period_days", None)
+        confirmation_mode = str(getattr(plan, "confirmation_mode", None) or "telegram_confirm").strip().lower()
+        confirmation_mode = confirmation_mode if confirmation_mode in SUPPORTED_CONFIRMATION_MODES else "telegram_confirm"
         next_run = self.next_run_calculator.calculate(
             schedule=plan.schedule,
             time_text=plan.time,
@@ -340,14 +374,26 @@ class InvestmentPlanService:
             schedule=plan.schedule,
             schedule_label=SCHEDULE_LABELS.get(plan.schedule, plan.schedule),
             time=plan.time,
-            price_rule=plan.price_rule,
-            price_rule_label=PRICE_RULE_LABELS.get(plan.price_rule, plan.price_rule),
+            price_rule=price_rule,
+            price_rule_label=PRICE_RULE_LABELS.get(price_rule, price_rule),
             order_type=plan.order_type,
             order_type_label=ORDER_TYPE_LABELS.get(plan.order_type, plan.order_type),
             confirmation_required=bool(plan.confirmation_required),
             confirmation_label="Required" if plan.confirmation_required else "Optional for future schedulers",
             next_run_at=next_run.isoformat(timespec="minutes"),
             next_run_display=next_run.strftime("%Y-%m-%d %H:%M"),
+            operation=operation,
+            price_limit=price_limit,
+            pct_threshold=pct_threshold,
+            avg_period_days=avg_period_days,
+            confirmation_mode=confirmation_mode,
+            price_condition_display=self._price_condition_display(
+                price_rule=price_rule,
+                operation=operation,
+                price_limit=price_limit,
+                pct_threshold=pct_threshold,
+                avg_period_days=avg_period_days,
+            ),
         )
 
     def _normalize_definition(self, definition: PlanDefinition) -> PlanDefinition:
@@ -355,6 +401,8 @@ class InvestmentPlanService:
         schedule = str(definition.schedule or "").strip().lower()
         price_rule = str(definition.price_rule or "current_market").strip().lower()
         order_type = str(definition.order_type or "limit").strip().lower()
+        operation = str(definition.operation or "buy").strip().lower()
+        confirmation_mode = str(definition.confirmation_mode or "telegram_confirm").strip().lower()
         time_text = str(definition.time or "").strip()
 
         if not ticker or not ticker.replace("-", "").isalnum():
@@ -368,10 +416,34 @@ class InvestmentPlanService:
             raise InvestmentPlanServiceError("Lots must be at least 1.")
         if schedule not in SUPPORTED_SCHEDULES:
             raise InvestmentPlanServiceError("Choose a supported schedule.")
+        if operation not in SUPPORTED_OPERATIONS:
+            raise InvestmentPlanServiceError("Choose buy or sell for the plan operation.")
         if price_rule not in SUPPORTED_PRICE_RULES:
             raise InvestmentPlanServiceError("Choose a supported price rule.")
         if order_type not in SUPPORTED_ORDER_TYPES:
             raise InvestmentPlanServiceError("Only limit orders are available in this version.")
+        if confirmation_mode not in SUPPORTED_CONFIRMATION_MODES:
+            raise InvestmentPlanServiceError("Choose a supported confirmation mode.")
+
+        price_limit = self._optional_float(definition.price_limit, "Price limit")
+        pct_threshold = self._optional_float(definition.pct_threshold, "Percent threshold")
+        avg_period_days = self._optional_int(definition.avg_period_days, "Average period")
+
+        if price_rule == "max_price":
+            if price_limit is None or price_limit <= 0:
+                raise InvestmentPlanServiceError("Price limit must be greater than 0 for max_price.")
+            pct_threshold = None
+            avg_period_days = None
+        elif price_rule == "pct_from_avg":
+            if pct_threshold is None or pct_threshold <= 0:
+                raise InvestmentPlanServiceError("Percent threshold must be greater than 0 for pct_from_avg.")
+            if avg_period_days is None or avg_period_days < 5:
+                raise InvestmentPlanServiceError("Average period must be at least 5 days for pct_from_avg.")
+            price_limit = None
+        else:
+            price_limit = None
+            pct_threshold = None
+            avg_period_days = None
 
         hour, minute = self.next_run_calculator._parse_time(time_text)
 
@@ -383,4 +455,49 @@ class InvestmentPlanService:
             price_rule=price_rule,
             order_type=order_type,
             confirmation_required=bool(definition.confirmation_required),
+            operation=operation,
+            price_limit=price_limit,
+            pct_threshold=pct_threshold,
+            avg_period_days=avg_period_days,
+            confirmation_mode=confirmation_mode,
         )
+
+    def _optional_float(self, value, field_label: str) -> Optional[float]:
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError) as exc:
+            raise InvestmentPlanServiceError(f"{field_label} must be a number.") from exc
+
+    def _optional_int(self, value, field_label: str) -> Optional[int]:
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError) as exc:
+            raise InvestmentPlanServiceError(f"{field_label} must be a whole number.") from exc
+
+    def _price_condition_display(
+        self,
+        *,
+        price_rule: str,
+        operation: str,
+        price_limit: Optional[float],
+        pct_threshold: Optional[float],
+        avg_period_days: Optional[int],
+    ) -> str:
+        if price_rule == "any":
+            return "Любая цена"
+        if price_rule == "current_market":
+            return "Текущая рыночная"
+        if price_rule == "max_price":
+            if price_limit is None:
+                return "Лимит цены не задан"
+            sign = "≤" if operation == "buy" else "≥"
+            return f"{sign} {price_limit:.2f} ₽"
+        if price_rule == "pct_from_avg":
+            if pct_threshold is None or avg_period_days is None:
+                return "Условие от средней не задано"
+            return f"Не выше {pct_threshold}% от {avg_period_days}-дн. средней"
+        return price_rule

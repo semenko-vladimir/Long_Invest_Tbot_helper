@@ -41,8 +41,9 @@ def run_migrations_for_user(db_path: str) -> None:
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
     alembic_cfg = Config("alembic.ini")
     alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{resolved_path.as_posix()}")
-    if _requires_initial_baseline_stamp(resolved_path):
-        command.stamp(alembic_cfg, "11b2d5cade18")
+    baseline_revision = _baseline_revision_for_existing_schema(resolved_path)
+    if baseline_revision:
+        command.stamp(alembic_cfg, baseline_revision)
     command.upgrade(alembic_cfg, "head")
 
 
@@ -87,7 +88,7 @@ def dispose_user_database_registry() -> None:
     _DATABASE_HANDLES.clear()
 
 
-def _requires_initial_baseline_stamp(db_path: Path) -> bool:
+def _baseline_revision_for_existing_schema(db_path: Path) -> str | None:
     engine = create_engine(f"sqlite:///{db_path.as_posix()}", connect_args={"check_same_thread": False})
     try:
         with engine.connect() as conn:
@@ -100,9 +101,30 @@ def _requires_initial_baseline_stamp(db_path: Path) -> bool:
                     )
                 )
             }
-        return bool(table_names) and "alembic_version" not in table_names
+            if not table_names or "alembic_version" in table_names:
+                return None
+            if _has_auto_schedule_fields(conn):
+                return "head"
+            return "11b2d5cade18"
     finally:
         engine.dispose()
+
+
+def _has_auto_schedule_fields(conn) -> bool:
+    plan_columns = _table_columns(conn, "investment_plans")
+    execution_columns = _table_columns(conn, "investment_plan_executions")
+    return {
+        "operation",
+        "price_limit",
+        "pct_threshold",
+        "avg_period_days",
+        "confirmation_mode",
+    }.issubset(plan_columns) and "skipped_reason" in execution_columns
+
+
+def _table_columns(conn, table_name: str) -> set[str]:
+    rows = conn.execute(text(f"PRAGMA table_info({table_name})"))
+    return {row[1] for row in rows}
 
 
 def _create_database_handle(db_path: Path) -> UserDatabaseHandle:

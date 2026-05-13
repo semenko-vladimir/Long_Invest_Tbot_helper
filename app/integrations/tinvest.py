@@ -1,8 +1,9 @@
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from tinkoff.invest import Client, InstrumentIdType, OrderDirection, OrderType
+from tinkoff.invest import CandleInterval, Client, InstrumentIdType, OrderDirection, OrderType
 from tinkoff.invest.services import SandboxService
 
 from app.backend.models.trading import Order
@@ -137,6 +138,28 @@ class TInvestBroker:
             record_date=str(data.get("record_date", "")),
             yield_value=str(data.get("yield_value", "")),
         )
+
+    def get_closing_prices(self, token: str, ticker: str, days: int) -> list[float]:
+        """
+        Return daily closing prices for the ticker over the last N calendar days.
+        """
+        period_days = max(int(days), 1)
+        instrument = self.resolve_unique_instrument(token, ticker)
+        now = datetime.now(timezone.utc)
+        with Client(token) as client:
+            response = client.market_data.get_candles(
+                figi=instrument.figi,
+                from_=now - timedelta(days=period_days),
+                to=now,
+                interval=CandleInterval.CANDLE_INTERVAL_DAY,
+            )
+
+        prices = []
+        for candle in response.candles:
+            close = cast_money(candle.close)
+            if close > 0:
+                prices.append(close)
+        return prices
 
     def place_order(self, token: str, figi: str, ticker: str, lots: int, operation: str, sandbox: bool) -> BrokerOrderResult:
         with Client(token) as client:
