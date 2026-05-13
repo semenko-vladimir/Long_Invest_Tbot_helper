@@ -40,272 +40,19 @@ InvestmentPlanExecution (лог исполнения)
 
 ---
 
-## Порядок выполнения
+## Актуальный backlog
 
-| # | Блок | Зависит от | Сложность |
-|---|------|------------|-----------|
-| 1 | АВТО-БЛОК-1: Модель + миграция | — | 3/10 |
-| 2 | АВТО-БЛОК-2: PriceConditionService | АВТО-БЛОК-1 | 4/10 |
-| 3 | АВТО-БЛОК-3: TelegramConfirmationService | АВТО-БЛОК-1 | 5/10 |
-| 4 | АВТО-БЛОК-4: AutoSchedulerService | АВТО-БЛОК-2, 3 | 6/10 |
-| 5 | АВТО-БЛОК-5: Подключение APScheduler в run.py | АВТО-БЛОК-4 | 2/10 |
-| 6 | АВТО-БЛОК-6: Web UI обновление | АВТО-БЛОК-1 | 4/10 |
-| 7 | АВТО-БЛОК-7: Telegram команды управления | АВТО-БЛОК-4 | 4/10 |
-| 8 | АВТО-БЛОК-8: Config + safety gates | АВТО-БЛОК-4 | 2/10 |
-| 9 | АВТО-БЛОК-9: Тесты | все предыдущие | 5/10 |
+| # | Блок | Активные зависимости | Сложность |
+|---|------|----------------------|-----------|
+| 1 | АВТО-БЛОК-3: TelegramConfirmationService | — | 5/10 |
+| 2 | АВТО-БЛОК-4: AutoSchedulerService | АВТО-БЛОК-3 | 6/10 |
+| 3 | АВТО-БЛОК-5: Подключение APScheduler в run.py | АВТО-БЛОК-4 | 2/10 |
+| 4 | АВТО-БЛОК-6: Web UI обновление | — | 4/10 |
+| 5 | АВТО-БЛОК-7: Telegram команды управления | АВТО-БЛОК-4 | 4/10 |
+| 6 | АВТО-БЛОК-8: Config + safety gates | АВТО-БЛОК-4 | 2/10 |
+| 7 | АВТО-БЛОК-9: Тесты | все предыдущие активные блоки | 5/10 |
 
 ---
-
-## АВТО-БЛОК-1 — Расширить модель InvestmentPlan и создать миграцию
-
-### Контекст
-Текущая модель `InvestmentPlan` (`app/backend/models/trading.py`) имеет `price_rule` только
-одного вида (`current_market`) и не содержит полей для:
-- операции (buy/sell)
-- ценового лимита
-- процентного отклонения от средней
-- режима подтверждения
-
-### Задача
-
-**1. Обновить модель `InvestmentPlan` в `app/backend/models/trading.py`:**
-
-Добавить следующие столбцы после существующих:
-
-```python
-# Операция: "buy" или "sell" (default "buy" для обратной совместимости)
-operation = Column(String, default="buy", nullable=False)
-
-# price_rule теперь поддерживает: "any", "max_price", "pct_from_avg"
-# Существующее поле price_rule остаётся, только расширяем допустимые значения.
-
-# Для price_rule="max_price": верхний лимит цены (buy) или нижний (sell)
-price_limit = Column(Float, nullable=True)
-
-# Для price_rule="pct_from_avg": допустимое отклонение в процентах (например, 5.0 = 5%)
-pct_threshold = Column(Float, nullable=True)
-
-# Для price_rule="pct_from_avg": период усреднения в днях (например, 30)
-avg_period_days = Column(Integer, nullable=True)
-
-# Режим подтверждения: "telegram_confirm" или "auto"
-confirmation_mode = Column(String, default="telegram_confirm", nullable=False)
-```
-
-**2. Обновить модель `InvestmentPlanExecution` — добавить поле для причины пропуска:**
-
-```python
-# Причина если status="skipped": "price_condition", "user_declined", "timeout", "market_closed"
-skipped_reason = Column(String, nullable=True)
-```
-
-**3. Обновить `InvestmentPlanView` dataclass в `app/services/investment_plans.py`:**
-
-Добавить новые поля в `InvestmentPlanView`:
-```python
-operation: str                    # "buy" или "sell"
-price_limit: Optional[float]      # None если не задан
-pct_threshold: Optional[float]    # None если не задан
-avg_period_days: Optional[int]    # None если не задан
-confirmation_mode: str            # "telegram_confirm" или "auto"
-price_condition_display: str      # человекочитаемое описание условия
-```
-
-**4. Обновить `_normalize_definition()` и `_to_view()` в `InvestmentPlanService`:**
-
-`_normalize_definition()`:
-- Добавить валидацию `operation`: допустимо только "buy" или "sell"
-- Для `price_rule="max_price"`: проверить что `price_limit` задан и > 0
-- Для `price_rule="pct_from_avg"`: проверить что `pct_threshold` > 0 и `avg_period_days` >= 5
-- Допустимые значения `price_rule`: `{"any", "current_market", "max_price", "pct_from_avg"}`
-- `confirmation_mode`: допустимо только "telegram_confirm" или "auto"
-
-`_to_view()`:
-- Добавить маппинг новых полей
-- `price_condition_display`:
-  - "any" → "Любая цена"
-  - "current_market" → "Текущая рыночная"
-  - "max_price" → f"≤ {price_limit:.2f} ₽" (для buy) или f"≥ {price_limit:.2f} ₽" (для sell)
-  - "pct_from_avg" → f"Не выше {pct_threshold}% от {avg_period_days}-дн. средней"
-
-**5. Создать Alembic-миграцию:**
-
-```
-alembic revision --autogenerate -m "add_auto_schedule_fields"
-```
-
-Проверить что миграция добавляет все 6 новых столбцов.
-Выполнить: `alembic upgrade head`
-
-### Проверка выполнения
-- [ ] `InvestmentPlan` содержит: `operation`, `price_limit`, `pct_threshold`, `avg_period_days`, `confirmation_mode`
-- [ ] `InvestmentPlanExecution` содержит `skipped_reason`
-- [ ] `InvestmentPlanView` содержит все новые поля + `price_condition_display`
-- [ ] `_normalize_definition()` валидирует `operation` и price rule параметры
-- [ ] Миграция создана в `alembic/versions/`
-- [ ] `alembic upgrade head` выполняется без ошибок
-- [ ] `python -m unittest discover -q` проходит (обратная совместимость сохранена)
-
----
-
-## АВТО-БЛОК-2 — PriceConditionService
-
-### Контекст
-Нужен отдельный сервис для проверки условий по цене. Он изолирует логику сравнения цен
-от планировщика и позволяет тестировать независимо.
-Для `pct_from_avg` нужно получить исторические данные через `TInvestBroker`.
-
-### Задача
-
-**Создать `app/services/price_conditions.py`:**
-
-```python
-from dataclasses import dataclass
-from typing import Optional, Callable
-from datetime import datetime, timedelta
-
-
-@dataclass(frozen=True)
-class PriceConditionResult:
-    allowed: bool          # True = условие выполнено, можно исполнять
-    reason: str            # человекочитаемое объяснение
-    current_price: float
-    limit_price: Optional[float] = None
-
-
-class PriceConditionService:
-    """Проверяет выполнение ценового условия для плана перед исполнением."""
-
-    def __init__(self, *, token_provider: Callable[[], str], broker=None):
-        self._token_provider = token_provider
-        self._broker = broker  # TInvestBroker instance
-
-    def check(self, *, plan, current_price: float) -> PriceConditionResult:
-        """
-        plan: InvestmentPlanView
-        current_price: текущая цена одного лота
-        """
-        rule = plan.price_rule
-
-        if rule in ("any", "current_market"):
-            return PriceConditionResult(
-                allowed=True,
-                reason="Условие по цене не задано.",
-                current_price=current_price,
-            )
-
-        if rule == "max_price":
-            return self._check_max_price(plan, current_price)
-
-        if rule == "pct_from_avg":
-            return self._check_pct_from_avg(plan, current_price)
-
-        return PriceConditionResult(
-            allowed=False,
-            reason=f"Неизвестное условие цены: {rule}.",
-            current_price=current_price,
-        )
-
-    def _check_max_price(self, plan, current_price: float) -> PriceConditionResult:
-        limit = plan.price_limit
-        if limit is None:
-            return PriceConditionResult(
-                allowed=False,
-                reason="price_limit не задан для правила max_price.",
-                current_price=current_price,
-            )
-
-        if plan.operation == "buy":
-            allowed = current_price <= limit
-            reason = (
-                f"Цена {current_price:.2f}₽ ≤ лимит {limit:.2f}₽ — условие выполнено."
-                if allowed
-                else f"Цена {current_price:.2f}₽ > лимит {limit:.2f}₽ — пропускаем."
-            )
-        else:  # sell
-            allowed = current_price >= limit
-            reason = (
-                f"Цена {current_price:.2f}₽ ≥ лимит {limit:.2f}₽ — условие выполнено."
-                if allowed
-                else f"Цена {current_price:.2f}₽ < лимит {limit:.2f}₽ — пропускаем."
-            )
-
-        return PriceConditionResult(
-            allowed=allowed,
-            reason=reason,
-            current_price=current_price,
-            limit_price=limit,
-        )
-
-    def _check_pct_from_avg(self, plan, current_price: float) -> PriceConditionResult:
-        # Получить скользящую среднюю через broker
-        avg = self._get_moving_average(plan.ticker, plan.avg_period_days or 30)
-        if avg is None:
-            return PriceConditionResult(
-                allowed=False,
-                reason="Не удалось получить историческую среднюю цену.",
-                current_price=current_price,
-            )
-
-        threshold_pct = plan.pct_threshold or 5.0
-        if plan.operation == "buy":
-            limit = avg * (1 + threshold_pct / 100)
-            allowed = current_price <= limit
-        else:
-            limit = avg * (1 - threshold_pct / 100)
-            allowed = current_price >= limit
-
-        direction = "≤" if plan.operation == "buy" else "≥"
-        reason = (
-            f"Цена {current_price:.2f}₽ {direction} {threshold_pct}% от {plan.avg_period_days}д-ср "
-            f"({avg:.2f}₽ → лимит {limit:.2f}₽) — "
-            + ("условие выполнено." if allowed else "пропускаем.")
-        )
-
-        return PriceConditionResult(
-            allowed=allowed,
-            reason=reason,
-            current_price=current_price,
-            limit_price=limit,
-        )
-
-    def _get_moving_average(self, ticker: str, days: int) -> Optional[float]:
-        """Получить простую скользящую среднюю за N дней из T-Invest API."""
-        try:
-            token = self._token_provider()
-            # TInvestBroker должен иметь метод get_candles(token, ticker, days) -> List[float]
-            # Если метода нет — добавить в app/integrations/tinvest.py
-            prices = self._broker.get_closing_prices(token, ticker, days)
-            if not prices:
-                return None
-            return sum(prices) / len(prices)
-        except Exception:
-            return None
-```
-
-**Добавить метод `get_closing_prices()` в `app/integrations/tinvest.py`:**
-
-```python
-def get_closing_prices(self, token: str, ticker: str, days: int) -> list[float]:
-    """
-    Возвращает список цен закрытия за последние N дней.
-    Использует исторические свечи из T-Invest API.
-    """
-    # Использовать существующий client из tinkoff-investments SDK
-    # CandleInterval.CANDLE_INTERVAL_DAY, from_=now-days, to=now
-    # Вернуть [candle.close for candle in candles если candle.close > 0]
-    ...
-```
-
-### Проверка выполнения
-- [ ] `app/services/price_conditions.py` создан
-- [ ] `PriceConditionResult` содержит `allowed`, `reason`, `current_price`, `limit_price`
-- [ ] Все три правила реализованы: `any/current_market`, `max_price`, `pct_from_avg`
-- [ ] `get_closing_prices()` добавлен в `TInvestBroker`
-- [ ] `python -m unittest discover -q` проходит
-
----
-
 ## АВТО-БЛОК-3 — TelegramConfirmationService
 
 ### Контекст
@@ -1106,23 +853,9 @@ if allow_auto_investing() and max_order_rub() == 0:
 ## АВТО-БЛОК-9 — Тесты
 
 ### Контекст
-Новые сервисы требуют покрытия: ценовые условия (детерминированные), логика торгового дня,
-и базовый happy path для PlanRunner.
+Оставшиеся сервисы требуют покрытия: логика торгового дня, подтверждения планов и базовый happy path для PlanRunner.
 
 ### Задача
-
-**Создать `tests/test_price_conditions.py`:**
-
-```python
-# Тесты:
-# 1. rule="any" → allowed=True всегда
-# 2. rule="max_price", operation="buy", current_price <= limit → allowed=True
-# 3. rule="max_price", operation="buy", current_price > limit → allowed=False
-# 4. rule="max_price", operation="sell", current_price >= limit → allowed=True
-# 5. rule="max_price", operation="sell", current_price < limit → allowed=False
-# 6. price_limit=None при rule="max_price" → allowed=False
-# 7. rule="pct_from_avg": мок broker возвращает avg, проверить логику ≤ avg*(1+pct/100)
-```
 
 **Создать `tests/test_auto_scheduler.py`:**
 
@@ -1152,17 +885,7 @@ python -m unittest discover -q
 ```
 
 ### Проверка выполнения
-- [ ] `tests/test_price_conditions.py` создан, все 7 тест-кейсов проходят
 - [ ] `tests/test_auto_scheduler.py` создан, все 5 тест-кейсов проходят
 - [ ] `tests/test_plan_confirmation.py` создан, все 5 тест-кейсов проходят
 - [ ] `python -m unittest discover -q` — все тесты зелёные, нет регрессий
 
----
-
-## Промпты для агента
-
-Формат вызова:
-
-> В файле `AUTO_SCHEDULE_TASKS.md` прочитай задачу `АВТО-БЛОК-1` и раздел `Архитектура (справочно)`.
-> Прочитай также указанные в блоке файлы проекта. Выполни задачу полностью.
-> В конце пройдись по чеклисту и подтверди каждый пункт.

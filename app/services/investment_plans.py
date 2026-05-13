@@ -340,6 +340,15 @@ class InvestmentPlanService:
             order_type=plan.order_type,
         )
 
+    def _get_plan_view(self, plan_id: int) -> InvestmentPlanView:
+        """Returns InvestmentPlanView by id; raises InvestmentPlanServiceError if not found."""
+        db = self.session_factory()
+        try:
+            plan = self._get_plan(db, plan_id)
+            return self._to_view(plan)
+        finally:
+            db.close()
+
     def _get_plan(self, db, plan_id: int) -> InvestmentPlan:
         try:
             plan_id = int(plan_id)
