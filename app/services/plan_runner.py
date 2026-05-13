@@ -5,12 +5,16 @@ from typing import Callable
 
 from app.services.auto_scheduler import is_trading_day
 from app.services.investment_plans import InvestmentPlanService, InvestmentPlanView
-from app.services.orders import OrderConfirmCommand, OrderPreviewRequest, OrderService
+from app.services.orders import OrderConfirmCommand, OrderExecutionBlocked, OrderPreviewRequest, OrderService
 from app.services.plan_confirmation import PlanConfirmationService
 from app.services.price_conditions import PriceConditionService
 from app.services.user_database import SessionFactory
 
 logger = logging.getLogger(__name__)
+
+
+def _is_preview_expired(exc: Exception) -> bool:
+    return "expired" in str(exc).lower()
 
 
 @dataclass
@@ -119,6 +123,49 @@ class PlanRunner:
                 self.chat_id,
                 f"✅ *Авто-план исполнен*: {plan.ticker}\n"
                 f"Ордер: {result.order_id}\nСумма: ~{preview.estimated_value:.2f}₽",
+            )
+        except OrderExecutionBlocked as exc:
+            if _is_preview_expired(exc):
+                self._execute_with_fresh_preview(plan_id, plan)
+            else:
+                self.notify(self.chat_id, f"❌ *Ошибка исполнения плана* {plan.ticker}: {exc}")
+        except Exception as exc:
+            self.notify(self.chat_id, f"❌ *Ошибка исполнения плана* {plan.ticker}: {exc}")
+
+    def _execute_with_fresh_preview(self, plan_id: int, plan: InvestmentPlanView) -> None:
+        """Re-previews after an expired token; re-checks price condition before executing."""
+        try:
+            fresh = self.order_service.preview(
+                OrderPreviewRequest(operation=plan.operation, ticker=plan.ticker, lots=plan.lots)
+            )
+        except Exception as exc:
+            self.notify(self.chat_id, f"❌ *Ошибка повторного превью* {plan.ticker}: {exc}")
+            self._record_skip(plan_id, plan.ticker, "error")
+            return
+
+        condition = self.price_condition_service.check(plan=plan, current_price=fresh.estimated_price)
+        if not condition.allowed:
+            self.notify(
+                self.chat_id,
+                f"⏭ *Авто-план пропущен* (токен истёк, цена изменилась): {plan.ticker}\n{condition.reason}",
+            )
+            self._record_skip(plan_id, plan.ticker, "price_condition_on_retry")
+            return
+
+        try:
+            result = self.order_service.execute(
+                OrderConfirmCommand(
+                    operation=plan.operation,
+                    ticker=plan.ticker,
+                    lots=plan.lots,
+                    confirm_token=fresh.confirm_token,
+                )
+            )
+            self._record_execution(plan_id, plan.ticker, result.order_id, fresh.estimated_value)
+            self.notify(
+                self.chat_id,
+                f"✅ *Авто-план исполнен*: {plan.ticker}\n"
+                f"Ордер: {result.order_id}\nСумма: ~{fresh.estimated_value:.2f}₽",
             )
         except Exception as exc:
             self.notify(self.chat_id, f"❌ *Ошибка исполнения плана* {plan.ticker}: {exc}")
