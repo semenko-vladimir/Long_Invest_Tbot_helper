@@ -87,6 +87,9 @@ function Invoke-AiderTask {
         "--no-check-model-accepts-settings",
         "--no-gui",
         "--no-browser",
+        "--no-pretty",
+        "--no-stream",
+        "--timeout", "1800",
         "--map-tokens", "1024",
         "--test-cmd", ".\venv312\Scripts\python.exe -m unittest discover -q",
         "--chat-language", "Russian"
