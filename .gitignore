@@ -11,6 +11,7 @@ log/log.txt
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.runtime/
 log.txt
 logs.log
 TODO.txt

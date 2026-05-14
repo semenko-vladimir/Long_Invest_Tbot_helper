@@ -224,8 +224,6 @@ Web routes resolve the local default web user and build services for that user.
 
 Status: Done.
 
-Closure artifact: `P1_CLOSURE_AUDIT.md`.
-
 Result: P1 is closed for the active v1 runtime. Active Telegram flows, web
 routes, and mounted user-data API endpoints now use user-context service/DB
 wiring. Quarantined legacy handlers remain outside active runtime and must not

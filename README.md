@@ -242,9 +242,9 @@ Read-only research по тикеру доступен на `http://localhost:800
 - Полная runtime-валидация требует реальные учетные данные Telegram и T-Invest sandbox.
 - Цены ручных заявок берутся из текущего стакана и могут не сработать, если стакан пуст или рынок недоступен.
 - История ручных заявок хранит ограниченные metadata; часть статистики считается за все время, а не по интервалу.
-- Multi-user-поддержка Phase 1 вводится постепенно: `users.json`, user resolution, per-user service DB routing и активная маршрутизация Telegram/web/API request уже есть. Изолированные legacy-handlers все еще используют старые пути хранения, пока они не будут мигрированы или удалены.
+- Multi-user-поддержка Phase 1 вводится постепенно: `users.json`, user resolution, per-user service DB routing и активная маршрутизация Telegram/web/API request уже есть.
 - Опциональные напоминания инвестору требуют `APScheduler` из `requirements-base.txt` и по умолчанию выключены.
-- Legacy-модули сигналов, стратегий, ML, GPT/LSTM, графиков и market-notifications остаются в репозитории для обратимости, но не входят в активный runtime investor v1.
+- Legacy-направления сигналов, стратегий, ML, GPT/LSTM, графиков и market-notifications не входят в активный runtime investor v1. Optional legacy dependencies остаются только в `requirements-optional.txt`.
 - Pydantic v2 выводит предупреждение для старой schema-конфигурации `orm_mode`; это не блокирует работу.
 
 ## Дополнительная документация
@@ -252,4 +252,5 @@ Read-only research по тикеру доступен на `http://localhost:800
 - `README_LOCAL_SETUP.md` - настройка ноутбука на Windows.
 - `INVESTOR_MODE.md` - workflow investor-mode.
 - `V1_SCOPE.md` - scope функций v1.
-- `MIGRATION_AUDIT.md` - заметки аудита миграции.
+- `RESEARCH_TERMINAL_FOUNDATION.md` - foundation для read-only research terminal.
+- `docs/repository_cleanup_audit.md` - отчет по cleanup-аудиту репозитория.
