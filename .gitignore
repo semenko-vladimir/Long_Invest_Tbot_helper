@@ -9,7 +9,8 @@ venv
 venv*/
 log/log.txt
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
 log.txt
 logs.log
 TODO.txt
