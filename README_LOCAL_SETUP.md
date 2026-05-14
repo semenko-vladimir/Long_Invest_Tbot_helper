@@ -2,7 +2,9 @@
 
 This is the minimal laptop startup path for the sandbox-first investor assistant. It avoids the optional ML, signal, chart, and analytics dependencies from `requirements-optional.txt`.
 
-Use Python 3.12 for the cleanest local path. Python 3.14 is not recommended for this repo right now because binary packages used by pandas/NumPy/grpc may not match the interpreter yet. The current T-Invest SDK packages used by this repo are quarantined on PyPI, so `requirements-base.txt` pins the same SDK versions through direct PyPI file URLs and should be revisited before production use.
+**Python 3.12 is the canonical supported version for this project. Python 3.13/3.14 are not currently tested.**
+
+Python 3.14 is not recommended for this repo because binary packages used by pandas/NumPy/grpc may not match the interpreter yet. The current T-Invest SDK packages used by this repo are quarantined on PyPI, so `requirements-base.txt` pins the same SDK versions through direct PyPI file URLs and should be revisited before production use.
 
 ## 1. Create a virtual environment
 

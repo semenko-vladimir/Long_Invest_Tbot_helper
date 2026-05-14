@@ -49,7 +49,9 @@ graph TD
 
 ## Установка
 
-Используйте Python 3.12, если он доступен. Рекомендуемая установка investor v1 использует только активный набор runtime-зависимостей:
+**Python 3.12 is the canonical supported version for this project. Python 3.13/3.14 are not currently tested.**
+
+Рекомендуемая установка investor v1 использует только активный набор runtime-зависимостей:
 
 ```powershell
 python -m venv venv
