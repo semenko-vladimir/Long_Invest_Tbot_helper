@@ -15,3 +15,4 @@ logs.log
 TODO.txt
 .idea
 .claude/settings.local.json
+.aider*

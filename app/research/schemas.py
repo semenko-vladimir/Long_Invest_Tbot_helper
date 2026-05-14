@@ -4,6 +4,8 @@ from typing import Any, Literal, Optional
 
 
 GapSeverity = Literal["low", "medium", "high"]
+RiskLevel = Literal["low", "medium", "high", "critical"]
+EducationalRating = Literal["BUY", "HOLD", "SELL", "WATCH", "AVOID"]
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,30 @@ class AdapterResult:
     freshness: Optional[SourceFreshness] = None
     gaps: list[DataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RiskFactor:
+    """Typed, structured risk factor — educational only, not financial advice."""
+    category: str
+    description: str
+    level: RiskLevel = "medium"
+    source: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class AnalysisSignal:
+    """
+    Educational analytical classification. Never triggers broker orders.
+
+    Labels are transparent long-term research classifications, not personal
+    investment advice. See ResearchReport.disclaimer for the full disclaimer.
+    """
+    rating: EducationalRating
+    rationale: str
+    confidence: Optional[float] = None
+    generated_by: str = "local-analysis"
+    caveats: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -71,3 +97,6 @@ class ResearchReport:
         "and must not trigger broker orders."
     )
     educational_rating: Optional[str] = None
+    # Typed counterparts — parallel to the untyped fields above; migrate consumers gradually.
+    risk_factors: list[RiskFactor] = field(default_factory=list)
+    analysis_signals: list[AnalysisSignal] = field(default_factory=list)
