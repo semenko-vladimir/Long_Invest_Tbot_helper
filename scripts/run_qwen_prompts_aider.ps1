@@ -83,6 +83,10 @@ function Invoke-AiderTask {
         "--no-dirty-commits",
         "--no-restore-chat-history",
         "--no-check-update",
+        "--no-show-model-warnings",
+        "--no-check-model-accepts-settings",
+        "--no-gui",
+        "--no-browser",
         "--map-tokens", "1024",
         "--test-cmd", ".\venv312\Scripts\python.exe -m unittest discover -q",
         "--chat-language", "Russian"
