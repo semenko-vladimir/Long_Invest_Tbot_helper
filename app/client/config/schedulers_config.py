@@ -1,5 +1,4 @@
 from app.client.log.logger import setup_logger
-from app.client.store.store import market_scheduler
 from datetime import datetime, timedelta
 from tinkoff.invest import CandleInterval
 from dotenv import load_dotenv
@@ -7,6 +6,7 @@ import os
 from app.client.config import background_schedulers_enabled
 
 logger = setup_logger(__name__)
+_market_scheduler = None
 
 # Функция для получения токенов из переменных окружения
 def get_tokens():
@@ -36,7 +36,7 @@ def configure_market_scheduler():
       планировщик.
     - Если включены обновления рынка, настраивается соответствующий планировщик.
     """
-    global market_scheduler
+    global _market_scheduler
     
     try:
         from app.client.api.config_client import ConfigApiClient
@@ -93,22 +93,22 @@ def configure_market_scheduler():
             return
         
         # Если планировщик уже существует, останавливаем его
-        if market_scheduler:
-            market_scheduler.shutdown()
+        if _market_scheduler:
+            _market_scheduler.shutdown()
         
         # Создаем новый планировщик
         if collapse_updates or market_updates:
             from apscheduler.schedulers.background import BackgroundScheduler
 
-            market_scheduler = BackgroundScheduler()
-            market_scheduler.start()
+            _market_scheduler = BackgroundScheduler()
+            _market_scheduler.start()
             
             # Настраиваем планировщики в зависимости от настроек
             if collapse_updates:
-                setup_market_jobs(market_scheduler, instruments, collapse_updates_time, chat_id, "Падения рынка")
-            
+                setup_market_jobs(_market_scheduler, instruments, collapse_updates_time, chat_id, "Падения рынка")
+
             if market_updates:
-                setup_market_jobs(market_scheduler, instruments, market_updates_time, chat_id, "Обновления рынка")
+                setup_market_jobs(_market_scheduler, instruments, market_updates_time, chat_id, "Обновления рынка")
             
             logger.info("Планировщик уведомлений о рынке успешно настроен")
     
