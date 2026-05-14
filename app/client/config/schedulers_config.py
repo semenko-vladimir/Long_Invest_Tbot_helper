@@ -1,150 +1,18 @@
-from app.client.log.logger import setup_logger
-from datetime import datetime, timedelta
-from tinkoff.invest import CandleInterval
 from dotenv import load_dotenv
 import os
 from app.client.config import background_schedulers_enabled
+from app.client.log.logger import setup_logger
 
 logger = setup_logger(__name__)
-_market_scheduler = None
-
-# Функция для получения токенов из переменных окружения
-def get_tokens():
-    """
-    Получает токены из переменных окружения.
-    
-    Returns:
-        dict: Словарь с токенами
-    """
-    load_dotenv()
-    return {
-        "token": os.getenv('TOKEN'),
-        "sandbox_token": os.getenv('SANDBOX_TOKEN')
-    }
 
 
 def configure_market_scheduler():
     """
-    Настраивает планировщики для уведомлений о падениях и обновлениях рынка.
+    Compatibility no-op for the legacy market scheduler.
 
-    Функция получает конфигурационные данные через API-клиент и настраивает 
-    планировщики для отправки уведомлений о падениях и обновлениях рынка.
-    Если активированы обновления, и нет активных инструментов, уведомление 
-    об этом отправляется пользователю. 
-
-    - Если включены обновления о падениях рынка, настраивается соответствующий 
-      планировщик.
-    - Если включены обновления рынка, настраивается соответствующий планировщик.
+    Market notifications are not part of the active investor v1 runtime.
     """
-    global _market_scheduler
-    
-    try:
-        from app.client.api.config_client import ConfigApiClient
-        from app.client.api.instruments_client import InstrumentsApiClient
-
-        config_client = ConfigApiClient()
-        instruments_client = InstrumentsApiClient()
-
-        # Получаем конфигурацию через API-клиент
-        try:
-            config_data = config_client.get_config()
-        except Exception as e:
-            logger.error(f"Failed to get configuration: {str(e)}")
-            return
-        
-        if not config_data:
-            logger.error("Configuration data not found")
-            return
-        
-        # Получаем настройки уведомлений
-        collapse_updates = config_data.get('collapse_updates', False)
-        collapse_updates_time = config_data.get('collapse_updates_time', '60')
-        market_updates = config_data.get('market_updates', False)
-        market_updates_time = config_data.get('market_updates_time', '60')
-        
-        # Преобразуем строковые значения времени в числа
-        try:
-            collapse_updates_time = int(collapse_updates_time)
-        except (ValueError, TypeError):
-            collapse_updates_time = 60
-            
-        try:
-            market_updates_time = int(market_updates_time)
-        except (ValueError, TypeError):
-            market_updates_time = 60
-        
-        # Получаем список всех инструментов
-        try:
-            instruments = instruments_client.get_all_instruments()
-        except Exception as e:
-            logger.error(f"Failed to get instruments: {str(e)}")
-            return
-        
-        if not instruments:
-            logger.info('Нет активных инструментов для настройки уведомлений')
-            return
-        
-        # Получаем chat_id из переменных окружения для отправки уведомлений
-        load_dotenv()
-        chat_id = os.getenv('CHAT_ID')
-        
-        if not chat_id:
-            logger.error("Chat ID is not available in environment variables")
-            return
-        
-        # Если планировщик уже существует, останавливаем его
-        if _market_scheduler:
-            _market_scheduler.shutdown()
-        
-        # Создаем новый планировщик
-        if collapse_updates or market_updates:
-            from apscheduler.schedulers.background import BackgroundScheduler
-
-            _market_scheduler = BackgroundScheduler()
-            _market_scheduler.start()
-            
-            # Настраиваем планировщики в зависимости от настроек
-            if collapse_updates:
-                setup_market_jobs(_market_scheduler, instruments, collapse_updates_time, chat_id, "Падения рынка")
-
-            if market_updates:
-                setup_market_jobs(_market_scheduler, instruments, market_updates_time, chat_id, "Обновления рынка")
-            
-            logger.info("Планировщик уведомлений о рынке успешно настроен")
-    
-    except Exception as e:
-        logger.error(f"Error configuring market scheduler: {str(e)}")
-
-
-def setup_market_jobs(scheduler, instruments, update_time, chat_id, update_type):
-    """
-    Настраивает задачи для планировщика уведомлений о рынке.
-    
-    Args:
-        scheduler: Планировщик задач
-        instruments: Список инструментов, по которым нужно отправлять уведомления
-        update_time: Интервал времени, с которым нужно отправлять уведомления
-        chat_id: ID чата, в который нужно отправить уведомления
-        update_type: Тип уведомления ('Падения рынка' или 'Обновления рынка')
-    """
-    # disabled in v1; notifications/ handler removed
-    logger.info("Market notification jobs are disabled for investor v1.")
-    return
-
-
-def calculate_start_time_and_interval(update_time):
-    """
-    Вычисляет начальное время и интервал свечи для выбранного периода.
-    
-    Args:
-        update_time: Интервал времени, с которым нужно отправлять уведомления
-        
-    Returns:
-        tuple: (start_time, candle_interval)
-    """
-    start_time = datetime.now() - timedelta(minutes=update_time if update_time <= 60 else 10)
-    candle_interval = CandleInterval.CANDLE_INTERVAL_1_MIN
-    return start_time, candle_interval
+    logger.info("Legacy market scheduling is disabled for investor v1.")
 
 
 def configure_strategy_scheduler():
@@ -163,12 +31,6 @@ def configure_strategy_scheduler():
 
 
 def configure_schedulers():
-    """
-    Настраивает все планировщики.
-    
-    Собирает информацию о всех чатах, настраивает планировщик для отправки 
-    уведомлений о падениях рынка и для запуска стратегий.
-    """
     if not background_schedulers_enabled():
         logger.info("Фоновые планировщики отключены для sandbox-first v1")
         return

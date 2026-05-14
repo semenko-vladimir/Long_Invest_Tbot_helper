@@ -7,7 +7,6 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 
 from app.backend.models.database import Base
-import app.backend.models.config  # noqa: F401
 import app.backend.models.research  # noqa: F401
 import app.backend.models.trading  # noqa: F401
 from app.backend.models.trading import Instrument, Order

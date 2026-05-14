@@ -151,6 +151,5 @@ def _create_database_handle(db_path: Path) -> UserDatabaseHandle:
 
 
 def _ensure_models_registered() -> None:
-    import app.backend.models.config  # noqa: F401
     import app.backend.models.research  # noqa: F401
     import app.backend.models.trading  # noqa: F401
