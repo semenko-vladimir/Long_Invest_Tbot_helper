@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode
 
@@ -5,6 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
 from app.backend.web.context import WebRequestServices, get_web_services
+from app.backend.web.csrf import get_csrf_token, validate_csrf_form
 from app.services.dividends import DEFAULT_DIVIDEND_PERIOD_DAYS
 from app.services.orders import (
     OrderConfirmCommand,
@@ -20,6 +22,7 @@ from app.services.trading_policy import TradingPolicyError
 from app.services.watchlist import WatchlistServiceError
 
 
+logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 router = APIRouter()
@@ -31,6 +34,7 @@ NAV_ITEMS = (
     {"label": "Dividends", "url": "/dividends", "key": "dividends"},
     {"label": "Watchlist", "url": "/watchlist", "key": "watchlist"},
     {"label": "Plans", "url": "/plans", "key": "plans"},
+    {"label": "Strategies", "url": "/strategies", "key": "strategies"},
     {"label": "Stats", "url": "/stats", "key": "stats"},
     {"label": "Settings", "url": "/settings", "key": "settings"},
 )
@@ -44,6 +48,7 @@ def base_context(request: Request, *, active: str, title: str, services: WebRequ
         "nav_items": NAV_ITEMS,
         "mode": services.mode_service.current(),
         "current_user": services.user,
+        "csrf_token": get_csrf_token(request),
     }
 
 
@@ -77,7 +82,9 @@ def order_query_values(request: Request) -> dict:
 async def parse_urlencoded_form(request: Request) -> dict:
     raw_body = (await request.body()).decode("utf-8")
     parsed = parse_qs(raw_body, keep_blank_values=True)
-    return {key: values[-1] if values else "" for key, values in parsed.items()}
+    form = {key: values[-1] if values else "" for key, values in parsed.items()}
+    validate_csrf_form(request, form)
+    return form
 
 
 def parse_lots(value: str) -> int:
@@ -107,6 +114,11 @@ def parse_plan_definition(form: dict) -> PlanDefinition:
         price_rule=form.get("price_rule", "current_market"),
         order_type=form.get("order_type", "limit"),
         confirmation_required=parse_bool(form.get("confirmation_required", "true")),
+        operation=form.get("operation", "buy"),
+        price_limit=form.get("price_limit") or None,
+        pct_threshold=form.get("pct_threshold") or None,
+        avg_period_days=form.get("avg_period_days") or None,
+        confirmation_mode=form.get("confirmation_mode", "telegram_confirm"),
     )
 
 
@@ -126,11 +138,16 @@ def plans_context(
     context["plan_defaults"] = {
         "ticker": "",
         "lots": "1",
-        "schedule": "monthly",
+        "schedule": "daily",
         "time": "09:00",
-        "price_rule": "current_market",
+        "price_rule": "previous_day_average_discount",
+        "price_limit": "",
+        "pct_threshold": "0.5",
+        "avg_period_days": "",
         "order_type": "limit",
         "confirmation_required": True,
+        "operation": "buy",
+        "confirmation_mode": "telegram_confirm",
     }
     return context
 
@@ -145,6 +162,21 @@ def plan_proposal_context(request: Request, *, services: WebRequestServices, pro
         }
     )
     return context
+
+
+def refresh_plan_scheduler_if_enabled() -> None:
+    try:
+        from app.client.config import background_schedulers_enabled, investment_plans_enabled
+
+        if not (background_schedulers_enabled() and investment_plans_enabled()):
+            return
+
+        from app.client.config.schedulers_config import configure_plan_scheduler
+
+        configure_plan_scheduler()
+    except Exception:
+        # A scheduler refresh failure must not make the saved plan disappear from the UI.
+        logger.exception("Failed to refresh plan scheduler after web edit.")
 
 
 @router.get("/")
@@ -197,8 +229,8 @@ async def confirm_sell(request: Request):
 
 
 async def preview_order(request: Request, operation: str):
-    services = get_web_services()
     form = await parse_urlencoded_form(request)
+    services = get_web_services()
     values = {
         "ticker": form.get("ticker", "").strip().upper(),
         "lots": form.get("lots", "1").strip() or "1",
@@ -226,8 +258,8 @@ async def preview_order(request: Request, operation: str):
 
 
 async def confirm_order(request: Request, operation: str):
-    services = get_web_services()
     form = await parse_urlencoded_form(request)
+    services = get_web_services()
     values = {
         "ticker": form.get("ticker", "").strip().upper(),
         "lots": form.get("lots", "1").strip() or "1",
@@ -289,8 +321,8 @@ def watchlist_page(request: Request):
 
 @router.post("/watchlist/add")
 async def add_watchlist_item(request: Request):
-    services = get_web_services()
     form = await parse_urlencoded_form(request)
+    services = get_web_services()
     try:
         watchlist = services.watchlist_service.add_ticker(form.get("ticker", ""))
     except WatchlistServiceError as exc:
@@ -307,8 +339,8 @@ async def add_watchlist_item(request: Request):
 
 @router.post("/watchlist/remove")
 async def remove_watchlist_item(request: Request):
-    services = get_web_services()
     form = await parse_urlencoded_form(request)
+    services = get_web_services()
     try:
         watchlist = services.watchlist_service.remove_ticker(form.get("ticker", ""))
     except WatchlistServiceError as exc:
@@ -334,10 +366,11 @@ def plans_page(request: Request):
 @router.post("/plans")
 @router.post("/plans/create")
 async def create_plan(request: Request):
-    services = get_web_services()
     form = await parse_urlencoded_form(request)
+    services = get_web_services()
     try:
         plan = services.investment_plan_service.create_plan(parse_plan_definition(form))
+        refresh_plan_scheduler_if_enabled()
         context = plans_context(request, services=services, notice=f"Plan for {plan.ticker} was created.")
         return templates.TemplateResponse("pages/plans.html", context)
     except (InvestmentPlanServiceError, OrderServiceError, TradingPolicyError) as exc:
@@ -347,10 +380,11 @@ async def create_plan(request: Request):
 
 @router.post("/plans/{plan_id}/update")
 async def update_plan(request: Request, plan_id: int):
-    services = get_web_services()
     form = await parse_urlencoded_form(request)
+    services = get_web_services()
     try:
         plan = services.investment_plan_service.update_plan(plan_id, parse_plan_definition(form))
+        refresh_plan_scheduler_if_enabled()
         context = plans_context(request, services=services, notice=f"Plan for {plan.ticker} was updated.")
         return templates.TemplateResponse("pages/plans.html", context)
     except (InvestmentPlanServiceError, OrderServiceError, TradingPolicyError) as exc:
@@ -360,9 +394,11 @@ async def update_plan(request: Request, plan_id: int):
 
 @router.post("/plans/{plan_id}/delete")
 async def delete_plan(request: Request, plan_id: int):
+    await parse_urlencoded_form(request)
     services = get_web_services()
     try:
         plan = services.investment_plan_service.delete_plan(plan_id)
+        refresh_plan_scheduler_if_enabled()
         context = plans_context(request, services=services, notice=f"Plan for {plan.ticker} was deleted.")
         return templates.TemplateResponse("pages/plans.html", context)
     except (InvestmentPlanServiceError, TradingPolicyError) as exc:
@@ -386,6 +422,7 @@ def plan_proposal_page(request: Request, plan_id: int):
 
 @router.post("/plans/{plan_id}/proposal")
 async def generate_plan_proposal(request: Request, plan_id: int):
+    await parse_urlencoded_form(request)
     services = get_web_services()
     try:
         proposal = services.investment_plan_service.generate_order_proposal(plan_id)
@@ -398,6 +435,7 @@ async def generate_plan_proposal(request: Request, plan_id: int):
 
 @router.post("/plans/{plan_id}/proposal/skip")
 async def skip_plan_proposal(request: Request, plan_id: int):
+    await parse_urlencoded_form(request)
     services = get_web_services()
     return templates.TemplateResponse(
         "pages/plans.html",
@@ -418,6 +456,16 @@ def stats_page(request: Request):
     context["stats"] = stats
     context["period_days_input"] = raw.strip()
     return templates.TemplateResponse("pages/stats.html", context)
+
+
+@router.get("/strategies")
+def strategies_page(request: Request):
+    services = get_web_services()
+    context = base_context(request, active="strategies", title="Strategies", services=services)
+    context["dashboard"] = services.strategy_dashboard_service.current(
+        history_strategy_type=request.query_params.get("type")
+    )
+    return templates.TemplateResponse("pages/strategies.html", context)
 
 
 @router.get("/orders")

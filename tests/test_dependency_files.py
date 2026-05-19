@@ -83,11 +83,13 @@ class DependencyFileTests(unittest.TestCase):
 
     def test_optional_requirements_are_legacy_only(self):
         self.assertEqual(requirement_includes("requirements-optional.txt"), [])
+        # g4f was removed from active v1 runtime — only legacy ML/charting anchors remain.
         self.assertTrue(
-            {"g4f", "keras", "tensorflow", "matplotlib", "ta"}.issubset(
+            {"keras", "tensorflow", "matplotlib", "ta"}.issubset(
                 requirement_names("requirements-optional.txt")
             )
         )
+        self.assertNotIn("g4f", requirement_names("requirements-optional.txt"))
         self.assertTrue(
             requirement_names("requirements-optional.txt").issubset(OPTIONAL_LEGACY_PACKAGES)
         )

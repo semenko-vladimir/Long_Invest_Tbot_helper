@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -13,6 +14,11 @@ from app.services.user_context import UserContext, UserContextResolver
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 SessionFactory = Callable[[], Session]
+
+# Strict SQLite identifier allowlist: ASCII letter or underscore, followed by
+# letters/digits/underscores. Refuses spaces, quotes, semicolons, dashes — anything
+# that could change the meaning of a string-interpolated PRAGMA call.
+_SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 @dataclass
@@ -103,8 +109,14 @@ def _baseline_revision_for_existing_schema(db_path: Path) -> str | None:
             }
             if not table_names or "alembic_version" in table_names:
                 return None
-            if _has_auto_schedule_fields(conn):
+            if _has_auto_schedule_fields(conn) and _has_strategy_auto_execution_fields(conn):
                 return "head"
+            if _has_auto_schedule_fields(conn) and _has_typed_strategy_proposal_executions(conn):
+                return "9d2a5f31b7c4"
+            if _has_auto_schedule_fields(conn) and _has_strategy_proposal_executions(conn):
+                return "8c1b7f3b9d2a"
+            if _has_auto_schedule_fields(conn):
+                return "25c070e207b5"
             return "11b2d5cade18"
     finally:
         engine.dispose()
@@ -122,7 +134,39 @@ def _has_auto_schedule_fields(conn) -> bool:
     }.issubset(plan_columns) and "skipped_reason" in execution_columns
 
 
+def _has_strategy_proposal_executions(conn) -> bool:
+    table_names = {
+        row[0]
+        for row in conn.execute(
+            text(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+            )
+        )
+    }
+    return "strategy_proposal_executions" in table_names
+
+
+def _has_typed_strategy_proposal_executions(conn) -> bool:
+    return "strategy_type" in _table_columns(conn, "strategy_proposal_executions")
+
+
+def _has_strategy_auto_execution_fields(conn) -> bool:
+    columns = _table_columns(conn, "strategy_proposal_executions")
+    return {
+        "strategy_type",
+        "run_id",
+        "dedupe_key",
+        "dedupe_scope",
+        "effective_max_order_rub",
+        "effective_daily_limit_rub",
+        "daily_used_before_rub",
+    }.issubset(columns)
+
+
 def _table_columns(conn, table_name: str) -> set[str]:
+    if not isinstance(table_name, str) or not _SAFE_IDENTIFIER_RE.match(table_name):
+        raise ValueError(f"Unsafe SQLite identifier: {table_name!r}")
     rows = conn.execute(text(f"PRAGMA table_info({table_name})"))
     return {row[1] for row in rows}
 

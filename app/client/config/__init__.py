@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+from ipaddress import ip_address
 from typing import Iterable, Optional
 
 
@@ -9,14 +10,25 @@ PLACEHOLDER_VALUES = {
     "your_telegram_chat_id",
     "your_token",
 }
+TRUE_VALUES = {"1", "true", "yes", "on"}
 
 
 class ConfigError(ValueError):
     """Raised when required local startup configuration is missing or invalid."""
 
 
+def load_local_env() -> None:
+    """Load local .env values so the edited project config wins in local runs."""
+    load_dotenv(override=True)
+
+
 def _normalized(value: Optional[str]) -> str:
     return "" if value is None else value.strip().strip('"').strip("'")
+
+
+def _env_bool(name: str, default: str = "false") -> bool:
+    load_local_env()
+    return _normalized(os.getenv(name) or default).lower() in TRUE_VALUES
 
 
 def is_placeholder_value(value: Optional[str], placeholders: Iterable[str] = PLACEHOLDER_VALUES) -> bool:
@@ -25,7 +37,7 @@ def is_placeholder_value(value: Optional[str], placeholders: Iterable[str] = PLA
 
 
 def require_env(name: str, *, placeholder_values: Iterable[str] = PLACEHOLDER_VALUES) -> str:
-    load_dotenv()
+    load_local_env()
     value = os.getenv(name)
     if is_placeholder_value(value, placeholder_values):
         raise ConfigError(
@@ -36,7 +48,7 @@ def require_env(name: str, *, placeholder_values: Iterable[str] = PLACEHOLDER_VA
 
 
 def get_app_mode() -> str:
-    load_dotenv()
+    load_local_env()
     mode = _normalized(os.getenv("APP_MODE") or os.getenv("INVEST_MODE") or "sandbox").lower()
 
     if mode in {"prod", "production", "real"}:
@@ -57,32 +69,55 @@ def is_sandbox_mode() -> bool:
 
 
 def allow_prod_trading() -> bool:
-    load_dotenv()
-    return os.getenv("ALLOW_PROD_TRADING", "false").strip().lower() in {"1", "true", "yes", "on"}
+    return _env_bool("ALLOW_PROD_TRADING")
 
 
 def background_schedulers_enabled() -> bool:
-    load_dotenv()
-    return os.getenv("ENABLE_BACKGROUND_SCHEDULERS", "false").strip().lower() in {"1", "true", "yes", "on"}
+    return _env_bool("ENABLE_BACKGROUND_SCHEDULERS")
 
 
 def investor_reminders_enabled() -> bool:
-    load_dotenv()
-    return os.getenv("ENABLE_INVESTOR_REMINDERS", "false").strip().lower() in {"1", "true", "yes", "on"}
+    return _env_bool("ENABLE_INVESTOR_REMINDERS")
 
 
 def investment_plans_enabled() -> bool:
-    load_dotenv()
-    return os.getenv("ENABLE_INVESTMENT_PLANS", "false").strip().lower() in {"1", "true", "yes", "on"}
+    return _env_bool("ENABLE_INVESTMENT_PLANS")
+
+
+def anti_greedy_policy_enabled() -> bool:
+    return _env_bool("ENABLE_ANTI_GREEDY_POLICY")
+
+
+def strategy_proposals_enabled() -> bool:
+    return _env_bool("ENABLE_STRATEGY_PROPOSALS")
+
+
+def strategy_observations_enabled() -> bool:
+    return _env_bool("ENABLE_STRATEGY_OBSERVATIONS")
+
+
+def strategy_observation_telegram_notifications_enabled() -> bool:
+    return _env_bool("ENABLE_STRATEGY_OBSERVATION_TELEGRAM_NOTIFICATIONS")
+
+
+def strategy_auto_execution_enabled() -> bool:
+    return _env_bool("ENABLE_STRATEGY_AUTO_EXECUTION")
+
+
+def allow_strategy_auto_execution() -> bool:
+    return _env_bool("ALLOW_STRATEGY_AUTO_EXECUTION")
+
+
+def strategy_auto_execution_sandbox_only() -> bool:
+    return _env_bool("STRATEGY_AUTO_EXECUTION_SANDBOX_ONLY", default="true")
 
 
 def allow_auto_investing() -> bool:
-    load_dotenv()
-    return os.getenv("ALLOW_AUTO_INVESTING", "false").strip().lower() in {"1", "true", "yes", "on"}
+    return _env_bool("ALLOW_AUTO_INVESTING")
 
 
 def get_money_limit(name: str) -> float:
-    load_dotenv()
+    load_local_env()
     value = _normalized(os.getenv(name) or "0")
     try:
         return max(float(value), 0.0)
@@ -98,13 +133,125 @@ def get_max_daily_invest_rub() -> float:
     return get_money_limit("MAX_DAILY_INVEST_RUB")
 
 
+def get_strategy_money_limit(name: str, legacy_name: str) -> float:
+    load_local_env()
+    if _normalized(os.getenv(name)) == "" and _normalized(os.getenv(legacy_name)) != "":
+        return get_money_limit(legacy_name)
+    return get_money_limit(name)
+
+
+def get_max_strategy_auto_order_rub() -> float:
+    return get_strategy_money_limit("MAX_STRATEGY_AUTO_ORDER_RUB", "MAX_STRATEGY_ORDER_RUB")
+
+
+def get_max_daily_strategy_auto_rub() -> float:
+    return get_strategy_money_limit("MAX_DAILY_STRATEGY_AUTO_RUB", "MAX_STRATEGY_DAILY_RUB")
+
+
 def get_investor_reminder_time() -> str:
-    load_dotenv()
+    load_local_env()
     return _normalized(os.getenv("INVESTOR_REMINDER_TIME") or "09:00") or "09:00"
 
 
+def get_anti_greedy_profit_pct() -> float:
+    load_local_env()
+    value = _normalized(os.getenv("ANTI_GREEDY_PROFIT_PCT") or "20")
+    try:
+        threshold = float(value)
+    except ValueError as exc:
+        raise ConfigError("Environment variable ANTI_GREEDY_PROFIT_PCT must be a positive number.") from exc
+
+    if threshold <= 0:
+        raise ConfigError("Environment variable ANTI_GREEDY_PROFIT_PCT must be a positive number.")
+    return threshold
+
+
+def get_anti_greedy_check_time() -> str:
+    load_local_env()
+    return _normalized(os.getenv("ANTI_GREEDY_CHECK_TIME") or "18:30") or "18:30"
+
+
+def get_strategy_proposals_dir() -> str:
+    return get_strategy_confirmation_required_dir()
+
+
+def get_strategy_confirmation_required_dir() -> str:
+    load_local_env()
+    return (
+        _normalized(
+            os.getenv("STRATEGY_CONFIRMATION_REQUIRED_DIR")
+            or os.getenv("STRATEGY_PROPOSALS_DIR")
+            or "user_strategies/confirmation_required"
+        )
+        or "user_strategies/confirmation_required"
+    )
+
+
+def get_strategy_no_confirmation_dir() -> str:
+    load_local_env()
+    return _normalized(os.getenv("STRATEGY_NO_CONFIRMATION_DIR") or "user_strategies/observations") or (
+        "user_strategies/observations"
+    )
+
+
+def get_strategy_auto_execution_dir() -> str:
+    load_local_env()
+    return (
+        _normalized(
+            os.getenv("STRATEGY_AUTO_EXECUTION_DIR")
+            or os.getenv("STRATEGY_AUTO_EXECUTION_LEGACY_DIR")
+            or "user_strategies/auto_execute"
+        )
+        or "user_strategies/auto_execute"
+    )
+
+
+def get_strategy_proposal_check_interval_seconds() -> int:
+    load_local_env()
+    raw_value = _normalized(os.getenv("STRATEGY_PROPOSAL_CHECK_INTERVAL_SECONDS") or "60")
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise ConfigError(
+            "Environment variable STRATEGY_PROPOSAL_CHECK_INTERVAL_SECONDS must be a positive integer."
+        ) from exc
+    if value < 1:
+        raise ConfigError(
+            "Environment variable STRATEGY_PROPOSAL_CHECK_INTERVAL_SECONDS must be a positive integer."
+        )
+    return value
+
+
+def get_strategy_auto_execution_check_interval_seconds() -> int:
+    load_local_env()
+    raw_value = _normalized(os.getenv("STRATEGY_AUTO_EXECUTION_CHECK_INTERVAL_SECONDS") or "60")
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise ConfigError(
+            "Environment variable STRATEGY_AUTO_EXECUTION_CHECK_INTERVAL_SECONDS must be a positive integer."
+        ) from exc
+    if value < 1:
+        raise ConfigError(
+            "Environment variable STRATEGY_AUTO_EXECUTION_CHECK_INTERVAL_SECONDS must be a positive integer."
+        )
+    return value
+
+
+def get_strategy_auto_dedupe_window_seconds() -> int:
+    load_local_env()
+    raw_value = _normalized(os.getenv("STRATEGY_AUTO_DEDUPE_WINDOW_SECONDS") or "86400")
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise ConfigError("Environment variable STRATEGY_AUTO_DEDUPE_WINDOW_SECONDS must be a positive integer.") from exc
+    if value < 1:
+        raise ConfigError("Environment variable STRATEGY_AUTO_DEDUPE_WINDOW_SECONDS must be a positive integer.")
+    return value
+
+
 def get_tokens() -> dict:
-    load_dotenv()
+    load_local_env()
     from app.client.config.users import get_default_web_user_config, users_config_is_configured
 
     if users_config_is_configured(load_env=False):
@@ -122,7 +269,7 @@ def get_active_invest_token() -> Optional[str]:
 
 
 def get_broker_fee() -> float:
-    load_dotenv()
+    load_local_env()
     from app.client.config.users import get_default_web_user_config, users_config_is_configured
 
     if users_config_is_configured(load_env=False):
@@ -136,11 +283,64 @@ def get_broker_fee() -> float:
 
 
 def get_api_base_url() -> str:
-    load_dotenv()
+    load_local_env()
     return os.getenv("API_BASE_URL", "http://localhost:8000").strip() or "http://localhost:8000"
 
 
+def get_api_host() -> str:
+    load_local_env()
+    return _normalized(os.getenv("API_HOST") or "127.0.0.1") or "127.0.0.1"
+
+
+def api_host_is_localhost(host: Optional[str] = None) -> bool:
+    normalized = _normalized(host if host is not None else get_api_host()).lower()
+    normalized = normalized.strip("[]")
+
+    if normalized == "localhost":
+        return True
+
+    try:
+        return ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def web_auth_enabled() -> bool:
+    return _env_bool("WEB_AUTH_ENABLED")
+
+
+def legacy_local_write_api_enabled() -> bool:
+    """Opt-in flag for legacy /api/trading and /api/instruments local-write endpoints.
+
+    These endpoints write to local SQLite without CSRF and ignore broker safety gates.
+    They cannot place real broker orders, but can poison local order history or wipe
+    the local instrument cache if the API is exposed. Default is disabled.
+    """
+    return _env_bool("ENABLE_LEGACY_LOCAL_WRITE_API")
+
+
+def get_web_auth_token() -> Optional[str]:
+    load_local_env()
+    token = _normalized(os.getenv("WEB_AUTH_TOKEN"))
+    return token or None
+
+
+def validate_web_auth_config() -> None:
+    auth_enabled = web_auth_enabled()
+    token_configured = get_web_auth_token() is not None
+
+    if auth_enabled and not token_configured:
+        raise ConfigError("WEB_AUTH_TOKEN is required when WEB_AUTH_ENABLED=true.")
+
+    api_host = get_api_host()
+    if not api_host_is_localhost(api_host) and (not auth_enabled or not token_configured):
+        raise ConfigError(
+            "WEB_AUTH_ENABLED=true and WEB_AUTH_TOKEN are required when API_HOST is not localhost."
+        )
+
+
 def validate_startup_config() -> None:
+    validate_web_auth_config()
     require_env("BOT_TOKEN")
     from app.client.config.users import users_config_is_configured, validate_users_config_for_mode
 

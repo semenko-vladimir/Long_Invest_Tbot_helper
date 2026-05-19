@@ -88,6 +88,7 @@ class PlanRunner:
             price_condition_reason=condition.reason,
             on_confirm=lambda: self._execute(plan_id, plan, preview),
             on_skip=lambda reason: self._record_skip(plan_id, plan.ticker, reason),
+            chat_id=self.chat_id,
         )
 
         self.send_confirmation(
@@ -109,31 +110,10 @@ class PlanRunner:
 
     def _execute(self, plan_id: int, plan: InvestmentPlanView, preview) -> None:
         """Called from on_confirm callback when user presses ✅."""
-        try:
-            result = self.order_service.execute(
-                OrderConfirmCommand(
-                    operation=plan.operation,
-                    ticker=plan.ticker,
-                    lots=plan.lots,
-                    confirm_token=preview.confirm_token,
-                )
-            )
-            self._record_execution(plan_id, plan.ticker, result.order_id, preview.estimated_value)
-            self.notify(
-                self.chat_id,
-                f"✅ *Авто-план исполнен*: {plan.ticker}\n"
-                f"Ордер: {result.order_id}\nСумма: ~{preview.estimated_value:.2f}₽",
-            )
-        except OrderExecutionBlocked as exc:
-            if _is_preview_expired(exc):
-                self._execute_with_fresh_preview(plan_id, plan)
-            else:
-                self.notify(self.chat_id, f"❌ *Ошибка исполнения плана* {plan.ticker}: {exc}")
-        except Exception as exc:
-            self.notify(self.chat_id, f"❌ *Ошибка исполнения плана* {plan.ticker}: {exc}")
+        self._execute_with_fresh_preview(plan_id, plan)
 
     def _execute_with_fresh_preview(self, plan_id: int, plan: InvestmentPlanView) -> None:
-        """Re-previews after an expired token; re-checks price condition before executing."""
+        """Re-preview and re-check price condition immediately before executing."""
         try:
             fresh = self.order_service.preview(
                 OrderPreviewRequest(operation=plan.operation, ticker=plan.ticker, lots=plan.lots)
@@ -147,9 +127,9 @@ class PlanRunner:
         if not condition.allowed:
             self.notify(
                 self.chat_id,
-                f"⏭ *Авто-план пропущен* (токен истёк, цена изменилась): {plan.ticker}\n{condition.reason}",
+                f"⏭ *План пропущен перед исполнением*: {plan.ticker}\n{condition.reason}",
             )
-            self._record_skip(plan_id, plan.ticker, "price_condition_on_retry")
+            self._record_skip(plan_id, plan.ticker, "price_condition_before_execute")
             return
 
         try:
@@ -164,7 +144,7 @@ class PlanRunner:
             self._record_execution(plan_id, plan.ticker, result.order_id, fresh.estimated_value)
             self.notify(
                 self.chat_id,
-                f"✅ *Авто-план исполнен*: {plan.ticker}\n"
+                f"✅ *План исполнен после подтверждения*: {plan.ticker}\n"
                 f"Ордер: {result.order_id}\nСумма: ~{fresh.estimated_value:.2f}₽",
             )
         except Exception as exc:

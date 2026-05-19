@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.backend.api.dependencies import get_default_web_db
+from app.backend.api.dependencies import get_default_web_db, require_legacy_local_write_api
 from app.backend.models.trading import Margin, Buy, Order
 from app.backend.schemas.trading import (
     MarginCreate, MarginResponse,
@@ -25,7 +25,11 @@ def read_margins(
     return margins
 
 
-@router.post("/margin/", response_model=MarginResponse)
+@router.post(
+    "/margin/",
+    response_model=MarginResponse,
+    dependencies=[Depends(require_legacy_local_write_api)],
+)
 def create_margin(margin: MarginCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новую маржинальную позицию.
@@ -49,7 +53,11 @@ def read_buys(
     return buys
 
 
-@router.post("/buy/", response_model=BuyResponse)
+@router.post(
+    "/buy/",
+    response_model=BuyResponse,
+    dependencies=[Depends(require_legacy_local_write_api)],
+)
 def create_buy(buy: BuyCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новую покупку.
@@ -73,7 +81,11 @@ def read_orders(
     return orders
 
 
-@router.post("/orders/", response_model=OrderResponse)
+@router.post(
+    "/orders/",
+    response_model=OrderResponse,
+    dependencies=[Depends(require_legacy_local_write_api)],
+)
 def create_order(order: OrderCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новое торговое поручение.
@@ -85,7 +97,11 @@ def create_order(order: OrderCreate, db: Session = Depends(get_default_web_db)):
     return db_order
 
 
-@router.delete("/orders/{order_id}", response_model=OrderResponse)
+@router.delete(
+    "/orders/{order_id}",
+    response_model=OrderResponse,
+    dependencies=[Depends(require_legacy_local_write_api)],
+)
 def delete_order(order_id: str, db: Session = Depends(get_default_web_db)):
     """
     Удалить заказ по order_id.

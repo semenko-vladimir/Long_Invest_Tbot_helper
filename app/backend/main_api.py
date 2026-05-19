@@ -10,14 +10,20 @@ from fastapi.staticfiles import StaticFiles
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from app.backend.api import api_router
+from app.backend.auth import WebAuthMiddleware
 from app.backend.models import create_all_tables
+from app.backend.web.csrf import WebCsrfCookieMiddleware
 from app.backend.web.routes import router as web_router
+from app.client.config import validate_web_auth_config
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Refuse to expose the API on a non-loopback host without WEB_AUTH configured,
+    # regardless of whether app/run.py or `uvicorn app.backend.main_api:app` was used.
+    validate_web_auth_config()
     create_all_tables()
     yield
 
@@ -29,6 +35,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Require the local owner token when WEB_AUTH_ENABLED=true.
+app.add_middleware(WebAuthMiddleware)
+app.add_middleware(WebCsrfCookieMiddleware)
 
 # Configure CORS
 _allowed_origins = [

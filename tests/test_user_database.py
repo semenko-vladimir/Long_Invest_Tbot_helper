@@ -12,6 +12,7 @@ import app.backend.models.trading  # noqa: F401
 from app.backend.models.trading import Instrument, Order
 from app.services.user_context import UserContext
 from app.services.user_database import (
+    _table_columns,
     dispose_user_database_registry,
     resolve_db_path,
     run_migrations_for_user,
@@ -101,6 +102,47 @@ class UserDatabaseTests(unittest.TestCase):
                 version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
                 script = ScriptDirectory.from_config(Config("alembic.ini"))
                 self.assertEqual(version, script.get_current_head())
+        finally:
+            engine.dispose()
+
+
+class TableColumnsIdentifierTests(unittest.TestCase):
+    def test_accepts_known_safe_identifier(self):
+        engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("CREATE TABLE plans (id INTEGER PRIMARY KEY, ticker TEXT)"))
+                columns = _table_columns(conn, "plans")
+        finally:
+            engine.dispose()
+        self.assertEqual(columns, {"id", "ticker"})
+
+    def test_rejects_identifier_with_semicolon(self):
+        engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+        try:
+            with engine.connect() as conn:
+                with self.assertRaises(ValueError):
+                    _table_columns(conn, "plans; DROP TABLE plans")
+        finally:
+            engine.dispose()
+
+    def test_rejects_identifier_with_space(self):
+        engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+        try:
+            with engine.connect() as conn:
+                with self.assertRaises(ValueError):
+                    _table_columns(conn, "plans tail")
+        finally:
+            engine.dispose()
+
+    def test_rejects_empty_or_non_string_identifier(self):
+        engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+        try:
+            with engine.connect() as conn:
+                with self.assertRaises(ValueError):
+                    _table_columns(conn, "")
+                with self.assertRaises(ValueError):
+                    _table_columns(conn, None)
         finally:
             engine.dispose()
 

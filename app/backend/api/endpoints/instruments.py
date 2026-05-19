@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.backend.api.dependencies import get_default_web_db
+from app.backend.api.dependencies import get_default_web_db, require_legacy_local_write_api
 from app.backend.models.trading import Instrument
 from app.backend.schemas.trading import (
     InstrumentCreate, InstrumentUpdate, InstrumentResponse
@@ -44,7 +44,11 @@ def read_instrument_by_figi(figi: str, db: Session = Depends(get_default_web_db)
     return instrument
 
 
-@router.post("/", response_model=InstrumentResponse)
+@router.post(
+    "/",
+    response_model=InstrumentResponse,
+    dependencies=[Depends(require_legacy_local_write_api)],
+)
 def create_instrument(instrument: InstrumentCreate, db: Session = Depends(get_default_web_db)):
     """
     Создать новый инструмент.
@@ -61,7 +65,11 @@ def create_instrument(instrument: InstrumentCreate, db: Session = Depends(get_de
     return db_instrument
 
 
-@router.delete("/ticker/{ticker}", response_model=InstrumentResponse)
+@router.delete(
+    "/ticker/{ticker}",
+    response_model=InstrumentResponse,
+    dependencies=[Depends(require_legacy_local_write_api)],
+)
 def delete_instrument_by_ticker(ticker: str, db: Session = Depends(get_default_web_db)):
     """
     Удалить инструмент по тикеру.
@@ -75,7 +83,11 @@ def delete_instrument_by_ticker(ticker: str, db: Session = Depends(get_default_w
     return db_instrument
 
 
-@router.delete("/all", response_model=dict)
+@router.delete(
+    "/all",
+    response_model=dict,
+    dependencies=[Depends(require_legacy_local_write_api)],
+)
 def delete_all_instruments(db: Session = Depends(get_default_web_db)):
     """
     Удалить все инструменты.

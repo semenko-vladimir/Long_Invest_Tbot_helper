@@ -1,3 +1,4 @@
+import logging
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -12,6 +13,7 @@ from app.research.services import ResearchReportService, TickerResearchService
 from app.research.snapshots import ResearchSnapshotService, snapshot_to_dict
 
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -132,7 +134,8 @@ def _try_save_report_snapshot(report, db: Session) -> None:
     try:
         ResearchSnapshotService(db).save_report(report)
     except Exception:
+        logger.exception("Failed to save research snapshot; rolling back session.")
         try:
             db.rollback()
         except Exception:
-            pass
+            logger.exception("Research snapshot rollback failed.")

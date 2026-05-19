@@ -2,9 +2,12 @@
 # Investor v1 does not need these for local sandbox use.
 
 aiofiles==23.2.1
-aiohttp==3.10.5
-g4f==0.3.2.9
-keras==3.6.0
+aiohttp==3.13.4
+# g4f==0.3.2.9 — removed: the legacy GPT signal module (app/client/signals/gpt_signal.py)
+# has been deleted from active v1 runtime, and local-LLM research is planned to flow
+# through a separate provider gateway, not g4f. Re-enable only if you intentionally
+# rebuild a g4f-based educational analysis path (must never create broker orders).
+keras==3.13.2
 matplotlib==3.9.2
 mplfinance==0.12.10b0
 pandas-datareader==0.10.0
