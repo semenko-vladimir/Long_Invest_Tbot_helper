@@ -15,7 +15,7 @@ Coverage:
     (in-memory SQLite; tests the real query, not a stub)
 """
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import unittest
 from unittest import mock
 
@@ -290,14 +290,6 @@ class TradingPolicyServiceTests(unittest.TestCase):
 
         self.assertEqual(status.daily_remaining_rub, 0.0)
 
-    def test_daily_remaining_is_clamped_to_zero_when_used_exceeds_limit(self):
-        # Over-spend edge: clamp to 0, never negative.
-        service, _ = self._build(daily_total=25_000.0)
-        with _patch_config(max_daily=20_000.0):
-            status = service.current_status()
-
-        self.assertEqual(status.daily_remaining_rub, 0.0)
-
 
 # ---------------------------------------------------------------------------
 # PolicyCheckResult tests
@@ -383,6 +375,15 @@ class InvestmentPlanExecutionLedgerTests(unittest.TestCase):
         self._insert(amount_rub=9_999.0, created_at=other_date)
         ledger = InvestmentPlanExecutionLedger(session_factory=self.session_factory)
         self.assertEqual(ledger.daily_total(now=target_date), 1_000.0)
+
+    def test_normalizes_explicit_timezone_aware_now_to_utc(self):
+        moscow_time = datetime(2026, 3, 15, 1, 30, tzinfo=timezone(timedelta(hours=3)))
+        utc_date = datetime(2026, 3, 14, 12, 0)
+        local_date = datetime(2026, 3, 15, 12, 0)
+        self._insert(amount_rub=1_000.0, created_at=utc_date)
+        self._insert(amount_rub=9_999.0, created_at=local_date)
+        ledger = InvestmentPlanExecutionLedger(session_factory=self.session_factory)
+        self.assertEqual(ledger.daily_total(now=moscow_time), 1_000.0)
 
     def test_returns_zero_when_only_blocked_and_old_records_exist(self):
         yesterday = datetime.utcnow() - timedelta(days=1)

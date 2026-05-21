@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from typing import Optional
 
 from app.backend.models.trading import InvestmentPlanExecution
@@ -65,7 +65,11 @@ class InvestmentPlanExecutionLedger:
         self.session_factory = session_factory or get_default_session_factory()
 
     def daily_total(self, *, now: Optional[datetime] = None) -> float:
-        now = now or datetime.now()
+        if now is None:
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+        elif now.tzinfo is not None and now.utcoffset() is not None:
+            now = now.astimezone(timezone.utc).replace(tzinfo=None)
+
         start = datetime.combine(now.date(), time.min)
         end = datetime.combine(now.date(), time.max)
 

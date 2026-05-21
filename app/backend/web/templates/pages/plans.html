@@ -64,10 +64,13 @@
   <p class="eyebrow">Plan definition</p>
   <h3>Create a recurring plan</h3>
   <form method="post" action="/plans/create" class="plan-form">
+    {% include "partials/csrf_token.html" %}
     <div class="field">
       <label for="plan-ticker">Ticker</label>
       <input id="plan-ticker" name="ticker" value="{{ plan_defaults.ticker }}" autocomplete="off" required>
     </div>
+    <input type="hidden" name="operation" value="{{ plan_defaults.operation }}">
+    <input type="hidden" name="confirmation_mode" value="{{ plan_defaults.confirmation_mode }}">
     <div class="field">
       <label for="plan-lots">Lots</label>
       <input id="plan-lots" name="lots" type="number" min="1" step="1" value="{{ plan_defaults.lots }}" required>
@@ -87,8 +90,23 @@
     <div class="field">
       <label for="plan-price-rule">Price rule</label>
       <select id="plan-price-rule" name="price_rule">
-        <option value="current_market" selected>Current market price</option>
+        <option value="previous_day_average_discount" {% if plan_defaults.price_rule == "previous_day_average_discount" %}selected{% endif %}>Yesterday average minus percent</option>
+        <option value="current_market" {% if plan_defaults.price_rule == "current_market" %}selected{% endif %}>Current market price</option>
+        <option value="max_price" {% if plan_defaults.price_rule == "max_price" %}selected{% endif %}>Fixed max price</option>
+        <option value="pct_from_avg" {% if plan_defaults.price_rule == "pct_from_avg" %}selected{% endif %}>Percent from moving average</option>
       </select>
+    </div>
+    <div class="field">
+      <label for="plan-pct-threshold">Percent threshold</label>
+      <input id="plan-pct-threshold" name="pct_threshold" type="number" min="0.01" step="0.01" value="{{ plan_defaults.pct_threshold }}">
+    </div>
+    <div class="field">
+      <label for="plan-price-limit">Fixed price limit</label>
+      <input id="plan-price-limit" name="price_limit" type="number" min="0.01" step="0.01" value="{{ plan_defaults.price_limit }}">
+    </div>
+    <div class="field">
+      <label for="plan-avg-period-days">Average period days</label>
+      <input id="plan-avg-period-days" name="avg_period_days" type="number" min="5" step="1" value="{{ plan_defaults.avg_period_days }}">
     </div>
     <div class="field">
       <label for="plan-order-type">Order type</label>
@@ -99,7 +117,7 @@
     <label class="checkbox-field">
       <input type="hidden" name="confirmation_required" value="false">
       <input type="checkbox" name="confirmation_required" value="true" checked>
-      Require confirmation
+      Require Telegram confirmation
     </label>
     <button type="submit">Create plan</button>
   </form>
@@ -115,6 +133,7 @@
       <div><dt>Proposed lots</dt><dd>{{ proposal.proposed_lots }}</dd></div>
       <div><dt>Proposed limit price</dt><dd>{{ proposal.proposed_limit_price_display }}</dd></div>
       <div><dt>Price rule</dt><dd>{{ proposal.plan.price_rule_label }}</dd></div>
+      <div><dt>Condition</dt><dd>{{ proposal.plan.price_condition_display }}</dd></div>
       <div><dt>Order type</dt><dd>{{ proposal.plan.order_type_label }}</dd></div>
       <div><dt>Generated</dt><dd>{{ proposal.generated_at }}</dd></div>
     </dl>
@@ -129,14 +148,17 @@
 
     <div class="order-actions">
       <form method="post" action="/buy/preview">
+        {% include "partials/csrf_token.html" %}
         <input type="hidden" name="ticker" value="{{ proposal.plan.ticker }}">
         <input type="hidden" name="lots" value="{{ proposal.proposed_lots }}">
         <button type="submit">Send order</button>
       </form>
       <form method="post" action="/plans/{{ proposal.plan.id }}/proposal/skip">
+        {% include "partials/csrf_token.html" %}
         <button type="submit" class="secondary-button">Skip</button>
       </form>
       <form method="post" action="/plans/{{ proposal.plan.id }}/proposal">
+        {% include "partials/csrf_token.html" %}
         <button type="submit" class="secondary-button">Change price</button>
       </form>
     </div>
@@ -168,10 +190,13 @@
         </div>
 
         <form method="post" action="/plans/{{ plan.id }}/update" class="plan-form compact">
+          {% include "partials/csrf_token.html" %}
           <div class="field">
             <label for="plan-{{ plan.id }}-ticker">Ticker</label>
             <input id="plan-{{ plan.id }}-ticker" name="ticker" value="{{ plan.ticker }}" autocomplete="off" required>
           </div>
+          <input type="hidden" name="operation" value="{{ plan.operation }}">
+          <input type="hidden" name="confirmation_mode" value="{{ plan.confirmation_mode }}">
           <div class="field">
             <label for="plan-{{ plan.id }}-lots">Lots</label>
             <input id="plan-{{ plan.id }}-lots" name="lots" type="number" min="1" step="1" value="{{ plan.lots }}" required>
@@ -191,8 +216,23 @@
           <div class="field">
             <label for="plan-{{ plan.id }}-price-rule">Price rule</label>
             <select id="plan-{{ plan.id }}-price-rule" name="price_rule">
+              <option value="previous_day_average_discount" {% if plan.price_rule == "previous_day_average_discount" %}selected{% endif %}>Yesterday average minus percent</option>
               <option value="current_market" {% if plan.price_rule == "current_market" %}selected{% endif %}>Current market price</option>
+              <option value="max_price" {% if plan.price_rule == "max_price" %}selected{% endif %}>Fixed max price</option>
+              <option value="pct_from_avg" {% if plan.price_rule == "pct_from_avg" %}selected{% endif %}>Percent from moving average</option>
             </select>
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-pct-threshold">Percent threshold</label>
+            <input id="plan-{{ plan.id }}-pct-threshold" name="pct_threshold" type="number" min="0.01" step="0.01" value="{{ plan.pct_threshold if plan.pct_threshold is not none else '' }}">
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-price-limit">Fixed price limit</label>
+            <input id="plan-{{ plan.id }}-price-limit" name="price_limit" type="number" min="0.01" step="0.01" value="{{ plan.price_limit if plan.price_limit is not none else '' }}">
+          </div>
+          <div class="field">
+            <label for="plan-{{ plan.id }}-avg-period-days">Average period days</label>
+            <input id="plan-{{ plan.id }}-avg-period-days" name="avg_period_days" type="number" min="5" step="1" value="{{ plan.avg_period_days if plan.avg_period_days is not none else '' }}">
           </div>
           <div class="field">
             <label for="plan-{{ plan.id }}-order-type">Order type</label>
@@ -205,10 +245,12 @@
             <input type="checkbox" name="confirmation_required" value="true" {% if plan.confirmation_required %}checked{% endif %}>
             Confirmation: {{ plan.confirmation_label }}
           </label>
+          <p class="muted">Condition: {{ plan.price_condition_display }}</p>
           <button type="submit">Update plan</button>
         </form>
 
         <form method="post" action="/plans/{{ plan.id }}/delete" class="inline-form plan-delete-form">
+          {% include "partials/csrf_token.html" %}
           <button type="submit" class="danger-button">Delete plan</button>
         </form>
       </article>

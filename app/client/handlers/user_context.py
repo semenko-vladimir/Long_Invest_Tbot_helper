@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from app.charts.factory import build_chart_services
+from app.charts.images import ChartImageService
+from app.charts.position_values import PositionValueChartService
 from app.client.config import get_invest_mode
 from app.client.handlers.utils.message_utils import send_or_edit_message
 from app.integrations.tinvest import TInvestBroker
@@ -28,6 +31,8 @@ class TelegramUserServices:
     statistics_service: StatisticsService
     ticker_research: TickerResearchService
     report_builder: ResearchReportService
+    chart_image_service: ChartImageService
+    position_value_chart_service: PositionValueChartService
 
 
 _resolver = UserContextResolver()
@@ -63,19 +68,25 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
     token_provider = lambda: user.active_token(get_invest_mode())
     mode_service = ModeService()
     broker = TInvestBroker(session_factory=session_factory)
+    portfolio_service = PortfolioService(
+        broker=broker,
+        mode_service=mode_service,
+        token_provider=token_provider,
+    )
     watchlist_service = WatchlistService(
         broker=broker,
         session_factory=session_factory,
         token_provider=token_provider,
     )
+    chart_services = build_chart_services(
+        broker=broker,
+        token_provider=token_provider,
+        portfolio_service=portfolio_service,
+    )
     return TelegramUserServices(
         user=user,
         broker=broker,
-        portfolio_service=PortfolioService(
-            broker=broker,
-            mode_service=mode_service,
-            token_provider=token_provider,
-        ),
+        portfolio_service=portfolio_service,
         order_service=OrderService(
             broker=broker,
             mode_service=mode_service,
@@ -96,6 +107,8 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
             ]
         ),
         report_builder=ResearchReportService(),
+        chart_image_service=chart_services.image_service,
+        position_value_chart_service=chart_services.position_value_service,
     )
 
 

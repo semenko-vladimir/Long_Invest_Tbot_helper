@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+from app.charts.factory import build_chart_services
+from app.charts.images import ChartImageService
+from app.charts.position_values import PositionValueChartService
 from app.client.config import get_invest_mode
 from app.integrations.tinvest import TInvestBroker
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
@@ -33,6 +36,8 @@ class WebRequestServices:
     order_history_service: OrderHistoryService
     ticker_research: TickerResearchService
     report_builder: ResearchReportService
+    chart_image_service: ChartImageService
+    position_value_chart_service: PositionValueChartService
 
 
 _resolver = UserContextResolver()
@@ -53,21 +58,27 @@ def build_web_services(user: UserContext) -> WebRequestServices:
     token_provider = lambda: user.active_token(get_invest_mode())
     mode_service = ModeService()
     broker = TInvestBroker(session_factory=session_factory)
+    portfolio_service = PortfolioService(
+        broker=broker,
+        mode_service=mode_service,
+        token_provider=token_provider,
+    )
     order_service = OrderService(broker=broker, mode_service=mode_service, token_provider=token_provider)
     watchlist_service = WatchlistService(
         broker=broker,
         session_factory=session_factory,
         token_provider=token_provider,
     )
+    chart_services = build_chart_services(
+        broker=broker,
+        token_provider=token_provider,
+        portfolio_service=portfolio_service,
+    )
     return WebRequestServices(
         user=user,
         session_factory=session_factory,
         mode_service=mode_service,
-        portfolio_service=PortfolioService(
-            broker=broker,
-            mode_service=mode_service,
-            token_provider=token_provider,
-        ),
+        portfolio_service=portfolio_service,
         order_service=order_service,
         watchlist_service=watchlist_service,
         dividends_service=DividendsService(
@@ -90,6 +101,8 @@ def build_web_services(user: UserContext) -> WebRequestServices:
             ]
         ),
         report_builder=ResearchReportService(),
+        chart_image_service=chart_services.image_service,
+        position_value_chart_service=chart_services.position_value_service,
     )
 
 

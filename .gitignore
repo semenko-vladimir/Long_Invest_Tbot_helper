@@ -4,6 +4,7 @@ database.db
 .env
 users.json
 data/users/
+user_strategies/
 .test-user-dbs/
 venv
 venv*/

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from app.backend.api import api_router
 from app.backend.auth import WebAuthMiddleware
 from app.backend.models import create_all_tables
+from app.backend.web.chart_routes import router as chart_router
 from app.backend.web.csrf import WebCsrfCookieMiddleware
 from app.backend.web.routes import router as web_router
 from app.client.config import validate_web_auth_config
@@ -56,6 +57,7 @@ app.add_middleware(
 # Include routers
 app.include_router(api_router, prefix="/api")
 app.include_router(web_router)
+app.include_router(chart_router)
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
 @app.get("/api/health")

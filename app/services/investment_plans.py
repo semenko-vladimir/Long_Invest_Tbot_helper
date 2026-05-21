@@ -16,7 +16,7 @@ from app.services.user_database import SessionFactory, get_default_session_facto
 
 SUPPORTED_SCHEDULES = {"daily", "weekly", "monthly"}
 SUPPORTED_OPERATIONS = {"buy", "sell"}
-SUPPORTED_PRICE_RULES = {"any", "current_market", "max_price", "pct_from_avg"}
+SUPPORTED_PRICE_RULES = {"any", "current_market", "max_price", "pct_from_avg", "previous_day_average_discount"}
 SUPPORTED_ORDER_TYPES = {"limit"}
 SUPPORTED_CONFIRMATION_MODES = {"telegram_confirm", "auto"}
 
@@ -31,6 +31,7 @@ PRICE_RULE_LABELS = {
     "current_market": "Current market price",
     "max_price": "Fixed price limit",
     "pct_from_avg": "% from moving average",
+    "previous_day_average_discount": "0.5% below yesterday average",
 }
 
 ORDER_TYPE_LABELS = {
@@ -449,6 +450,15 @@ class InvestmentPlanService:
             if avg_period_days is None or avg_period_days < 5:
                 raise InvestmentPlanServiceError("Average period must be at least 5 days for pct_from_avg.")
             price_limit = None
+        elif price_rule == "previous_day_average_discount":
+            if operation != "buy":
+                raise InvestmentPlanServiceError("Previous day average discount is available only for buy plans.")
+            pct_threshold = 0.5 if pct_threshold is None else pct_threshold
+            if pct_threshold <= 0:
+                raise InvestmentPlanServiceError("Percent threshold must be greater than 0.")
+            price_limit = None
+            avg_period_days = None
+            confirmation_mode = "telegram_confirm"
         else:
             price_limit = None
             pct_threshold = None
@@ -509,4 +519,7 @@ class InvestmentPlanService:
             if pct_threshold is None or avg_period_days is None:
                 return "Условие от средней не задано"
             return f"Не выше {pct_threshold}% от {avg_period_days}-дн. средней"
+        if price_rule == "previous_day_average_discount":
+            threshold = 0.5 if pct_threshold is None else pct_threshold
+            return f"Покупать не выше вчерашней средней - {threshold:g}%"
         return price_rule

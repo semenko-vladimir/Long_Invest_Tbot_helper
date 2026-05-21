@@ -10,6 +10,7 @@ class FakeBroker:
     def __init__(self, prices=None, error=None):
         self.prices = prices if prices is not None else [100.0, 110.0, 120.0]
         self.error = error
+        self.previous_day_average = 100.0
         self.calls = []
 
     def get_closing_prices(self, token, ticker, days):
@@ -17,6 +18,12 @@ class FakeBroker:
         if self.error:
             raise self.error
         return self.prices
+
+    def get_previous_day_average_price(self, token, ticker):
+        self.calls.append((token, ticker, "previous_day_average"))
+        if self.error:
+            raise self.error
+        return self.previous_day_average
 
 
 def plan(**kwargs):
@@ -128,6 +135,31 @@ class PriceConditionServiceTests(unittest.TestCase):
         self.assertFalse(result.allowed)
         self.assertIsNone(result.limit_price)
 
+    def test_previous_day_average_discount_allows_below_yesterday_average_minus_threshold(self):
+        broker = FakeBroker()
+        broker.previous_day_average = 100.0
+
+        result = self.service(broker).check(
+            plan=plan(price_rule="previous_day_average_discount", operation="buy", pct_threshold=0.5),
+            current_price=99.4,
+        )
+
+        self.assertTrue(result.allowed)
+        self.assertAlmostEqual(result.limit_price, 99.5)
+        self.assertEqual(broker.calls, [("token", "SBER", "previous_day_average")])
+
+    def test_previous_day_average_discount_blocks_above_limit(self):
+        broker = FakeBroker()
+        broker.previous_day_average = 100.0
+
+        result = self.service(broker).check(
+            plan=plan(price_rule="previous_day_average_discount", operation="buy", pct_threshold=0.5),
+            current_price=99.6,
+        )
+
+        self.assertFalse(result.allowed)
+        self.assertAlmostEqual(result.limit_price, 99.5)
+
 
 class TInvestBrokerClosingPricesTests(unittest.TestCase):
     def test_get_closing_prices_returns_positive_daily_closes(self):
@@ -164,6 +196,46 @@ class TInvestBrokerClosingPricesTests(unittest.TestCase):
             prices = broker.get_closing_prices("token", "SBER", 30)
 
         self.assertEqual(prices, [100.5, 101.25])
+        broker.resolve_unique_instrument.assert_called_once_with("token", "SBER")
+
+    def test_get_previous_day_average_price_returns_latest_completed_daily_ohlc_average(self):
+        broker = TInvestBroker()
+        broker.resolve_unique_instrument = mock.Mock(return_value=SimpleNamespace(figi="FIGI-SBER"))
+
+        def money(units, nano=0):
+            return SimpleNamespace(units=units, nano=nano)
+
+        candles = [
+            SimpleNamespace(
+                time=mock.Mock(),
+                open=money(90),
+                high=money(110),
+                low=money(80),
+                close=money(100),
+            )
+        ]
+
+        class FakeMarketData:
+            def get_candles(self, **kwargs):
+                self.kwargs = kwargs
+                return SimpleNamespace(candles=candles)
+
+        class FakeClient:
+            market_data = FakeMarketData()
+
+            def __init__(self, token):
+                self.token = token
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        with mock.patch("app.integrations.tinvest.Client", FakeClient):
+            average = broker.get_previous_day_average_price("token", "SBER")
+
+        self.assertEqual(average, 95.0)
         broker.resolve_unique_instrument.assert_called_once_with("token", "SBER")
 
 

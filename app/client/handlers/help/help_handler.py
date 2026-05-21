@@ -20,7 +20,9 @@ HELP_TEXT = (
     "- `sell SBER 1` - create a preview\n"
     "- `confirm_order <token>` - confirm a sandbox preview\n"
     "- `confirm_order <token> SBER` - confirm a production preview\n"
-    "- `cancel_order <token>` - cancel a preview\n\n"
+    "- `cancel_order <token>` - cancel a preview\n"
+    "- `chart SBER month` - read-only price chart\n"
+    "- `position_chart SBER month` - current quantity value chart\n\n"
     "- `sync_watchlist` - add current portfolio tickers to the local watchlist\n\n"
     "Sandbox mode is the default. No signals, ML, GPT/LSTM, or auto-trading are active in investor v1."
 )

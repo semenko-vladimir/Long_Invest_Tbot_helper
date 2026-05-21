@@ -189,6 +189,13 @@ a {
   align-items: end;
 }
 
+.chart-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 300px) minmax(280px, 1.3fr) minmax(190px, auto) auto;
+  gap: 14px;
+  align-items: end;
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -225,6 +232,60 @@ select {
 input:focus,
 select:focus {
   border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
+}
+
+.segmented-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.segmented-field legend {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.segmented-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmented-control label {
+  min-width: 0;
+}
+
+.segmented-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented-control span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.segmented-control input:checked + span {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.segmented-control input:focus + span {
   outline: 2px solid var(--accent-soft);
 }
 
@@ -364,6 +425,10 @@ tr:last-child td {
   background: #fbfcfb;
 }
 
+.muted {
+  color: var(--muted);
+}
+
 .performance {
   font-weight: 700;
 }
@@ -436,6 +501,21 @@ tr:last-child td {
   margin-top: 18px;
 }
 
+.strategy-section {
+  margin-bottom: 18px;
+}
+
+.strategy-summary {
+  margin-bottom: 18px;
+}
+
+td.wrap-cell {
+  min-width: 240px;
+  max-width: 520px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .plan-form {
   display: grid;
   grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
@@ -495,6 +575,25 @@ tr:last-child td {
   margin-top: 12px;
 }
 
+.chart-panel {
+  margin-bottom: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.chart-image {
+  display: block;
+  width: 100%;
+  max-width: 1080px;
+  height: auto;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -519,6 +618,7 @@ tr:last-child td {
   }
 
   .order-form,
+  .chart-form,
   .plan-form,
   .plan-form.compact,
   .summary-grid {

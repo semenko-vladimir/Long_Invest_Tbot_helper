@@ -4,7 +4,14 @@ from pathlib import Path
 import unittest
 
 from app.charts.images import ChartImageService
-from app.charts.schemas import ChartDataGap, ChartHistory, PriceCandle
+from app.charts.schemas import (
+    ChartAnalytics,
+    ChartDataGap,
+    ChartHistory,
+    PositionValueChart,
+    PositionValuePoint,
+    PriceCandle,
+)
 
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -18,6 +25,29 @@ class FakeHistoryService:
     def get_history(self, ticker, range_name):
         self.calls.append((ticker, range_name))
         return self.history
+
+
+class FakeAnalyticsService:
+    def __init__(self, analytics=None, should_raise=False):
+        self.analytics = analytics or ChartAnalytics()
+        self.should_raise = should_raise
+        self.calls = []
+
+    def calculate(self, candles):
+        self.calls.append(list(candles))
+        if self.should_raise:
+            raise AssertionError("analytics should not be calculated")
+        return self.analytics
+
+
+class FakePositionValueService:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    def get_position_value(self, ticker, range_name):
+        self.calls.append((ticker, range_name))
+        return self.result
 
 
 def candle(day=1, close=101.0, volume=1000):
@@ -41,10 +71,32 @@ def history(**kwargs):
         "source": "fake-source",
         "data_gaps": [],
         "errors": [],
-        "disclaimer": "Educational chart only. Not investment advice.",
+        "disclaimer": (
+            "Educational chart only. Hindsight-only analytics. Not a trading signal. "
+            "Not investment advice. No broker orders were created."
+        ),
     }
     values.update(kwargs)
     return ChartHistory(**values)
+
+
+def position_value(**kwargs):
+    values = {
+        "ticker": "SBER",
+        "figi": "FIGI-SBER",
+        "range": "month",
+        "quantity": 2.0,
+        "value_series": [
+            PositionValuePoint(datetime(2026, 5, 1, 12, 0), close_price=100.0, value=200.0),
+            PositionValuePoint(datetime(2026, 5, 2, 12, 0), close_price=110.0, value=220.0),
+        ],
+        "generated_at": datetime(2026, 5, 21, 12, 0),
+        "source": "fake-position-value",
+        "data_gaps": [],
+        "errors": [],
+    }
+    values.update(kwargs)
+    return PositionValueChart(**values)
 
 
 class ChartImageServiceTests(unittest.TestCase):
@@ -55,11 +107,84 @@ class ChartImageServiceTests(unittest.TestCase):
         result = service.render_png("SBER", "month")
 
         self.assertTrue(result.ok)
+        self.assertEqual(result.mode, "price")
         self.assertEqual(result.errors, [])
         self.assertIsNotNone(result.png_bytes)
         self.assertTrue(result.png_bytes.startswith(PNG_SIGNATURE))
         self.assertGreater(len(result.png_bytes), 1000)
         self.assertEqual(result.content_type, "image/png")
+
+    def test_generates_png_bytes_for_price_mode_explicitly(self):
+        fake_history = history()
+        service = ChartImageService(FakeHistoryService(fake_history))
+
+        result = service.render_png("SBER", "month", mode="price")
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.mode, "price")
+        self.assertTrue(result.png_bytes.startswith(PNG_SIGNATURE))
+
+    def test_analytics_enabled_calculates_overlay_and_still_generates_png(self):
+        fake_history = history()
+        fake_analytics = FakeAnalyticsService()
+        service = ChartImageService(FakeHistoryService(fake_history), analytics_service=fake_analytics)
+
+        result = service.render_png("SBER", "month")
+
+        self.assertTrue(result.ok)
+        self.assertTrue(result.png_bytes.startswith(PNG_SIGNATURE))
+        self.assertEqual(fake_analytics.calls, [fake_history.candles])
+        self.assertIs(result.analytics, fake_analytics.analytics)
+
+    def test_analytics_disabled_does_not_request_overlays(self):
+        fake_history = history()
+        fake_analytics = FakeAnalyticsService(should_raise=True)
+        service = ChartImageService(FakeHistoryService(fake_history), analytics_service=fake_analytics)
+
+        result = service.render_png("SBER", "month", include_analytics=False)
+
+        self.assertTrue(result.ok)
+        self.assertTrue(result.png_bytes.startswith(PNG_SIGNATURE))
+        self.assertEqual(fake_analytics.calls, [])
+        self.assertIsNone(result.analytics)
+
+    def test_position_value_mode_generates_png_without_analytics(self):
+        fake_position_value = position_value()
+        fake_position_service = FakePositionValueService(fake_position_value)
+        fake_analytics = FakeAnalyticsService(should_raise=True)
+        service = ChartImageService(
+            FakeHistoryService(history()),
+            analytics_service=fake_analytics,
+            position_value_service=fake_position_service,
+        )
+
+        result = service.render_png("SBER", "month", include_analytics=True, mode="position_value")
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.mode, "position_value")
+        self.assertTrue(result.png_bytes.startswith(PNG_SIGNATURE))
+        self.assertEqual(fake_position_service.calls, [("SBER", "month")])
+        self.assertEqual(fake_analytics.calls, [])
+        self.assertIs(result.position_value, fake_position_value)
+        self.assertIn("current position quantity valued at historical close prices", result.position_value.disclaimer)
+        self.assertIn("not historical holdings", result.position_value.disclaimer)
+
+    def test_position_value_mode_returns_structured_error_without_png(self):
+        fake_position_value = position_value(
+            value_series=[],
+            errors=["Ticker SBER is not in the current portfolio."],
+        )
+        service = ChartImageService(
+            FakeHistoryService(history()),
+            position_value_service=FakePositionValueService(fake_position_value),
+        )
+
+        result = service.render_png("SBER", "month", mode="position_value")
+
+        self.assertFalse(result.ok)
+        self.assertIsNone(result.png_bytes)
+        self.assertEqual(result.mode, "position_value")
+        self.assertIn("not in the current portfolio", result.errors[0])
 
     def test_no_candles_returns_error_and_gap_without_png(self):
         fake_history = history(

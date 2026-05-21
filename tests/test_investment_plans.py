@@ -140,6 +140,41 @@ class InvestmentPlanTests(unittest.TestCase):
                 )
             )
 
+    def test_previous_day_average_discount_defaults_to_daily_buy_with_half_percent(self):
+        service = InvestmentPlanService(order_service=object())
+
+        result = service._normalize_definition(
+            PlanDefinition(
+                ticker="sber",
+                lots=1,
+                schedule="daily",
+                time="09:00",
+                price_rule="previous_day_average_discount",
+            )
+        )
+
+        self.assertEqual(result.operation, "buy")
+        self.assertEqual(result.price_rule, "previous_day_average_discount")
+        self.assertEqual(result.pct_threshold, 0.5)
+        self.assertIsNone(result.price_limit)
+        self.assertIsNone(result.avg_period_days)
+        self.assertEqual(result.confirmation_mode, "telegram_confirm")
+
+    def test_previous_day_average_discount_rejects_sell_plan(self):
+        service = InvestmentPlanService(order_service=object())
+
+        with self.assertRaisesRegex(InvestmentPlanServiceError, "only for buy"):
+            service._normalize_definition(
+                PlanDefinition(
+                    ticker="SBER",
+                    lots=1,
+                    schedule="daily",
+                    time="09:00",
+                    price_rule="previous_day_average_discount",
+                    operation="sell",
+                )
+            )
+
     def test_policy_blocks_auto_when_flags_are_off(self):
         service = TradingPolicyService(mode_service=FakeModeService(), ledger=FakeLedger())
 

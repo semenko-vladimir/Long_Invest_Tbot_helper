@@ -35,6 +35,9 @@ class PriceConditionService:
         if rule == "pct_from_avg":
             return self._check_pct_from_avg(plan, current_price)
 
+        if rule == "previous_day_average_discount":
+            return self._check_previous_day_average_discount(plan, current_price)
+
         return PriceConditionResult(
             allowed=False,
             reason=f"Неизвестное условие цены: {rule}.",
@@ -115,5 +118,39 @@ class PriceConditionService:
             if not prices:
                 return None
             return sum(prices) / len(prices)
+        except Exception:
+            return None
+
+    def _check_previous_day_average_discount(self, plan, current_price: float) -> PriceConditionResult:
+        avg = self._get_previous_day_average(getattr(plan, "ticker", ""))
+        if avg is None:
+            return PriceConditionResult(
+                allowed=False,
+                reason="Не удалось получить вчерашнюю среднерыночную цену.",
+                current_price=current_price,
+            )
+
+        threshold_pct = getattr(plan, "pct_threshold", None)
+        threshold_pct = 0.5 if threshold_pct is None else float(threshold_pct)
+        limit = avg * (1 - threshold_pct / 100)
+        allowed = current_price <= limit
+        reason = (
+            f"Цена {current_price:.2f}₽ ≤ вчерашняя средняя - {threshold_pct:g}% "
+            f"({avg:.2f}₽ → лимит {limit:.2f}₽) — "
+            + ("условие выполнено." if allowed else "пропускаем.")
+        )
+        return PriceConditionResult(
+            allowed=allowed,
+            reason=reason,
+            current_price=current_price,
+            limit_price=limit,
+        )
+
+    def _get_previous_day_average(self, ticker: str) -> Optional[float]:
+        try:
+            token = self._token_provider()
+            if not token:
+                return None
+            return self._broker.get_previous_day_average_price(token, ticker)
         except Exception:
             return None

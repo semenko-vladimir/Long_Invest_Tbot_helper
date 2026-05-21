@@ -2,12 +2,14 @@ from datetime import datetime
 from typing import Callable, Optional
 
 from app.charts.adapters import ChartDataAdapter
-from app.charts.schemas import ChartDataGap, ChartHistory, ChartRange
+from app.charts.schemas import ChartDataGap, ChartHistory, ChartMode, ChartRange
 
 
 CHART_DISCLAIMER = (
     "Read-only historical price data for educational review only. "
-    "This is not personal investment advice and must not trigger broker orders."
+    "Hindsight-only analytics. Not a trading signal. Not investment advice. "
+    "No broker orders were created. This is not personal investment advice "
+    "and must not trigger broker orders."
 )
 
 SUPPORTED_CHART_RANGES: set[ChartRange] = {
@@ -18,6 +20,7 @@ SUPPORTED_CHART_RANGES: set[ChartRange] = {
     "year",
     "all",
 }
+SUPPORTED_CHART_MODES: set[ChartMode] = {"price", "position_value"}
 
 
 class ChartHistoryService:
@@ -122,5 +125,18 @@ def normalize_chart_range(range_name: str) -> Optional[ChartRange]:
     }
     normalized = aliases.get(normalized, normalized)
     if normalized in SUPPORTED_CHART_RANGES:
+        return normalized
+    return None
+
+
+def normalize_chart_mode(mode: str) -> Optional[ChartMode]:
+    normalized = str(mode or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "current_quantity_value": "position_value",
+        "current_position_value": "position_value",
+        "value": "position_value",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized in SUPPORTED_CHART_MODES:
         return normalized
     return None

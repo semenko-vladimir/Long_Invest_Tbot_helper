@@ -1,4 +1,5 @@
 import unittest
+import re
 from types import SimpleNamespace
 from unittest import mock
 
@@ -131,6 +132,11 @@ class WebRouteTests(unittest.TestCase):
             investment_plan_service=SimpleNamespace(policy_status=self.plan_policy),
         )
 
+    def csrf_token(self, response):
+        match = re.search(r'name="csrf_token" value="([^"]+)"', response.text)
+        self.assertIsNotNone(match)
+        return match.group(1)
+
     def test_health_endpoint(self):
         response = self.client.get("/api/health")
 
@@ -182,7 +188,11 @@ class WebRouteTests(unittest.TestCase):
     def test_watchlist_add_form_submission(self):
         services = self.services()
         with mock.patch("app.backend.web.routes.get_web_services", return_value=services):
-            response = self.client.post("/watchlist/add", data={"ticker": "sber"})
+            form_page = self.client.get("/watchlist")
+            response = self.client.post(
+                "/watchlist/add",
+                data={"ticker": "sber", "csrf_token": self.csrf_token(form_page)},
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("SBER was added to the watchlist.", response.text)

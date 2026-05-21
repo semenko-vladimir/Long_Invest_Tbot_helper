@@ -24,6 +24,7 @@ from app.client.handlers.dividends.dividends_handler import dividends_handler
 from app.client.handlers.bot.bot_handler import bot_handler
 from app.client.handlers.orders.manual_order_handler import manual_order_handler
 from app.client.handlers.research.research_handler import research_command_handler, research_text_command_handler
+from app.client.handlers.charts.chart_handler import chart_command_handler, position_chart_command_handler
 from app.client.handlers.statistics.statistics_handler import statistics_handler
 from app.client.handlers.help.help_handler import help_handler
 from app.services.user_context import UnknownUserError, UserContextResolver

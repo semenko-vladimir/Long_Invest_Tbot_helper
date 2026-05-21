@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, PriceCandle
-from app.charts.services import ChartHistoryService, normalize_chart_range
+from app.charts.services import ChartHistoryService, normalize_chart_mode, normalize_chart_range
 
 
 class FakeChartAdapter:
@@ -59,6 +59,8 @@ class ChartHistoryServiceTests(unittest.TestCase):
         self.assertEqual(history.errors, [])
         self.assertEqual(history.data_gaps, [])
         self.assertEqual(adapter.calls, [("SBER", "six_months")])
+        self.assertIn("Hindsight-only analytics", history.disclaimer)
+        self.assertIn("Not a trading signal", history.disclaimer)
         self.assertIn("must not trigger broker orders", history.disclaimer)
 
     def test_unsupported_range_returns_structured_error_without_adapter_call(self):
@@ -136,6 +138,12 @@ class ChartHistoryServiceTests(unittest.TestCase):
         self.assertEqual(normalize_chart_range("1y"), "year")
         self.assertEqual(normalize_chart_range("max"), "all")
         self.assertIsNone(normalize_chart_range("bad"))
+
+    def test_chart_mode_normalization(self):
+        self.assertEqual(normalize_chart_mode("price"), "price")
+        self.assertEqual(normalize_chart_mode("position-value"), "position_value")
+        self.assertEqual(normalize_chart_mode("current_position_value"), "position_value")
+        self.assertIsNone(normalize_chart_mode("bad"))
 
     def test_chart_services_import_no_order_signal_or_plotting_modules(self):
         forbidden_prefixes = (

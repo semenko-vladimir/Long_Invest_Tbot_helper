@@ -14,8 +14,6 @@ from app.client.utils.methods import (
     get_available_qty,
     get_current_price,
     get_lotSize,
-    get_portfolio,
-    get_sandbox_portfolio,
 )
 from app.services.user_database import SessionFactory, get_default_session_factory
 
@@ -49,6 +47,10 @@ class DividendLookup:
     yield_value: str
 
 
+class BrokerPortfolioError(RuntimeError):
+    """Raised when broker portfolio data cannot be loaded safely."""
+
+
 class TInvestBroker:
     """Small adapter that keeps T-Invest SDK details out of services and views."""
 
@@ -56,9 +58,20 @@ class TInvestBroker:
         self.session_factory = session_factory or get_default_session_factory()
 
     def get_portfolio(self, token: str, *, sandbox: bool) -> dict:
-        if sandbox:
-            return get_sandbox_portfolio(token)
-        return get_portfolio(token)
+        try:
+            with Client(token) as client:
+                if sandbox:
+                    account_id = self._get_sandbox_account_id(client, create_if_missing=True)
+                    portfolio = client.sandbox.get_sandbox_portfolio(account_id=account_id)
+                else:
+                    account_id = self._get_prod_account_id(client)
+                    portfolio = client.operations.get_portfolio(account_id=account_id)
+
+                return self._portfolio_response_to_dict(client, portfolio)
+        except BrokerPortfolioError:
+            raise
+        except Exception as exc:
+            raise BrokerPortfolioError(_safe_broker_error_message(exc)) from exc
 
     def get_instrument_name(self, token: str, figi: str) -> Optional[str]:
         try:
@@ -161,6 +174,34 @@ class TInvestBroker:
                 prices.append(close)
         return prices
 
+    def get_previous_day_average_price(self, token: str, ticker: str, lookback_days: int = 10) -> Optional[float]:
+        """
+        Return the latest completed daily candle OHLC average before today.
+        """
+        period_days = max(int(lookback_days), 2)
+        instrument = self.resolve_unique_instrument(token, ticker)
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        with Client(token) as client:
+            response = client.market_data.get_candles(
+                figi=instrument.figi,
+                from_=today_start - timedelta(days=period_days),
+                to=today_start,
+                interval=CandleInterval.CANDLE_INTERVAL_DAY,
+            )
+
+        candles = sorted(
+            response.candles,
+            key=lambda candle: getattr(candle, "time", datetime.min.replace(tzinfo=timezone.utc)),
+            reverse=True,
+        )
+        for candle in candles:
+            average = _daily_candle_average(candle)
+            if average is not None:
+                return average
+        return None
+
     def place_order(self, token: str, figi: str, ticker: str, lots: int, operation: str, sandbox: bool) -> BrokerOrderResult:
         with Client(token) as client:
             account_id = self._get_account_id(client, sandbox)
@@ -214,17 +255,65 @@ class TInvestBroker:
 
     def _get_account_id(self, client: Client, sandbox: bool) -> str:
         if sandbox:
-            sb: SandboxService = client.sandbox
-            accounts = sb.get_sandbox_accounts().accounts
-            if not accounts:
-                account = sb.open_sandbox_account()
-                return account.account_id
-            return accounts[0].id
+            return self._get_sandbox_account_id(client, create_if_missing=True)
 
+        return self._get_prod_account_id(client)
+
+    def _get_sandbox_account_id(self, client: Client, *, create_if_missing: bool) -> str:
+        sb: SandboxService = client.sandbox
+        accounts = sb.get_sandbox_accounts().accounts
+        if accounts:
+            return _account_id(accounts[0])
+        if not create_if_missing:
+            raise BrokerPortfolioError("Sandbox broker account was not found.")
+        account = sb.open_sandbox_account()
+        return _account_id(account)
+
+    def _get_prod_account_id(self, client: Client) -> str:
         accounts = client.users.get_accounts().accounts
         if not accounts:
-            raise ValueError("Broker account was not found.")
-        return accounts[0].id
+            raise BrokerPortfolioError("Broker account was not found.")
+        return _account_id(accounts[0])
+
+    def _portfolio_response_to_dict(self, client: Client, portfolio) -> dict:
+        positions = []
+        for position in portfolio.positions:
+            quantity = _cast_money_or_zero(position.quantity)
+            current_price_one = _cast_money_or_zero(position.current_price)
+            positions.append(
+                {
+                    "ticker": self._position_ticker(client, position) or "Нет информации",
+                    "type": _position_type_label(str(position.instrument_type or "")),
+                    "figi": position.figi,
+                    "quantity": quantity,
+                    "average_position_price": _cast_money_or_zero(position.average_position_price),
+                    "expected_yield": _cast_money_or_zero(position.expected_yield),
+                    "current_price": round(current_price_one * quantity, 2),
+                    "current_price_one": current_price_one,
+                    "blocked": "Заблокирована" if position.blocked else "Активна",
+                }
+            )
+
+        return {
+            "total_amount_shares": _cast_money_or_zero(portfolio.total_amount_shares),
+            "total_amount_bonds": _cast_money_or_zero(portfolio.total_amount_bonds),
+            "total_amount_etf": _cast_money_or_zero(portfolio.total_amount_etf),
+            "total_amount_currencies": _cast_money_or_zero(portfolio.total_amount_currencies),
+            "expected_yield": _cast_money_or_zero(portfolio.expected_yield),
+            "total_amount_portfolio": _cast_money_or_zero(portfolio.total_amount_portfolio),
+            "positions": positions,
+        }
+
+    def _position_ticker(self, client: Client, position) -> Optional[str]:
+        try:
+            response = client.instruments.get_instrument_by(
+                id=position.figi,
+                id_type=InstrumentIdType.INSTRUMENT_ID_TYPE_FIGI,
+            )
+            ticker = getattr(response.instrument, "ticker", None)
+            return str(ticker).upper() if ticker else None
+        except Exception:
+            return None
 
     def _record_order(self, order_id: str, ticker: str, total_value: float, operation: str) -> None:
         db = self.session_factory()
@@ -241,3 +330,52 @@ class TInvestBroker:
             db.commit()
         finally:
             db.close()
+
+
+def _account_id(account) -> str:
+    account_id = getattr(account, "id", None) or getattr(account, "account_id", None)
+    if not account_id:
+        raise BrokerPortfolioError("Broker account id is missing in API response.")
+    return str(account_id)
+
+
+def _cast_money_or_zero(value) -> float:
+    try:
+        return cast_money(value)
+    except Exception:
+        return 0.0
+
+
+def _daily_candle_average(candle) -> Optional[float]:
+    try:
+        values = [
+            cast_money(candle.open),
+            cast_money(candle.high),
+            cast_money(candle.low),
+            cast_money(candle.close),
+        ]
+    except Exception:
+        return None
+
+    if any(value <= 0 for value in values):
+        return None
+    return sum(values) / len(values)
+
+
+def _position_type_label(instrument_type: str) -> str:
+    return {
+        "share": "Акция",
+        "bond": "Облигация",
+        "etf": "Фонд",
+        "currency": "Валюта",
+        "future": "Фьючерс",
+    }.get(instrument_type.lower(), "")
+
+
+def _safe_broker_error_message(exc: Exception) -> str:
+    message = str(exc).strip()
+    if not message:
+        message = exc.__class__.__name__
+    if len(message) > 500:
+        message = f"{message[:500]}..."
+    return f"Broker API request failed: {message}"

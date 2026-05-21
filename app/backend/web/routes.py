@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.backend.web.context import WebRequestServices, get_web_services
 from app.backend.web.csrf import get_csrf_token, validate_csrf_form
+from app.backend.web.navigation import NAV_ITEMS
 from app.services.dividends import DEFAULT_DIVIDEND_PERIOD_DAYS
 from app.services.orders import (
     OrderConfirmCommand,
@@ -26,17 +27,6 @@ logger = logging.getLogger(__name__)
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 router = APIRouter()
-
-NAV_ITEMS = (
-    {"label": "Portfolio", "url": "/portfolio", "key": "portfolio"},
-    {"label": "Buy", "url": "/buy", "key": "buy"},
-    {"label": "Sell", "url": "/sell", "key": "sell"},
-    {"label": "Dividends", "url": "/dividends", "key": "dividends"},
-    {"label": "Watchlist", "url": "/watchlist", "key": "watchlist"},
-    {"label": "Plans", "url": "/plans", "key": "plans"},
-    {"label": "Stats", "url": "/stats", "key": "stats"},
-    {"label": "Settings", "url": "/settings", "key": "settings"},
-)
 
 def base_context(request: Request, *, active: str, title: str, services: WebRequestServices = None) -> dict:
     services = services or get_web_services()

@@ -1,5 +1,6 @@
 <section class="order-panel">
   <form method="post" action="{{ preview_url }}" class="order-form">
+    {% include "partials/csrf_token.html" %}
     <div class="field">
       <label for="{{ operation }}-ticker">Ticker</label>
       <input id="{{ operation }}-ticker" name="ticker" value="{{ values.ticker }}" autocomplete="off" required>

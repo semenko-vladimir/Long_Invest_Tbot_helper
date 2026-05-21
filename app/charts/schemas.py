@@ -4,7 +4,14 @@ from typing import Literal, Optional
 
 
 ChartRange = Literal["day", "week", "month", "six_months", "year", "all"]
+ChartMode = Literal["price", "position_value"]
 GapSeverity = Literal["low", "medium", "high"]
+ChartAnalyticsMarkerKind = Literal["historical_entry", "historical_exit"]
+POSITION_VALUE_CHART_DISCLAIMER = (
+    "Uses current position quantity valued at historical close prices; "
+    "not historical holdings, not a trading signal, not investment advice, "
+    "no broker orders were created."
+)
 
 
 @dataclass(frozen=True)
@@ -22,6 +29,57 @@ class PriceCandle:
     low: float
     close: float
     volume: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ChartAnalyticsMarker:
+    kind: ChartAnalyticsMarkerKind
+    label: str
+    time: datetime
+    close: float
+
+
+@dataclass(frozen=True)
+class ChartDrawdown:
+    peak_time: datetime
+    peak_close: float
+    trough_time: datetime
+    trough_close: float
+    drawdown_pct: float
+
+
+@dataclass(frozen=True)
+class ChartRangePosition:
+    latest_time: datetime
+    latest_close: float
+    range_high_close: float
+    range_low_close: float
+    vs_range_high_pct: float
+    vs_range_low_pct: float
+
+
+@dataclass(frozen=True)
+class ChartSmaPoint:
+    time: datetime
+    value: float
+
+
+@dataclass(frozen=True)
+class ChartSmaSeries:
+    window: int
+    label: str
+    points: list[ChartSmaPoint] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ChartAnalytics:
+    entry_marker: Optional[ChartAnalyticsMarker] = None
+    exit_marker: Optional[ChartAnalyticsMarker] = None
+    hindsight_return_pct: Optional[float] = None
+    max_drawdown: Optional[ChartDrawdown] = None
+    range_position: Optional[ChartRangePosition] = None
+    sma20: ChartSmaSeries = field(default_factory=lambda: ChartSmaSeries(window=20, label="SMA20"))
+    sma50: ChartSmaSeries = field(default_factory=lambda: ChartSmaSeries(window=50, label="SMA50"))
 
 
 @dataclass(frozen=True)
@@ -51,10 +109,38 @@ class ChartHistory:
 
 
 @dataclass(frozen=True)
+class PositionValuePoint:
+    time: datetime
+    close_price: float
+    value: float
+
+
+@dataclass(frozen=True)
+class PositionValueChart:
+    ticker: str
+    figi: Optional[str]
+    range: str
+    quantity: float
+    value_series: list[PositionValuePoint]
+    generated_at: datetime
+    source: str
+    data_gaps: list[ChartDataGap] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    disclaimer: str = POSITION_VALUE_CHART_DISCLAIMER
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.value_series) and not self.errors
+
+
+@dataclass(frozen=True)
 class ChartImageResult:
     png_bytes: Optional[bytes]
     history: ChartHistory
     content_type: str = "image/png"
+    mode: ChartMode = "price"
+    analytics: Optional[ChartAnalytics] = None
+    position_value: Optional[PositionValueChart] = None
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 

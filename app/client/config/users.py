@@ -37,6 +37,10 @@ class UserConfig:
         return self.token if mode == "prod" else self.sandbox_token
 
 
+def _load_local_env() -> None:
+    load_dotenv(override=True)
+
+
 @dataclass(frozen=True)
 class UsersConfig:
     users: list[UserConfig]
@@ -80,7 +84,7 @@ class UsersConfig:
 
 def users_config_path(path: Optional[str | Path] = None, *, load_env: bool = True) -> Path:
     if load_env:
-        load_dotenv()
+        _load_local_env()
     if path is not None:
         return _resolve_path(path)
 
@@ -92,7 +96,7 @@ def users_config_path(path: Optional[str | Path] = None, *, load_env: bool = Tru
 
 def users_config_is_configured(path: Optional[str | Path] = None, *, load_env: bool = True) -> bool:
     if load_env:
-        load_dotenv()
+        _load_local_env()
     if path is not None:
         return True
     if _normalized(os.getenv("USERS_CONFIG_PATH")):
@@ -138,7 +142,7 @@ def load_runtime_users_config() -> UsersConfig:
 
 
 def load_legacy_env_user_config() -> UsersConfig:
-    load_dotenv()
+    _load_local_env()
     user = UserConfig(
         user_id="legacy",
         display_name="Legacy .env User",

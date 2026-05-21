@@ -30,6 +30,7 @@
 
     <div class="order-actions">
       <form method="post" action="{{ confirm_url }}">
+        {% include "partials/csrf_token.html" %}
         <input type="hidden" name="ticker" value="{{ preview.ticker }}">
         <input type="hidden" name="lots" value="{{ preview.lots }}">
         <input type="hidden" name="confirm_token" value="{{ preview.confirm_token }}">
