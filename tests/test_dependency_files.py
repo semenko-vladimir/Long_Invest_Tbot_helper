@@ -10,7 +10,6 @@ OPTIONAL_LEGACY_PACKAGES = {
     "aiohttp",
     "g4f",
     "keras",
-    "matplotlib",
     "mplfinance",
     "pandas-datareader",
     "scikit-learn",
@@ -84,8 +83,9 @@ class DependencyFileTests(unittest.TestCase):
     def test_optional_requirements_are_legacy_only(self):
         self.assertEqual(requirement_includes("requirements-optional.txt"), [])
         # g4f was removed from active v1 runtime — only legacy ML/charting anchors remain.
+        # matplotlib is active runtime for on-demand read-only PNG chart rendering.
         self.assertTrue(
-            {"keras", "tensorflow", "matplotlib", "ta"}.issubset(
+            {"keras", "tensorflow", "mplfinance", "ta"}.issubset(
                 requirement_names("requirements-optional.txt")
             )
         )

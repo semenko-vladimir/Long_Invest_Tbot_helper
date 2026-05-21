@@ -8,7 +8,6 @@ aiohttp==3.13.4
 # through a separate provider gateway, not g4f. Re-enable only if you intentionally
 # rebuild a g4f-based educational analysis path (must never create broker orders).
 keras==3.13.2
-matplotlib==3.9.2
 mplfinance==0.12.10b0
 pandas-datareader==0.10.0
 scikit-learn==1.5.2

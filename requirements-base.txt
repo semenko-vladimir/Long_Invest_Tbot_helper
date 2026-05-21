@@ -9,6 +9,7 @@ alembic>=1.13.0
 pandas==2.2.2
 pytz==2024.1
 APScheduler==3.10.4
+matplotlib==3.9.2
 
 # The legacy T-Invest SDK packages used by this codebase are quarantined on PyPI;
 # pip cannot currently resolve these qualified pins by package name.

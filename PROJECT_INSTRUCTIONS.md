@@ -30,15 +30,17 @@ The active v1 runtime is limited to:
 - local manual order history and basic statistics;
 - investment plans, anti-greedy sell proposals, and reminders for manual review;
 - local settings and mode visibility;
-- read-only ticker research in the web terminal and Telegram.
+- read-only ticker research in the web terminal and Telegram;
+- read-only chart data and on-demand PNG rendering for educational price review.
 
 Manual orders and explicitly confirmed plan/anti-greedy prompts are the only active broker order paths.
 
 The default dependency set for v1 is `requirements-base.txt`. The
 `requirements.txt` and `requirements-v1.txt` files are compatibility aliases to
-that active runtime set. Legacy analytics, charting, signal, ML, and GPT
-dependencies belong only in `requirements-optional.txt` and must remain
-explicitly opt-in.
+that active runtime set. Matplotlib is part of active runtime only for
+on-demand, read-only PNG chart rendering. Legacy analytics, heavier charting,
+signal, ML, and GPT dependencies belong only in `requirements-optional.txt`
+and must remain explicitly opt-in.
 
 ## Safety Rules
 

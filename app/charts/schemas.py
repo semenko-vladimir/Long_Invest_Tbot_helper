@@ -48,3 +48,16 @@ class ChartHistory:
         "Read-only historical price data for educational review only. "
         "This is not personal investment advice and must not trigger broker orders."
     )
+
+
+@dataclass(frozen=True)
+class ChartImageResult:
+    png_bytes: Optional[bytes]
+    history: ChartHistory
+    content_type: str = "image/png"
+    data_gaps: list[ChartDataGap] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        return self.png_bytes is not None and not self.errors
