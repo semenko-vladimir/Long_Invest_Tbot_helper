@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.backend.main_api import app
 from app.backend.models.database import Base
 from app.backend.models.trading import Instrument
+from app.services.dividends import DividendItem, DividendsView
 from app.services.mode import ModeContext
 from app.services.portfolio import PortfolioView
 from app.services.settings_view import SettingsView
@@ -88,6 +89,30 @@ class WebRouteTests(unittest.TestCase):
             ),
             watchlist_service=watchlist_service,
             statistics_service=StatisticsService(session_factory=self.session_factory),
+            dividends_service=SimpleNamespace(
+                get_dividends_view=lambda period_days: DividendsView(
+                    period_days=period_days,
+                    empty_watchlist=False,
+                    items=[
+                        DividendItem(
+                            ticker="SBER",
+                            name="Sber",
+                            next_dividend_date="2026-07-01",
+                            expected_dividend="12.50 RUB",
+                            position_quantity=10.0,
+                            position_quantity_display="10.00",
+                            expected_dividend_per_share_display="12.50 RUB",
+                            expected_total_dividend=125.0,
+                            expected_total_dividend_display="125.00 RUB",
+                            estimated_yield="4.2%",
+                            last_buy_date="2026-06-25",
+                            record_date="2026-06-27",
+                            status="Dividend data available.",
+                            has_data=True,
+                        )
+                    ],
+                )
+            ),
             settings_view_service=SimpleNamespace(
                 current=lambda: SettingsView(
                     mode=mode,
@@ -131,6 +156,16 @@ class WebRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
+
+    def test_dividends_page_shows_position_quantity_and_estimated_total(self):
+        with mock.patch("app.backend.web.routes.get_web_services", return_value=self.services()):
+            response = self.client.get("/dividends")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Current quantity", response.text)
+        self.assertIn("Dividend per share", response.text)
+        self.assertIn("Estimated total", response.text)
+        self.assertIn("125.00 RUB", response.text)
 
     def test_settings_page_loads(self):
         with mock.patch("app.backend.web.routes.get_web_services", return_value=self.services()):

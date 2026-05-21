@@ -28,6 +28,13 @@
     <p>Add tickers to the watchlist before checking dividend data.</p>
   </section>
 {% else %}
+  {% if dividends.portfolio_error %}
+    <section class="notice">
+      <h3>Portfolio quantities unavailable</h3>
+      <p>{{ dividends.portfolio_error }}</p>
+    </section>
+  {% endif %}
+
   <section class="table-shell" aria-label="Dividend summary">
     <table>
       <thead>
@@ -35,7 +42,9 @@
           <th>Ticker</th>
           <th>Name</th>
           <th>Next dividend date</th>
-          <th>Expected dividend</th>
+          <th>Current quantity</th>
+          <th>Dividend per share</th>
+          <th>Estimated total</th>
           <th>Estimated yield</th>
           <th>Last buy date</th>
           <th>Record date</th>
@@ -48,7 +57,9 @@
             <td><strong>{{ item.ticker }}</strong></td>
             <td>{{ item.name }}</td>
             <td>{{ item.next_dividend_date }}</td>
-            <td>{{ item.expected_dividend }}</td>
+            <td>{{ item.position_quantity_display }}</td>
+            <td>{{ item.expected_dividend_per_share_display }}</td>
+            <td>{{ item.expected_total_dividend_display }}</td>
             <td>{{ item.estimated_yield }}</td>
             <td>{{ item.last_buy_date }}</td>
             <td>{{ item.record_date }}</td>

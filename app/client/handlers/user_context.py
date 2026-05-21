@@ -85,6 +85,7 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
         dividends_service=DividendsService(
             watchlist_service=watchlist_service,
             broker=broker,
+            mode_service=mode_service,
             token_provider=token_provider,
         ),
         statistics_service=StatisticsService(session_factory=session_factory),

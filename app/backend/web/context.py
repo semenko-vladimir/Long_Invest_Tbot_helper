@@ -73,6 +73,7 @@ def build_web_services(user: UserContext) -> WebRequestServices:
         dividends_service=DividendsService(
             watchlist_service=watchlist_service,
             broker=broker,
+            mode_service=mode_service,
             token_provider=token_provider,
         ),
         investment_plan_service=InvestmentPlanService(
