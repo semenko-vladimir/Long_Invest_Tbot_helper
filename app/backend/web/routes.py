@@ -34,7 +34,6 @@ NAV_ITEMS = (
     {"label": "Dividends", "url": "/dividends", "key": "dividends"},
     {"label": "Watchlist", "url": "/watchlist", "key": "watchlist"},
     {"label": "Plans", "url": "/plans", "key": "plans"},
-    {"label": "Strategies", "url": "/strategies", "key": "strategies"},
     {"label": "Stats", "url": "/stats", "key": "stats"},
     {"label": "Settings", "url": "/settings", "key": "settings"},
 )
@@ -456,16 +455,6 @@ def stats_page(request: Request):
     context["stats"] = stats
     context["period_days_input"] = raw.strip()
     return templates.TemplateResponse("pages/stats.html", context)
-
-
-@router.get("/strategies")
-def strategies_page(request: Request):
-    services = get_web_services()
-    context = base_context(request, active="strategies", title="Strategies", services=services)
-    context["dashboard"] = services.strategy_dashboard_service.current(
-        history_strategy_type=request.query_params.get("type")
-    )
-    return templates.TemplateResponse("pages/strategies.html", context)
 
 
 @router.get("/orders")

@@ -18,9 +18,7 @@ ACTIVE_TELEGRAM_DATA_HANDLERS = (
 )
 
 USER_DATA_API_ENDPOINTS = (
-    "app/backend/api/endpoints/instruments.py",
     "app/backend/api/endpoints/research.py",
-    "app/backend/api/endpoints/trading.py",
 )
 
 

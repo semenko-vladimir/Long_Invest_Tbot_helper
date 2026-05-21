@@ -31,7 +31,7 @@ Post-cleanup result:
 | `app/run.py` | Main local startup: validates config/tokens, configures SQLite, starts FastAPI thread, configures schedulers/reminders, starts Telegram polling. | KEEP_RUNTIME |
 | `app/backend/main_api.py` | FastAPI app factory/module: lifespan creates DB tables, mounts `/api`, web routes, and static assets. | KEEP_RUNTIME |
 | `app/client/bot/bot.py` | Telegram bot instance. | KEEP_RUNTIME |
-| `app/backend/api/__init__.py` | Mounted API router for trading DB CRUD, instruments, and research. | KEEP_RUNTIME |
+| `app/backend/api/__init__.py` | Mounted API router for read-only research. Legacy local-write trading/instruments routers were removed from the active single-owner runtime. | KEEP_RUNTIME |
 | `app/backend/web/routes.py` | Web terminal routes for portfolio, buy/sell preview/confirm, dividends, watchlist, plans, stats, orders, settings. | KEEP_RUNTIME |
 | `alembic/env.py` and `alembic/versions/*` | SQLite schema/migration path. | KEEP_CONFIG_OR_SCHEMA |
 
@@ -134,7 +134,7 @@ Deleted:
 ## Kept As Uncertain Or Safety-Critical
 
 - `app/services/auto_scheduler.py`, `plan_confirmation.py`, `plan_runner.py`, `price_conditions.py`, and `app/client/handlers/plans/auto_confirm_handler.py`: not startup-reachable in default v1, but tested and related to plan/order safety, so not deleted.
-- `app/backend/api/endpoints/trading.py`, `app/backend/schemas/trading.py`, and legacy DB tables (`Margin`, `Buy`, `Order`): mounted or used by statistics/order history/API tests.
+- Legacy DB tables (`Margin`, `Buy`, `Order`): kept for statistics/order history history compatibility. Legacy local-write API endpoint files and schemas were removed from the active single-owner runtime.
 - All tests, migrations, schemas, config examples, and dependency files.
 - `docs/token-optimization-architecture.md`: stale references found, but kept as uncertain future LLM architecture material rather than deleting a possible planning artifact.
 - `AUTO_SCHEDULE_TASKS.md` and `ROADMAP.md`: planning docs for future work; not runtime, but project direction.

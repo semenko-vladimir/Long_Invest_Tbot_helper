@@ -88,30 +88,6 @@ def anti_greedy_policy_enabled() -> bool:
     return _env_bool("ENABLE_ANTI_GREEDY_POLICY")
 
 
-def strategy_proposals_enabled() -> bool:
-    return _env_bool("ENABLE_STRATEGY_PROPOSALS")
-
-
-def strategy_observations_enabled() -> bool:
-    return _env_bool("ENABLE_STRATEGY_OBSERVATIONS")
-
-
-def strategy_observation_telegram_notifications_enabled() -> bool:
-    return _env_bool("ENABLE_STRATEGY_OBSERVATION_TELEGRAM_NOTIFICATIONS")
-
-
-def strategy_auto_execution_enabled() -> bool:
-    return _env_bool("ENABLE_STRATEGY_AUTO_EXECUTION")
-
-
-def allow_strategy_auto_execution() -> bool:
-    return _env_bool("ALLOW_STRATEGY_AUTO_EXECUTION")
-
-
-def strategy_auto_execution_sandbox_only() -> bool:
-    return _env_bool("STRATEGY_AUTO_EXECUTION_SANDBOX_ONLY", default="true")
-
-
 def allow_auto_investing() -> bool:
     return _env_bool("ALLOW_AUTO_INVESTING")
 
@@ -131,21 +107,6 @@ def get_max_order_rub() -> float:
 
 def get_max_daily_invest_rub() -> float:
     return get_money_limit("MAX_DAILY_INVEST_RUB")
-
-
-def get_strategy_money_limit(name: str, legacy_name: str) -> float:
-    load_local_env()
-    if _normalized(os.getenv(name)) == "" and _normalized(os.getenv(legacy_name)) != "":
-        return get_money_limit(legacy_name)
-    return get_money_limit(name)
-
-
-def get_max_strategy_auto_order_rub() -> float:
-    return get_strategy_money_limit("MAX_STRATEGY_AUTO_ORDER_RUB", "MAX_STRATEGY_ORDER_RUB")
-
-
-def get_max_daily_strategy_auto_rub() -> float:
-    return get_strategy_money_limit("MAX_DAILY_STRATEGY_AUTO_RUB", "MAX_STRATEGY_DAILY_RUB")
 
 
 def get_investor_reminder_time() -> str:
@@ -169,85 +130,6 @@ def get_anti_greedy_profit_pct() -> float:
 def get_anti_greedy_check_time() -> str:
     load_local_env()
     return _normalized(os.getenv("ANTI_GREEDY_CHECK_TIME") or "18:30") or "18:30"
-
-
-def get_strategy_proposals_dir() -> str:
-    return get_strategy_confirmation_required_dir()
-
-
-def get_strategy_confirmation_required_dir() -> str:
-    load_local_env()
-    return (
-        _normalized(
-            os.getenv("STRATEGY_CONFIRMATION_REQUIRED_DIR")
-            or os.getenv("STRATEGY_PROPOSALS_DIR")
-            or "user_strategies/confirmation_required"
-        )
-        or "user_strategies/confirmation_required"
-    )
-
-
-def get_strategy_no_confirmation_dir() -> str:
-    load_local_env()
-    return _normalized(os.getenv("STRATEGY_NO_CONFIRMATION_DIR") or "user_strategies/observations") or (
-        "user_strategies/observations"
-    )
-
-
-def get_strategy_auto_execution_dir() -> str:
-    load_local_env()
-    return (
-        _normalized(
-            os.getenv("STRATEGY_AUTO_EXECUTION_DIR")
-            or os.getenv("STRATEGY_AUTO_EXECUTION_LEGACY_DIR")
-            or "user_strategies/auto_execute"
-        )
-        or "user_strategies/auto_execute"
-    )
-
-
-def get_strategy_proposal_check_interval_seconds() -> int:
-    load_local_env()
-    raw_value = _normalized(os.getenv("STRATEGY_PROPOSAL_CHECK_INTERVAL_SECONDS") or "60")
-    try:
-        value = int(raw_value)
-    except ValueError as exc:
-        raise ConfigError(
-            "Environment variable STRATEGY_PROPOSAL_CHECK_INTERVAL_SECONDS must be a positive integer."
-        ) from exc
-    if value < 1:
-        raise ConfigError(
-            "Environment variable STRATEGY_PROPOSAL_CHECK_INTERVAL_SECONDS must be a positive integer."
-        )
-    return value
-
-
-def get_strategy_auto_execution_check_interval_seconds() -> int:
-    load_local_env()
-    raw_value = _normalized(os.getenv("STRATEGY_AUTO_EXECUTION_CHECK_INTERVAL_SECONDS") or "60")
-    try:
-        value = int(raw_value)
-    except ValueError as exc:
-        raise ConfigError(
-            "Environment variable STRATEGY_AUTO_EXECUTION_CHECK_INTERVAL_SECONDS must be a positive integer."
-        ) from exc
-    if value < 1:
-        raise ConfigError(
-            "Environment variable STRATEGY_AUTO_EXECUTION_CHECK_INTERVAL_SECONDS must be a positive integer."
-        )
-    return value
-
-
-def get_strategy_auto_dedupe_window_seconds() -> int:
-    load_local_env()
-    raw_value = _normalized(os.getenv("STRATEGY_AUTO_DEDUPE_WINDOW_SECONDS") or "86400")
-    try:
-        value = int(raw_value)
-    except ValueError as exc:
-        raise ConfigError("Environment variable STRATEGY_AUTO_DEDUPE_WINDOW_SECONDS must be a positive integer.") from exc
-    if value < 1:
-        raise ConfigError("Environment variable STRATEGY_AUTO_DEDUPE_WINDOW_SECONDS must be a positive integer.")
-    return value
 
 
 def get_tokens() -> dict:
@@ -307,16 +189,6 @@ def api_host_is_localhost(host: Optional[str] = None) -> bool:
 
 def web_auth_enabled() -> bool:
     return _env_bool("WEB_AUTH_ENABLED")
-
-
-def legacy_local_write_api_enabled() -> bool:
-    """Opt-in flag for legacy /api/trading and /api/instruments local-write endpoints.
-
-    These endpoints write to local SQLite without CSRF and ignore broker safety gates.
-    They cannot place real broker orders, but can poison local order history or wipe
-    the local instrument cache if the API is exposed. Default is disabled.
-    """
-    return _env_bool("ENABLE_LEGACY_LOCAL_WRITE_API")
 
 
 def get_web_auth_token() -> Optional[str]:

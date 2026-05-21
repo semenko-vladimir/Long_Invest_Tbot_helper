@@ -48,6 +48,23 @@
 </section>
 
 <section class="page-header settings-section">
+  <p class="eyebrow">Web auth</p>
+  <h2>Owner access token</h2>
+  <p>Only the enabled state and token presence are shown. The token value is never printed.</p>
+</section>
+
+<section class="settings-list">
+  <div>
+    <span>Web auth</span>
+    <strong>{% if settings.web_auth_enabled %}Enabled{% else %}Disabled{% endif %}</strong>
+  </div>
+  <div>
+    <span>Web auth token configured</span>
+    <strong>{% if settings.web_auth_token_configured %}Yes{% else %}No{% endif %}</strong>
+  </div>
+</section>
+
+<section class="page-header settings-section">
   <p class="eyebrow">Runtime flags</p>
   <h2>Environment-backed values</h2>
   <p>These values are read at runtime from the application config helpers.</p>
@@ -65,6 +82,18 @@
   <div>
     <span>ENABLE_INVESTMENT_PLANS</span>
     <strong>{% if settings.investment_plans_enabled %}true{% else %}false{% endif %}</strong>
+  </div>
+  <div>
+    <span>ENABLE_ANTI_GREEDY_POLICY</span>
+    <strong>{% if settings.anti_greedy_policy_enabled %}true{% else %}false{% endif %}</strong>
+  </div>
+  <div>
+    <span>ANTI_GREEDY_PROFIT_PCT</span>
+    <strong>{{ "%.2f"|format(settings.anti_greedy_profit_pct) }}%</strong>
+  </div>
+  <div>
+    <span>ANTI_GREEDY_CHECK_TIME</span>
+    <strong>{{ settings.anti_greedy_check_time }}</strong>
   </div>
   <div>
     <span>API_BASE_URL</span>

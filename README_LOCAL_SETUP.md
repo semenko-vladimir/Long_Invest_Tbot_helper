@@ -41,7 +41,7 @@ v1 runtime:
 python -m pip install -r requirements-optional.txt
 ```
 
-## 3. Create `.env` and `users.json`
+## 3. Create `.env` and single-user `users.json`
 
 ```powershell
 Copy-Item .env.example .env
@@ -63,10 +63,10 @@ INVESTOR_REMINDER_TIME = "09:00"
 API_BASE_URL = "http://localhost:8000"
 ```
 
-Fill per-user `telegram_chat_id`, `sandbox_token`, `broker_fee`, and `db_path`
-in `users.json`. The file is ignored by git and should contain local secrets
-only. Each enabled user gets a separate SQLite DB file at their configured
-`db_path`.
+Fill the single local user's `telegram_chat_id`, `sandbox_token`, `broker_fee`,
+and `db_path` in `users.json`. The file is ignored by git and should contain
+local secrets only. The project is intended for one unique user, not several
+independent users.
 
 `APP_MODE` is the canonical mode variable. `INVEST_MODE` is kept as a legacy alias for older local configs. A production token is only required in `users.json` when `APP_MODE="prod"`. Production trading is blocked unless `ALLOW_PROD_TRADING="true"` is set explicitly.
 
@@ -78,8 +78,8 @@ python app/run.py
 
 Expected startup path:
 
-- SQLite creates `database.db` in the repo root.
-- With `users.json`, SQLite creates per-user DB files instead.
+- SQLite creates `database.db` in the repo root when legacy `.env` fallback is used.
+- With `users.json`, SQLite uses the single configured user's DB path.
 - FastAPI starts on `http://localhost:8000`.
 - Telegram polling starts.
 - Background schedulers remain disabled unless explicitly enabled.
@@ -90,7 +90,7 @@ In another terminal:
 
 ```powershell
 curl http://localhost:8000/
-curl http://localhost:8000/api/instruments/
+curl http://localhost:8000/api/health
 ```
 
 In Telegram:
@@ -137,7 +137,7 @@ The script creates `venv`, installs `requirements-v1.txt` (a compatibility alias
 
 ## Common Blockers
 
-- `BOT_TOKEN`, user `sandbox_token`, and user `telegram_chat_id` must be real values, not placeholders.
+- `BOT_TOKEN`, the single user's `sandbox_token`, and the single user's `telegram_chat_id` must be real values, not placeholders.
 - User `token` can stay empty for sandbox mode.
 - If `fastapi`, `telebot`, `tinkoff`, or `sqlalchemy` imports fail, install `requirements-base.txt` inside the active `venv`.
 - If pip cannot resolve `tinkoff` or `tinkoff-investments`, check the quarantine note in `requirements-base.txt`; normal package-name installs are currently blocked by PyPI quarantine.

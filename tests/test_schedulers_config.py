@@ -1,67 +1,37 @@
 import ast
-import builtins
-import os
 from pathlib import Path
 import unittest
 from unittest import mock
-
-
-os.environ.setdefault("BOT_TOKEN", "123456:TEST")
 
 from app.client.config import schedulers_config
 
 
 class SchedulerConfigSafetyTests(unittest.TestCase):
-    def test_configure_strategy_scheduler_is_noop_even_when_enabled(self):
-        real_import = builtins.__import__
-
-        def guarded_import(name, *args, **kwargs):
-            forbidden = {
-                "app.client.api.strategy_client",
-                "app.client.strategy.strategy_run",
-                "apscheduler.schedulers.background",
-            }
-            if name in forbidden:
-                raise AssertionError(f"Unexpected legacy scheduler import: {name}")
-            return real_import(name, *args, **kwargs)
-
-        with mock.patch.dict(os.environ, {"ENABLE_STRATEGY_SCHEDULER": "true"}, clear=False), \
-            mock.patch.object(schedulers_config, "logger") as logger, \
-            mock.patch("builtins.__import__", side_effect=guarded_import):
-            result = schedulers_config.configure_strategy_scheduler()
-
-        self.assertIsNone(result)
-        logger.warning.assert_called_once()
-        self.assertIn("ignored", logger.warning.call_args.args[0])
-
-    def test_configure_strategy_scheduler_logs_disabled_when_env_is_off(self):
-        with mock.patch.dict(os.environ, {"ENABLE_STRATEGY_SCHEDULER": "false"}, clear=False), \
-            mock.patch.object(schedulers_config, "logger") as logger:
-            result = schedulers_config.configure_strategy_scheduler()
-
-        self.assertIsNone(result)
-        logger.info.assert_called_once()
-        self.assertIn("disabled for investor v1", logger.info.call_args.args[0])
-
     def test_configure_schedulers_respects_disabled_background_default(self):
         with mock.patch.object(schedulers_config, "background_schedulers_enabled", return_value=False), \
             mock.patch.object(schedulers_config, "configure_market_scheduler") as market_scheduler, \
-            mock.patch.object(schedulers_config, "configure_strategy_scheduler") as strategy_scheduler:
+            mock.patch.object(schedulers_config, "configure_plan_scheduler") as plan_scheduler, \
+            mock.patch.object(schedulers_config, "configure_anti_greedy_scheduler") as anti_greedy_scheduler:
             schedulers_config.configure_schedulers()
 
         market_scheduler.assert_not_called()
-        strategy_scheduler.assert_not_called()
+        plan_scheduler.assert_not_called()
+        anti_greedy_scheduler.assert_not_called()
 
-    def test_scheduler_config_has_no_active_strategy_scheduler_path(self):
-        source_path = (
-            Path(__file__).resolve().parents[1]
-            / "app"
-            / "client"
-            / "config"
-            / "schedulers_config.py"
-        )
-        source = source_path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
+    def test_configure_schedulers_runs_only_active_single_owner_schedulers(self):
+        with mock.patch.object(schedulers_config, "background_schedulers_enabled", return_value=True), \
+            mock.patch.object(schedulers_config, "configure_market_scheduler") as market_scheduler, \
+            mock.patch.object(schedulers_config, "configure_plan_scheduler") as plan_scheduler, \
+            mock.patch.object(schedulers_config, "configure_anti_greedy_scheduler") as anti_greedy_scheduler:
+            schedulers_config.configure_schedulers()
+
+        market_scheduler.assert_called_once()
+        plan_scheduler.assert_called_once()
+        anti_greedy_scheduler.assert_called_once()
+
+    def test_scheduler_config_has_no_strategy_scheduler_or_direct_order_calls(self):
+        source_path = Path(__file__).resolve().parents[1] / "app" / "client" / "config" / "schedulers_config.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
 
         imported_modules = set()
         imported_names = set()
@@ -78,9 +48,11 @@ class SchedulerConfigSafetyTests(unittest.TestCase):
 
         self.assertNotIn("app.client.strategy.strategy_run", imported_modules)
         self.assertNotIn("app.client.api.strategy_client", imported_modules)
+        self.assertNotIn("app.services.strategy_registry", imported_modules)
         self.assertNotIn("strategy_run", imported_names)
         self.assertNotIn("StrategyApiClient", imported_names)
-        self.assertNotIn("strategy_scheduler", imported_names)
+        self.assertNotIn("TradingApiClient", imported_names)
+        self.assertNotIn("place_order", attribute_names)
         self.assertNotIn("post_order", attribute_names)
         self.assertNotIn("post_sandbox_order", attribute_names)
 

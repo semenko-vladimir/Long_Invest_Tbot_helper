@@ -110,7 +110,7 @@ def _baseline_revision_for_existing_schema(db_path: Path) -> str | None:
             if not table_names or "alembic_version" in table_names:
                 return None
             if _has_auto_schedule_fields(conn) and _has_strategy_auto_execution_fields(conn):
-                return "head"
+                return "b4c7e91a2d6f"
             if _has_auto_schedule_fields(conn) and _has_typed_strategy_proposal_executions(conn):
                 return "9d2a5f31b7c4"
             if _has_auto_schedule_fields(conn) and _has_strategy_proposal_executions(conn):

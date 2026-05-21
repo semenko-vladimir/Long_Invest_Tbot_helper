@@ -4,8 +4,6 @@ Tbot v1 - это локальный помощник для одного уни�
 
 Проект не рассчитан как multi-user SaaS или общий бот для нескольких людей. `users.json` и `UserContext` используются как локальная конфигурационная оболочка для единственного владельца: его Telegram chat ID, T-Invest токенов, комиссии брокера и пути к локальной SQLite-базе.
 
-В развитие основной идеи проект должен также давать инвестору возможность видеть текущие торговые стратегии в веб-терминале и Telegram-боте. Этот слой по умолчанию read-only: показывает название, статус, инструменты, правила и последние проверки стратегии. Локальные strategy proposals можно включить только явно; они отправляют Telegram-предложение на подтверждение и не создают брокерскую заявку без отдельного пользовательского подтверждения и свежей проверки перед исполнением.
-
 Проект не является инвестиционным советником и не дает финансовых рекомендаций. Торговля в production считается опасной и остается заблокированной, пока явно не настроены `APP_MODE="prod"`, production-токен активного пользователя и `ALLOW_PROD_TRADING="true"`.
 
 ## Что умеет проект
@@ -15,11 +13,11 @@ Tbot v1 - это локальный помощник для одного уни�
 - Ведет watchlist тикеров.
 - Показывает информацию, связанную с дивидендами, для инструментов из watchlist.
 - Показывает базовую текстовую статистику по сохраненным ручным торговым операциям.
-- Может готовить предложения инвестиционного плана, включая ежедневное условие покупки ниже вчерашней средней цены, anti-greedy предложения продажи при прибыли по позиции выше порога, явно включенные локальные strategy proposals через Telegram confirmation, и опциональные ежедневные напоминания инвестору без сигналов и торговых советов.
-- Предоставляет локальный FastAPI/web-терминал для портфеля, watchlist, дивидендов, ручных заявок, планов, read-only стратегий и настроек.
+- Может готовить предложения инвестиционного плана, включая ежедневное условие покупки ниже вчерашней средней цены, anti-greedy предложения продажи при прибыли по позиции выше порога, и опциональные ежедневные напоминания инвестору без сигналов и торговых советов.
+- Предоставляет локальный FastAPI/web-терминал для портфеля, watchlist, дивидендов, ручных заявок, планов, research и настроек.
 - По умолчанию запускается в sandbox-режиме.
 
-Investor v1 намеренно не включает runtime-сигналы RSI/MACD/EMA/SMA, GPT/LSTM-анализ, скальпинг-сценарии и рекомендации BUY/HOLD/SELL/WATCH/AVOID. Активные пути выставления заявок проходят через `OrderService` preview -> confirmation -> execute; плановые, anti-greedy и strategy proposal предложения требуют явного подтверждения. Отдельный тип стратегий `auto_execute` существует только как явно включаемый sandbox-only milestone с лимитами, дедупликацией и запретом прямых broker calls.
+Investor v1 намеренно не включает runtime-сигналы RSI/MACD/EMA/SMA, GPT/LSTM-анализ, стратегии, скальпинг-сценарии и рекомендации BUY/HOLD/SELL/WATCH/AVOID. Активные пути выставления заявок проходят через `OrderService` preview -> confirmation -> execute; ручные заявки, плановые и anti-greedy предложения требуют явного подтверждения.
 
 ## Архитектура
 
@@ -109,25 +107,9 @@ APP_MODE = "sandbox"
 ALLOW_PROD_TRADING = "false"
 WEB_AUTH_ENABLED = "false"
 WEB_AUTH_TOKEN = ""
-ENABLE_LEGACY_LOCAL_WRITE_API = "false"
 ENABLE_BACKGROUND_SCHEDULERS = "false"
 ENABLE_INVESTOR_REMINDERS = "false"
 INVESTOR_REMINDER_TIME = "09:00"
-ENABLE_STRATEGY_PROPOSALS = "false"
-STRATEGY_CONFIRMATION_REQUIRED_DIR = "user_strategies/confirmation_required"
-STRATEGY_PROPOSALS_DIR = ""
-ENABLE_STRATEGY_OBSERVATIONS = "false"
-STRATEGY_NO_CONFIRMATION_DIR = "user_strategies/observations"
-ENABLE_STRATEGY_OBSERVATION_TELEGRAM_NOTIFICATIONS = "false"
-STRATEGY_PROPOSAL_CHECK_INTERVAL_SECONDS = "60"
-ENABLE_STRATEGY_AUTO_EXECUTION = "false"
-ALLOW_STRATEGY_AUTO_EXECUTION = "false"
-STRATEGY_AUTO_EXECUTION_SANDBOX_ONLY = "true"
-STRATEGY_AUTO_EXECUTION_DIR = "user_strategies/auto_execute"
-STRATEGY_AUTO_EXECUTION_CHECK_INTERVAL_SECONDS = "60"
-STRATEGY_AUTO_DEDUPE_WINDOW_SECONDS = "86400"
-MAX_STRATEGY_AUTO_ORDER_RUB = "0"
-MAX_DAILY_STRATEGY_AUTO_RUB = "0"
 API_BASE_URL = "http://localhost:8000"
 ```
 
@@ -160,13 +142,11 @@ python app/run.py
 4. Настроить выключенные по умолчанию schedulers/reminders.
 5. Запустить Telegram polling.
 
-`ENABLE_STRATEGY_SCHEDULER` намеренно игнорируется в investor v1; legacy-автоматизацию стратегий нельзя повторно включить через `.env`.
-
 Smoke-проверки после запуска:
 
 ```powershell
 curl http://localhost:8000/
-curl http://localhost:8000/api/instruments/
+curl http://localhost:8000/api/health
 ```
 
 ## Покупка и продажа по тикеру
@@ -238,7 +218,6 @@ FastAPI также отдает локальный терминал инвест
 - `Watchlist`
 - `Research`
 - `Plans`
-- `Strategies`
 - `Order history` со страницы Stats
 - `Settings`
 
@@ -248,23 +227,11 @@ FastAPI также отдает локальный терминал инвест
 
 Anti-greedy policy включается отдельно через `ENABLE_ANTI_GREEDY_POLICY=true`. По умолчанию `ANTI_GREEDY_PROFIT_PCT=20`: ежедневная проверка в `ANTI_GREEDY_CHECK_TIME` находит позиции, где текущая валовая доходность выше 20%, и отправляет Telegram-подтверждение на продажу позиции в целых лотах. Заявка не отправляется без явного подтверждения, а перед исполнением позиция, порог прибыли и sell preview с проверкой доступного количества проверяются заново.
 
-Local confirmation-required strategy proposals включаются отдельно через `ENABLE_STRATEGY_PROPOSALS=true` и работают только если также включен общий gate `ENABLE_BACKGROUND_SCHEDULERS=true`. Scheduler загружает enabled strategy files из `STRATEGY_CONFIRMATION_REQUIRED_DIR` (по умолчанию `user_strategies/confirmation_required`), планирует проверки по `schedule` внутри стратегии и отправляет Telegram-prompt с кнопками `Исполнить` / `Пропустить`. `STRATEGY_PROPOSALS_DIR` остается только deprecated alias для старых локальных настроек; для новых настроек используйте `STRATEGY_CONFIRMATION_REQUIRED_DIR`. Брокерская заявка не отправляется при срабатывании стратегии: подтверждение создает fresh `OrderService.preview()`, выполняет recheck стратегии, если он включен, и только затем идет через `OrderService.execute()`. Результаты проверок и подтверждений сохраняются в локальную таблицу истории без raw broker/API payloads и без секретов.
-
-No-confirmation strategies включаются отдельно через `ENABLE_STRATEGY_OBSERVATIONS=true` и загружаются из `STRATEGY_NO_CONFIRMATION_DIR` (по умолчанию `user_strategies/observations`). Это observation-only проверки: они могут записать локальную историю/status и, если `ENABLE_STRATEGY_OBSERVATION_TELEGRAM_NOTIFICATIONS=true`, отправить informational Telegram notification. Они никогда не создают broker-order proposals, не вызывают `OrderService.preview()`, не вызывают `OrderService.execute()` и не отправляют брокерские заявки.
-
-Auto-execute strategies являются отдельным, выключенным по умолчанию типом стратегий. Они загружаются только из `STRATEGY_AUTO_EXECUTION_DIR` (по умолчанию `user_strategies/auto_execute`) и запускаются только если одновременно включены `ENABLE_BACKGROUND_SCHEDULERS=true`, `ENABLE_STRATEGY_AUTO_EXECUTION=true` и `ALLOW_STRATEGY_AUTO_EXECUTION=true`. Production auto-execution заблокирован независимо от `STRATEGY_AUTO_EXECUTION_SANDBOX_ONLY`; этот флаг оставлен только для совместимости/отображения. Перед исполнением создается fresh `OrderService.preview()`, затем проверяются `MAX_ORDER_RUB`, `MAX_DAILY_INVEST_RUB`, `MAX_STRATEGY_AUTO_ORDER_RUB`, `MAX_DAILY_STRATEGY_AUTO_RUB` и durable dedupe. Дневной strategy auto budget резервируется атомарно в SQLite перед `OrderService.execute()`, поэтому параллельные разные стратегии не могут превысить эффективный дневной лимит. Preview/policy failures consume dedupe conservatively for the day and are not retried automatically by the scheduler. Заявка отправляется только через `OrderService.execute()`. Scheduler, registry, dashboard и strategy files не вызывают broker order APIs напрямую. Каждое решение и terminal outcome записывается в local strategy history.
-
-Страница `Strategies` работает в read-only-режиме. Она показывает feature flags, пути `STRATEGY_CONFIRMATION_REQUIRED_DIR`, `STRATEGY_NO_CONFIRMATION_DIR` и `STRATEGY_AUTO_EXECUTION_DIR`, загруженные confirmation-required, observation-only и auto-execute стратегии, безопасно отредактированные ошибки загрузки и последние записи strategy history. На странице нет кнопок запуска, редактирования, удаления или исполнения стратегий.
-
-Страница `Settings` работает в read-only-режиме. Она показывает активный режим, статус настройки токена без секретных значений, feature flags, API base URL, время напоминаний, статус безопасности инвестиционного плана, strategy proposal config, количество загруженных стратегий, ошибки загрузки и краткий статус локальной истории. Чтобы изменить эти значения, отредактируйте `.env` и перезапустите приложение.
+Страница `Settings` работает в read-only-режиме. Она показывает активный режим, статус настройки токена без секретных значений, feature flags, API base URL, время напоминаний, статус безопасности инвестиционного плана, anti-greedy policy и web-auth. Чтобы изменить эти значения, отредактируйте `.env` и перезапустите приложение.
 
 Web-аутентификация опциональна для локального `API_HOST="127.0.0.1"` / `localhost`: `WEB_AUTH_ENABLED` может оставаться `false`. Если FastAPI слушает `0.0.0.0` или другой не-localhost адрес, startup блокируется, пока `WEB_AUTH_ENABLED="true"` и `WEB_AUTH_TOKEN` не заданы. При включенной авторизации web-терминал и `/api/*` требуют `Authorization: Bearer <WEB_AUTH_TOKEN>` или cookie `web_auth_token`; `/static/*` и `/api/health` остаются открытыми. Значение токена не выводится в Settings, логах или ошибках.
 
 Server-rendered web forms защищены CSRF-токеном: web-страницы получают HttpOnly cookie `web_csrf_token`, формы отправляют скрытое поле `csrf_token`, а POST-запросы сверяют оба значения и проверяют `Origin`/`Referer`, когда эти заголовки присутствуют. Когда запрос приходит по HTTPS (включая `X-Forwarded-Proto: https`), cookie выставляется с атрибутом `Secure`.
-
-Legacy `/api/trading/*` и `/api/instruments/*` write-эндпоинты (`POST` и `DELETE`) отключены по умолчанию. Эти эндпоинты не отправляют брокерские заявки, но раньше позволяли записывать в локальную SQLite без CSRF, если `WEB_AUTH_ENABLED=false`. Они теперь возвращают `403`, если не задано `ENABLE_LEGACY_LOCAL_WRITE_API="true"`. Read-only `GET`-эндпоинты остаются доступными. Включайте флаг только если вы умышленно используете legacy local-write API и понимаете, что он не защищён CSRF.
-
-Strategy directories (`STRATEGY_CONFIRMATION_REQUIRED_DIR`, `STRATEGY_NO_CONFIRMATION_DIR`, `STRATEGY_AUTO_EXECUTION_DIR`) — это исполняемые пути кода: загруженный файл импортируется и его функции вызываются runtime'ом стратегий. Эти каталоги должны быть owner-write-only (например, NTFS-права только для текущего пользователя или `chmod 0700`) и содержать только проверенный локальный код. Не помещайте в них файлы из недоверенных источников.
 
 Local LLM/research/rating output (включая будущие BUY/HOLD/SELL/WATCH/AVOID-метки) остаётся образовательным non-advisory analysis: он никогда не вызывает `OrderService.preview()` или `OrderService.execute()` напрямую и не создаёт брокерские заявки. Tbot v1 остаётся sandbox-first и manual-order-only.
 
@@ -280,7 +247,7 @@ Read-only research по тикеру доступен на `http://localhost:800
 
 ## Статус legacy-кода
 
-Старые модули сигналов, стратегий, ML, GPT/LSTM, графиков и market-notifications остаются в репозитории как legacy-код для безопасности миграции и обратимости. Они не входят в активное меню investor v1 или активный API router, и этот runtime v1 нельзя считать ботом для автоторговли или сигналов.
+Старые модули сигналов, ML, GPT/LSTM, графиков и market-notifications остаются в репозитории как legacy-код для безопасности миграции и обратимости. Runtime стратегий и legacy local-write API удалены из активного одно-пользовательского v1. Этот runtime v1 нельзя считать ботом для автоторговли или сигналов.
 
 ## Известные ограничения
 
@@ -289,7 +256,7 @@ Read-only research по тикеру доступен на `http://localhost:800
 - История ручных заявок хранит ограниченные metadata; часть статистики считается за все время, а не по интервалу.
 - Проект целится в одного уникального пользователя. Существующая `users.json`/`UserContext` инфраструктура используется для локальной конфигурации и routing этого пользователя, а не как multi-user продуктовая модель.
 - Опциональные напоминания инвестору требуют `APScheduler` из `requirements-base.txt` и по умолчанию выключены.
-- Legacy-направления сигналов, стратегий, ML, GPT/LSTM, графиков и market-notifications не входят в активный runtime investor v1. Optional legacy dependencies остаются только в `requirements-optional.txt`.
+- Legacy-направления сигналов, ML, GPT/LSTM, графиков и market-notifications не входят в активный runtime investor v1. Optional legacy dependencies остаются только в `requirements-optional.txt`.
 - Pydantic v2 выводит предупреждение для старой schema-конфигурации `orm_mode`; это не блокирует работу.
 
 ## Дополнительная документация
@@ -297,6 +264,4 @@ Read-only research по тикеру доступен на `http://localhost:800
 - `PROJECT_RUNBOOK.md` - команды запуска, ежедневная эксплуатация и обзор функций проекта.
 - `README_LOCAL_SETUP.md` - настройка ноутбука на Windows.
 - `INVESTOR_MODE.md` - workflow investor-mode.
-- `V1_SCOPE.md` - scope функций v1.
-- `RESEARCH_TERMINAL_FOUNDATION.md` - foundation для read-only research terminal.
 - `docs/repository_cleanup_audit.md` - отчет по cleanup-аудиту репозитория.
