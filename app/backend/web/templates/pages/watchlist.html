@@ -9,11 +9,16 @@
 
 <section class="order-panel">
   <form method="post" action="/watchlist/add" class="order-form">
+    {% include "partials/csrf_token.html" %}
     <div class="field">
       <label for="watchlist-ticker">Ticker</label>
       <input id="watchlist-ticker" name="ticker" autocomplete="off" required>
     </div>
     <button type="submit">Add ticker</button>
+  </form>
+  <form method="post" action="/watchlist/sync-portfolio" class="inline-form">
+    {% include "partials/csrf_token.html" %}
+    <button type="submit">Add portfolio tickers</button>
   </form>
 </section>
 
@@ -53,6 +58,7 @@
             <td>{{ item.figi }}</td>
             <td>
               <form method="post" action="/watchlist/remove" class="inline-form">
+                {% include "partials/csrf_token.html" %}
                 <input type="hidden" name="ticker" value="{{ item.ticker }}">
                 <button type="submit" class="danger-button">Remove</button>
               </form>

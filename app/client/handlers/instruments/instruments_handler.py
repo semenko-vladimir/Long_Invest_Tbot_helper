@@ -7,12 +7,14 @@ from app.client.handlers.instruments.add_instrument import add_instrument_handle
 from app.client.handlers.instruments.delete_instrument import delete_instrument_handler
 from app.client.handlers.instruments.delete_all_instruments import delete_all_instruments_handler
 from app.client.handlers.instruments.get_all_instruments import get_all_instruments_handler
+from app.client.handlers.instruments.sync_watchlist import sync_watchlist_handler, sync_watchlist_command
 
 
 def send_instruments_menu(chat_id):
     inline_keyboard = types.InlineKeyboardMarkup()
     buttons = [
         types.InlineKeyboardButton(text='Add ticker', callback_data='add_instrument'),
+        types.InlineKeyboardButton(text='Add portfolio tickers', callback_data='sync_watchlist'),
         types.InlineKeyboardButton(text='Show watchlist', callback_data='get_all_instruments'),
         types.InlineKeyboardButton(text='Remove ticker', callback_data='delete_instrument'),
         types.InlineKeyboardButton(text='Clear watchlist', callback_data='delete_all_instruments'),

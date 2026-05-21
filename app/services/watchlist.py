@@ -29,6 +29,22 @@ class WatchlistView:
     notice: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class WatchlistSyncResult:
+    added: int
+    already_present: int
+    skipped: int
+    errors: int
+    added_tickers: tuple[str, ...] = ()
+    already_present_tickers: tuple[str, ...] = ()
+    skipped_tickers: tuple[str, ...] = ()
+    error_messages: tuple[str, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        return self.errors == 0
+
+
 class WatchlistService:
     def __init__(
         self,
@@ -125,8 +141,116 @@ class WatchlistService:
         finally:
             db.close()
 
+    def sync_from_portfolio(self, portfolio_service) -> WatchlistSyncResult:
+        portfolio = portfolio_service.get_portfolio_view()
+        if portfolio.error:
+            return WatchlistSyncResult(
+                added=0,
+                already_present=0,
+                skipped=0,
+                errors=1,
+                error_messages=(portfolio.error,),
+            )
+
+        if portfolio.empty:
+            return WatchlistSyncResult(added=0, already_present=0, skipped=0, errors=0)
+
+        db = self.session_factory()
+        try:
+            existing_rows = db.query(Instrument).all()
+            existing_tickers = {str(row.ticker or "").upper() for row in existing_rows}
+            existing_figis = {str(row.figi or "") for row in existing_rows}
+            added: list[str] = []
+            already_present: list[str] = []
+            skipped: list[str] = []
+            seen: set[str] = set()
+
+            for position in portfolio.positions:
+                raw_ticker = str(getattr(position, "ticker", "") or "").strip()
+                raw_figi = str(getattr(position, "figi", "") or "").strip()
+
+                try:
+                    ticker = self._normalize_ticker(raw_ticker)
+                except WatchlistServiceError:
+                    skipped.append(raw_ticker or "unknown")
+                    continue
+
+                if ticker in seen:
+                    continue
+                seen.add(ticker)
+
+                if not raw_figi:
+                    skipped.append(ticker)
+                    continue
+
+                if ticker in existing_tickers:
+                    already_present.append(ticker)
+                    continue
+
+                if raw_figi in existing_figis:
+                    skipped.append(ticker)
+                    continue
+
+                db.add(Instrument(ticker=ticker, figi=raw_figi))
+                existing_tickers.add(ticker)
+                existing_figis.add(raw_figi)
+                added.append(ticker)
+
+            db.commit()
+            return WatchlistSyncResult(
+                added=len(added),
+                already_present=len(already_present),
+                skipped=len(skipped),
+                errors=0,
+                added_tickers=tuple(added),
+                already_present_tickers=tuple(already_present),
+                skipped_tickers=tuple(skipped),
+            )
+        except IntegrityError:
+            db.rollback()
+            return WatchlistSyncResult(
+                added=0,
+                already_present=0,
+                skipped=0,
+                errors=1,
+                error_messages=("The watchlist could not be synced because a ticker or FIGI already exists.",),
+            )
+        except Exception:
+            db.rollback()
+            return WatchlistSyncResult(
+                added=0,
+                already_present=0,
+                skipped=0,
+                errors=1,
+                error_messages=("The watchlist could not be synced right now.",),
+            )
+        finally:
+            db.close()
+
     def _normalize_ticker(self, ticker: str) -> str:
         normalized = str(ticker or "").strip().upper()
         if not normalized or not normalized.replace("-", "").isalnum():
             raise WatchlistServiceError("Enter a ticker using letters and numbers.")
         return normalized
+
+
+def format_watchlist_sync_summary(result: WatchlistSyncResult) -> str:
+    summary = (
+        "Portfolio sync: "
+        f"added {result.added}, "
+        f"already present {result.already_present}, "
+        f"skipped {result.skipped}, "
+        f"errors {result.errors}."
+    )
+    details: list[str] = []
+    if result.added_tickers:
+        details.append(f"Added: {', '.join(result.added_tickers)}.")
+    if result.already_present_tickers:
+        details.append(f"Already present: {', '.join(result.already_present_tickers)}.")
+    if result.skipped_tickers:
+        details.append(f"Skipped: {', '.join(result.skipped_tickers)}.")
+    if result.error_messages:
+        details.append(" ".join(result.error_messages))
+    if details:
+        return f"{summary} {' '.join(details)}"
+    return summary

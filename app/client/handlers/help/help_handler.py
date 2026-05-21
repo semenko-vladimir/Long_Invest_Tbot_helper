@@ -21,6 +21,7 @@ HELP_TEXT = (
     "- `confirm_order <token>` - confirm a sandbox preview\n"
     "- `confirm_order <token> SBER` - confirm a production preview\n"
     "- `cancel_order <token>` - cancel a preview\n\n"
+    "- `sync_watchlist` - add current portfolio tickers to the local watchlist\n\n"
     "Sandbox mode is the default. No signals, ML, GPT/LSTM, or auto-trading are active in investor v1."
 )
 

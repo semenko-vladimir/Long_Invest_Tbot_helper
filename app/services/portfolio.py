@@ -1,9 +1,13 @@
+import logging
 from dataclasses import dataclass
 from typing import Callable, List, Optional
 
 from app.client.config import get_active_invest_token
 from app.integrations.tinvest import TInvestBroker
 from app.services.mode import ModeContext, ModeService
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,7 @@ class PortfolioPosition:
     pnl_class: str
     pnl_display: str
     return_display: str
+    figi: str = ""
 
 
 @dataclass(frozen=True)
@@ -101,14 +106,15 @@ class PortfolioService:
                 positions=positions,
                 empty=len(positions) == 0,
             )
-        except Exception:
+        except Exception as exc:
+            logger.exception("Portfolio data is unavailable")
             return PortfolioView(
                 mode=mode,
                 total_value=0.0,
                 total_value_display=money(0.0),
                 positions=[],
                 empty=True,
-                error="Portfolio data is unavailable right now. Check the broker token and try again.",
+                error=portfolio_error_message(exc),
             )
 
     def _build_position(self, token: str, raw_position: dict) -> PortfolioPosition:
@@ -139,4 +145,14 @@ class PortfolioService:
             pnl_class=pnl_class,
             pnl_display=signed_money(pnl),
             return_display=percent(return_percent),
+            figi=figi,
         )
+
+
+def portfolio_error_message(exc: Exception) -> str:
+    details = str(exc).strip()
+    if not details:
+        return "Portfolio data is unavailable right now. Check the broker token and try again."
+    if len(details) > 300:
+        details = f"{details[:300]}..."
+    return f"Portfolio data is unavailable right now: {details}"

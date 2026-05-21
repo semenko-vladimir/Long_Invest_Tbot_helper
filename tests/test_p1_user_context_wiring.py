@@ -11,6 +11,7 @@ ACTIVE_TELEGRAM_DATA_HANDLERS = (
     "app/client/handlers/instruments/delete_all_instruments.py",
     "app/client/handlers/instruments/delete_instrument.py",
     "app/client/handlers/instruments/get_all_instruments.py",
+    "app/client/handlers/instruments/sync_watchlist.py",
     "app/client/handlers/orders/manual_order_handler.py",
     "app/client/handlers/portfolio/portfolio_handler.py",
     "app/client/handlers/research/research_handler.py",

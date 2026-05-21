@@ -19,7 +19,7 @@ from app.services.investment_plans import (
     PlanDefinition,
 )
 from app.services.trading_policy import TradingPolicyError
-from app.services.watchlist import WatchlistServiceError
+from app.services.watchlist import WatchlistServiceError, format_watchlist_sync_summary
 
 
 logger = logging.getLogger(__name__)
@@ -351,6 +351,27 @@ async def remove_watchlist_item(request: Request):
         "pages/watchlist.html",
         context,
         status_code=400 if watchlist.error else 200,
+    )
+
+
+@router.post("/watchlist/sync-portfolio")
+async def sync_watchlist_from_portfolio(request: Request):
+    await parse_urlencoded_form(request)
+    services = get_web_services()
+    sync_result = services.watchlist_service.sync_from_portfolio(services.portfolio_service)
+    summary = format_watchlist_sync_summary(sync_result)
+    watchlist = services.watchlist_service.list_items(
+        notice=summary if sync_result.ok else None,
+        error=None if sync_result.ok else summary,
+    )
+
+    context = base_context(request, active="watchlist", title="Watchlist", services=services)
+    context["watchlist"] = watchlist
+    context["sync_result"] = sync_result
+    return templates.TemplateResponse(
+        "pages/watchlist.html",
+        context,
+        status_code=200 if sync_result.ok else 400,
     )
 
 
