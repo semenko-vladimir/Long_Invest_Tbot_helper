@@ -19,3 +19,5 @@ TODO.txt
 .idea
 .claude/settings.local.json
 .aider*
+.ai/
+.mcp.json
