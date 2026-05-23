@@ -69,6 +69,7 @@ def history(**kwargs):
         "candles": [candle(1), candle(2, close=102.0)],
         "generated_at": datetime(2026, 5, 21, 12, 0),
         "source": "fake-source",
+        "fetched_at": datetime(2026, 5, 21, 11, 59),
         "data_gaps": [],
         "errors": [],
         "disclaimer": (
@@ -92,6 +93,7 @@ def position_value(**kwargs):
         ],
         "generated_at": datetime(2026, 5, 21, 12, 0),
         "source": "fake-position-value",
+        "fetched_at": datetime(2026, 5, 21, 11, 58),
         "data_gaps": [],
         "errors": [],
     }
@@ -113,6 +115,8 @@ class ChartImageServiceTests(unittest.TestCase):
         self.assertTrue(result.png_bytes.startswith(PNG_SIGNATURE))
         self.assertGreater(len(result.png_bytes), 1000)
         self.assertEqual(result.content_type, "image/png")
+        self.assertEqual(result.source_name, "fake-source")
+        self.assertEqual(result.fetched_at, fake_history.fetched_at)
 
     def test_generates_png_bytes_for_price_mode_explicitly(self):
         fake_history = history()
@@ -166,6 +170,8 @@ class ChartImageServiceTests(unittest.TestCase):
         self.assertEqual(fake_position_service.calls, [("SBER", "month")])
         self.assertEqual(fake_analytics.calls, [])
         self.assertIs(result.position_value, fake_position_value)
+        self.assertEqual(result.source_name, "fake-position-value")
+        self.assertEqual(result.fetched_at, fake_position_value.fetched_at)
         self.assertIn("current position quantity valued at historical close prices", result.position_value.disclaimer)
         self.assertIn("not historical holdings", result.position_value.disclaimer)
 

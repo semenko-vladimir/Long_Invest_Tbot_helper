@@ -1,4 +1,5 @@
 import ast
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -136,6 +137,27 @@ class TelegramChartHandlerTests(unittest.TestCase):
         self.assertEqual(send_photo.call_args.kwargs["caption"], chart_handler.CHART_CAPTION)
         self.assertIn("Hindsight-only analytics", send_photo.call_args.kwargs["caption"])
         self.assertIn("Not a trading signal", send_photo.call_args.kwargs["caption"])
+
+    def test_successful_command_caption_includes_moex_source_metadata(self):
+        fake_service = FakeChartImageService(
+            chart_result(
+                history=SimpleNamespace(
+                    source="MOEX ISS",
+                    fetched_at=datetime(2026, 5, 21, 13, 0, tzinfo=timezone.utc),
+                )
+            )
+        )
+        services = SimpleNamespace(chart_image_service=fake_service)
+
+        with patch.object(chart_handler, "get_telegram_services_or_notify", return_value=services):
+            with patch.object(chart_handler.bot, "send_photo", return_value=SimpleNamespace(message_id=101)) as send_photo:
+                with patch.object(chart_handler.bot, "send_message"):
+                    chart_handler.chart_command_handler(FakeMessage("/chart sber month"))
+
+        caption = send_photo.call_args.kwargs["caption"]
+        self.assertIn("Source: MOEX ISS", caption)
+        self.assertIn("Fetched: 2026-05-21 13:00 UTC", caption)
+        self.assertIn("No broker orders were created", caption)
 
     def test_plain_command_sends_png_without_analytics(self):
         fake_service = FakeChartImageService(chart_result())

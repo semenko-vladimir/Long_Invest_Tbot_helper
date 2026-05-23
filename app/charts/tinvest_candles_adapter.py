@@ -43,13 +43,20 @@ class TInvestCandlesAdapter:
         self.now_provider = now_provider or (lambda: datetime.now(timezone.utc))
 
     def fetch_candles(self, ticker: str, range_name: ChartRange) -> ChartAdapterResult:
+        fetched_at = self.now_provider()
         normalized_ticker = self._normalize_ticker(ticker)
         gaps: list[ChartDataGap] = []
         errors: list[str] = []
 
         if not normalized_ticker:
             gaps.append(ChartDataGap("ticker", "Ticker is required.", "high"))
-            return ChartAdapterResult(self.source_name, ticker=normalized_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                data_gaps=gaps,
+                errors=errors,
+            )
 
         token_context = self._get_token_context()
         if not token_context.token:
@@ -65,7 +72,13 @@ class TInvestCandlesAdapter:
                 )
             )
             gaps.append(ChartDataGap("price_history", "Candles require a resolved instrument and token.", "medium"))
-            return ChartAdapterResult(self.source_name, ticker=normalized_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                data_gaps=gaps,
+                errors=errors,
+            )
 
         broker = self._get_broker()
         try:
@@ -74,14 +87,26 @@ class TInvestCandlesAdapter:
             errors.append(self._format_lookup_error("Instrument identity lookup", exc, token_context))
             gaps.append(ChartDataGap("instrument_identity", f"Could not resolve ticker {normalized_ticker}.", "high"))
             gaps.append(ChartDataGap("price_history", "Candles require a resolved instrument.", "medium"))
-            return ChartAdapterResult(self.source_name, ticker=normalized_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                data_gaps=gaps,
+                errors=errors,
+            )
 
         figi = str(getattr(instrument, "figi", "") or "")
         resolved_ticker = str(getattr(instrument, "ticker", normalized_ticker) or normalized_ticker).upper()
         if not figi:
             gaps.append(ChartDataGap("instrument_identity", "Instrument FIGI is unavailable.", "high"))
             gaps.append(ChartDataGap("price_history", "Candles require FIGI.", "medium"))
-            return ChartAdapterResult(self.source_name, ticker=resolved_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=resolved_ticker,
+                fetched_at=fetched_at,
+                data_gaps=gaps,
+                errors=errors,
+            )
 
         try:
             candles = self._fetch_tinvest_candles(token_context.token, figi, range_name)
@@ -92,6 +117,7 @@ class TInvestCandlesAdapter:
                 self.source_name,
                 ticker=resolved_ticker,
                 figi=figi,
+                fetched_at=fetched_at,
                 data_gaps=gaps,
                 errors=errors,
             )
@@ -100,6 +126,7 @@ class TInvestCandlesAdapter:
             self.source_name,
             ticker=resolved_ticker,
             figi=figi,
+            fetched_at=fetched_at,
             candles=candles,
             data_gaps=gaps,
             errors=errors,

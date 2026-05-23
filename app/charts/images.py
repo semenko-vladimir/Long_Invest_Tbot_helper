@@ -185,8 +185,9 @@ class ChartImageService:
         else:
             self._format_time_axis(price_axis, history)
 
-        generated = history.generated_at.strftime("%Y-%m-%d %H:%M UTC")
-        note = f"Generated: {generated} | Source: {history.source}"
+        generated = self._format_metadata_time(history.generated_at)
+        fetched = self._format_metadata_time(history.fetched_at)
+        note = f"Source: {history.source} | Fetched: {fetched} | Generated: {generated}"
         if history.figi:
             note = f"{note} | FIGI: {history.figi}"
         figure.text(0.01, 0.035, note, fontsize=8, color="#475569")
@@ -216,9 +217,11 @@ class ChartImageService:
         axis.legend(loc="best", fontsize=7.5, frameon=False)
         self._format_time_axis(axis, position_value)
 
-        generated = position_value.generated_at.strftime("%Y-%m-%d %H:%M UTC")
+        generated = self._format_metadata_time(position_value.generated_at)
+        fetched = self._format_metadata_time(position_value.fetched_at)
         note = (
-            f"Generated: {generated} | Source: {position_value.source} | "
+            f"Source: {position_value.source} | Fetched: {fetched} | "
+            f"Generated: {generated} | "
             f"Current quantity: {position_value.quantity:g}"
         )
         if position_value.figi:
@@ -357,6 +360,7 @@ class ChartImageService:
             candles=[],
             generated_at=position_value.generated_at,
             source=position_value.source,
+            fetched_at=position_value.fetched_at,
             data_gaps=list(position_value.data_gaps),
             errors=list(position_value.errors),
             disclaimer=position_value.disclaimer,
@@ -370,6 +374,14 @@ class ChartImageService:
             candles=[],
             generated_at=datetime.now(timezone.utc),
             source="chart-renderer",
+            fetched_at=datetime.now(timezone.utc),
             data_gaps=[],
             errors=list(errors),
         )
+
+    def _format_metadata_time(self, value: datetime | None) -> str:
+        if value is None:
+            return "unknown"
+        if value.tzinfo is not None:
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value.strftime("%Y-%m-%d %H:%M UTC")

@@ -87,6 +87,7 @@ class ChartAdapterResult:
     source_name: str
     ticker: str
     figi: Optional[str] = None
+    fetched_at: Optional[datetime] = None
     candles: list[PriceCandle] = field(default_factory=list)
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -100,12 +101,17 @@ class ChartHistory:
     candles: list[PriceCandle]
     generated_at: datetime
     source: str
+    fetched_at: Optional[datetime] = None
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     disclaimer: str = (
         "Read-only historical price data for educational review only. "
         "This is not personal investment advice and must not trigger broker orders."
     )
+
+    @property
+    def source_name(self) -> str:
+        return self.source
 
 
 @dataclass(frozen=True)
@@ -124,6 +130,7 @@ class PositionValueChart:
     value_series: list[PositionValuePoint]
     generated_at: datetime
     source: str
+    fetched_at: Optional[datetime] = None
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     disclaimer: str = POSITION_VALUE_CHART_DISCLAIMER
@@ -131,6 +138,10 @@ class PositionValueChart:
     @property
     def ok(self) -> bool:
         return bool(self.value_series) and not self.errors
+
+    @property
+    def source_name(self) -> str:
+        return self.source
 
 
 @dataclass(frozen=True)
@@ -147,3 +158,15 @@ class ChartImageResult:
     @property
     def ok(self) -> bool:
         return self.png_bytes is not None and not self.errors
+
+    @property
+    def source_name(self) -> str:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.source
+        return self.history.source
+
+    @property
+    def fetched_at(self) -> Optional[datetime]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.fetched_at
+        return self.history.fetched_at

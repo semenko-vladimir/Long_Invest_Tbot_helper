@@ -116,6 +116,7 @@ class PositionValueChartService:
                 quantity=quantity,
                 generated_at=history.generated_at,
                 source=history.source,
+                fetched_at=history.fetched_at,
                 data_gaps=list(history.data_gaps),
                 errors=list(history.errors),
             )
@@ -135,6 +136,7 @@ class PositionValueChartService:
                 quantity=quantity,
                 generated_at=history.generated_at,
                 source=history.source,
+                fetched_at=history.fetched_at,
                 data_gaps=gaps,
                 errors=[message],
             )
@@ -155,6 +157,7 @@ class PositionValueChartService:
             value_series=value_series,
             generated_at=history.generated_at,
             source=history.source,
+            fetched_at=history.fetched_at,
             data_gaps=list(history.data_gaps),
             errors=[],
         )
@@ -169,6 +172,7 @@ class PositionValueChartService:
         quantity: float = 0.0,
         value_series: list[PositionValuePoint] | None = None,
         source: str = "portfolio-current-quantity",
+        fetched_at: datetime | None = None,
         data_gaps: list[ChartDataGap] | None = None,
         errors: list[str] | None = None,
     ) -> PositionValueChart:
@@ -180,6 +184,7 @@ class PositionValueChartService:
             value_series=list(value_series or []),
             generated_at=generated_at,
             source=source,
+            fetched_at=fetched_at or generated_at,
             data_gaps=list(data_gaps or []),
             errors=list(errors or []),
             disclaimer=self.disclaimer,

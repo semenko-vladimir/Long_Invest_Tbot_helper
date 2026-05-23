@@ -19,14 +19,15 @@ def candle(day: int, close: float) -> PriceCandle:
     )
 
 
-def history(range_name: str = "month", candles=None, errors=None) -> ChartHistory:
+def history(range_name: str = "month", candles=None, errors=None, source="fake-history", fetched_at=None) -> ChartHistory:
     return ChartHistory(
         ticker="SBER",
         figi="FIGI-SBER",
         range=range_name,
         candles=list(candles if candles is not None else [candle(1, 100.0), candle(2, 110.0)]),
         generated_at=datetime(2026, 5, 21, 12, 0),
-        source="fake-history",
+        source=source,
+        fetched_at=fetched_at,
         data_gaps=[],
         errors=list(errors or []),
     )
@@ -141,6 +142,31 @@ class PositionValueChartServiceTests(unittest.TestCase):
 
         self.assertEqual(history_service.calls, [("SBER", "week")])
         self.assertEqual([point.value for point in result.value_series], [40.0])
+
+    def test_position_value_preserves_moex_source_metadata(self):
+        fetched_at = datetime(2026, 5, 21, 13, 0)
+        history_service = FakeHistoryService(
+            {
+                "month": history(
+                    "month",
+                    [candle(1, 200.0), candle(2, 210.0)],
+                    source="MOEX ISS",
+                    fetched_at=fetched_at,
+                )
+            }
+        )
+        service = PositionValueChartService(
+            portfolio_service=FakePortfolioService(positions=[position(quantity=2)]),
+            history_service=history_service,
+        )
+
+        result = service.get_position_value("SBER", "month")
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.source, "MOEX ISS")
+        self.assertEqual(result.source_name, "MOEX ISS")
+        self.assertEqual(result.fetched_at, fetched_at)
+        self.assertEqual([point.value for point in result.value_series], [400.0, 420.0])
 
     def test_position_value_service_imports_no_order_signal_or_rating_modules(self):
         forbidden_prefixes = (

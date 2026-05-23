@@ -218,6 +218,8 @@ Read-only chart по тикеру:
 
 Команда `/chart` требует тикер и диапазон: `day`, `week`, `month`, `six_months`, `year` или `all`. Бот отправляет PNG-график только по запросу. По умолчанию график включает deterministic hindsight-only analytics overlays: исторический минимум закрытия в выбранном диапазоне, лучший последующий максимум закрытия, max drawdown, положение последнего close относительно high/low выбранного диапазона и SMA20/SMA50 при достаточном количестве свечей. Добавьте `plain` или `no_analytics`, чтобы получить график без analytics overlays.
 
+Исторические свечи для charts берутся из read-only источников market data: T-Invest остается основным источником, а публичный MOEX ISS может использоваться как fallback для дневных свечей российских тикеров, если T-Invest не вернул пригодные данные. Подпись/metadata графика показывает фактический источник данных.
+
 Команда `/position_chart SBER month` строит read-only график "current position quantity valued at historical prices": текущая брокерская quantity по тикеру умножается на historical close prices выбранного диапазона. Это не историческая стоимость портфеля и не реконструкция прошлых долей; такой режим станет historical portfolio value только если позднее будет реализована история quantities/holdings.
 
 Подпись к графику содержит safety-текст: `Hindsight-only analytics. Not a trading signal. Not investment advice. No broker orders were created.` Графики являются read-only образовательными визуализациями, не являются инвестиционной рекомендацией, рейтингом или торговым сигналом и не создают брокерские заявки.
@@ -240,6 +242,8 @@ FastAPI также отдает локальный терминал инвест
 Экраны планов создают определения регулярных инвестиционных планов и ручные предложения. Они не создают брокерские заявки на основе анализа или торговых сигналов.
 
 Страница `Charts` строит PNG-график по запросу: откройте `Charts`, введите тикер или выберите его из текущих portfolio positions, выберите режим `Price chart` или `Current quantity value chart` и диапазон `day`, `week`, `month`, `six_months`, `year` или `all`. В `Price chart` hindsight-only analytics включены по умолчанию через `analytics=1`; снимите checkbox или откройте PNG с `analytics=0`, чтобы получить plain chart без overlays. В `Current quantity value chart` analytics overlays не добавляются: график показывает только текущую quantity позиции, оцененную по historical close prices выбранного диапазона. Это не historical portfolio value, пока не реализована история quantities/holdings. Изображения не сохраняются на диск, генерируются в памяти и имеют read-only safety-caption; брокерские заявки через charts не создаются.
+
+Chart data может приходить из T-Invest или из публичного exchange-data API MOEX ISS как read-only fallback. MOEX ISS используется только для свечей/metadata графиков, не создает сигналов, рейтингов, previews или брокерских заявок.
 
 Для ежедневной покупки по условию можно создать plan с `Schedule = Daily` и `Price rule = Yesterday average minus percent`. Значение по умолчанию `Percent threshold = 0.5` означает: проверять текущую цену покупки и продолжать только если она не выше `вчерашняя дневная OHLC-средняя * 0.995`. Если `ENABLE_BACKGROUND_SCHEDULERS=true` и `ENABLE_INVESTMENT_PLANS=true`, scheduler проверяет такие планы в заданное время и отправляет Telegram-подтверждение. Брокерская заявка все равно отправляется только после явного подтверждения; перед исполнением цена и условие проверяются повторно.
 

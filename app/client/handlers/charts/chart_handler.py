@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
 from app.charts.schemas import POSITION_VALUE_CHART_DISCLAIMER
@@ -130,7 +131,7 @@ def send_chart(chat_id: int, command: ChartCommand) -> None:
         return
 
     if result.ok and result.png_bytes is not None:
-        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=CHART_CAPTION)
+        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=format_chart_caption(result))
         return
 
     bot.send_message(chat_id=chat_id, text=format_chart_error(result))
@@ -160,7 +161,7 @@ def send_position_chart(chat_id: int, command: PositionChartCommand) -> None:
         return
 
     if result.ok and result.png_bytes is not None:
-        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=POSITION_CHART_CAPTION)
+        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=format_position_chart_caption(result))
         return
 
     bot.send_message(chat_id=chat_id, text=format_position_chart_error(result))
@@ -194,6 +195,46 @@ def format_position_chart_error(result) -> str:
         detail = "; ".join(gaps) if gaps else "No chart image was returned."
 
     return f"Current quantity value chart could not be generated.\n\nError: {detail}\n\n{POSITION_CHART_CAPTION}"
+
+
+def format_chart_caption(result) -> str:
+    return f"{CHART_CAPTION}{format_source_suffix(result)}"
+
+
+def format_position_chart_caption(result) -> str:
+    return f"{POSITION_CHART_CAPTION}{format_source_suffix(result)}"
+
+
+def format_source_suffix(result) -> str:
+    source = str(getattr(result, "source_name", "") or "").strip()
+    fetched_at = getattr(result, "fetched_at", None)
+
+    if not source:
+        history = getattr(result, "history", None)
+        source = str(getattr(history, "source", "") or "").strip()
+        fetched_at = fetched_at or getattr(history, "fetched_at", None)
+
+    if not source:
+        position_value = getattr(result, "position_value", None)
+        source = str(getattr(position_value, "source", "") or "").strip()
+        fetched_at = fetched_at or getattr(position_value, "fetched_at", None)
+
+    if not source:
+        return ""
+
+    suffix = f"\n\nSource: {source}"
+    formatted_fetched_at = format_metadata_time(fetched_at)
+    if formatted_fetched_at:
+        suffix = f"{suffix} | Fetched: {formatted_fetched_at}"
+    return suffix
+
+
+def format_metadata_time(value) -> str:
+    if not isinstance(value, datetime):
+        return ""
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value.strftime("%Y-%m-%d %H:%M UTC")
 
 
 def normalize_chart_ticker(ticker: str) -> str:
