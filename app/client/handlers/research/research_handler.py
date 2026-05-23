@@ -8,6 +8,7 @@ from app.client.config import get_invest_mode
 from app.client.handlers.utils.message_utils import last_messages
 from app.integrations.tinvest import TInvestBroker
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
+from app.research.market_context import MOEXMarketContextAdapter
 from app.research.schemas import DataGap, ResearchReport
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.tinvest_adapter import TInvestDataAdapter
@@ -37,7 +38,9 @@ _user_context_resolver = UserContextResolver()
 def get_telegram_research_services(chat_id: Optional[int | str] = None) -> TelegramResearchServices:
     if chat_id is None:
         return TelegramResearchServices(
-            ticker_research=TickerResearchService([TInvestDataAdapter(), LocalFundamentalsAdapter()]),
+            ticker_research=TickerResearchService(
+                [TInvestDataAdapter(), LocalFundamentalsAdapter(), MOEXMarketContextAdapter()]
+            ),
             report_builder=ResearchReportService(),
         )
 
@@ -53,6 +56,7 @@ def build_telegram_research_services(user_context: UserContext) -> TelegramResea
             [
                 TInvestDataAdapter(broker=broker, token_provider=token_provider),
                 LocalFundamentalsAdapter(),
+                MOEXMarketContextAdapter(),
             ]
         ),
         report_builder=ResearchReportService(),
@@ -110,6 +114,8 @@ def format_research_report(report: ResearchReport) -> str:
         _format_financials(report),
         "",
         _format_market_snapshot(report),
+        "",
+        _format_market_context(report),
         "",
         _format_data_gaps(report.data_gaps),
         "",
@@ -187,6 +193,45 @@ def _format_market_snapshot(report: ResearchReport) -> str:
         details.append(f"captured_at: {_format_datetime(snapshot.captured_at)}")
 
     return f"Market snapshot: {'; '.join(details) if details else 'partial data only'}."
+
+
+def _format_market_context(report: ResearchReport) -> str:
+    context = report.market_context or {}
+    indexes = context.get("indexes") if isinstance(context, dict) else None
+    if not isinstance(indexes, list) or not indexes:
+        return "Market context: unavailable."
+
+    parts = []
+    for index in indexes:
+        if not isinstance(index, dict):
+            continue
+        ticker = str(index.get("ticker") or "").strip().upper()
+        if not ticker:
+            continue
+        latest_close = index.get("latest_close")
+        as_of_date = str(index.get("as_of_date") or "").strip()
+        period = str(index.get("period") or context.get("period") or "").strip()
+        change = index.get("recent_change_pct")
+
+        if not isinstance(latest_close, (int, float)):
+            parts.append(f"{ticker}: unavailable")
+            continue
+
+        detail = f"{ticker}: close {latest_close:g}"
+        if isinstance(change, (int, float)):
+            detail = f"{detail}, {change:+.2f}%"
+            if period:
+                detail = f"{detail} over {period}"
+        if as_of_date:
+            detail = f"{detail}, as of {as_of_date}"
+        parts.append(detail)
+
+    if not parts:
+        return "Market context: unavailable."
+
+    source = str(context.get("source") or "").strip()
+    suffix = f" Source: {source}." if source else ""
+    return f"Market context: {'; '.join(parts)}.{suffix}"
 
 
 def _format_company_profile(report: ResearchReport) -> str:

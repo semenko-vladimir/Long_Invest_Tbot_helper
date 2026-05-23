@@ -6,6 +6,7 @@ from app.charts.position_values import PositionValueChartService
 from app.client.config import get_invest_mode
 from app.integrations.tinvest import TInvestBroker
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
+from app.research.market_context import MOEXMarketContextAdapter
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.tinvest_adapter import TInvestDataAdapter
 from app.services.dividends import DividendsService
@@ -98,6 +99,7 @@ def build_web_services(user: UserContext) -> WebRequestServices:
             [
                 TInvestDataAdapter(broker=broker, token_provider=token_provider),
                 LocalFundamentalsAdapter(),
+                MOEXMarketContextAdapter(),
             ]
         ),
         report_builder=ResearchReportService(),

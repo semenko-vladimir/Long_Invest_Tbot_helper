@@ -24,6 +24,9 @@ MOEX_BASE_URL = "https://iss.moex.com/iss"
 DEFAULT_ENGINE = "stock"
 DEFAULT_MARKET = "shares"
 DEFAULT_BOARD = "TQBR"
+INDEX_MARKET = "index"
+MOEX_MARKET_CONTEXT_INDEXES_ENV = "MOEX_MARKET_CONTEXT_INDEXES"
+DEFAULT_MARKET_CONTEXT_INDEXES = ("IMOEX", "RTSI")
 DEFAULT_TIMEOUT_SECONDS = 5.0
 DEFAULT_MAX_PAGES = 100
 USER_AGENT = "Tbot-v1 MOEX ISS read-only adapter"
@@ -110,6 +113,30 @@ class MOEXISSParseError(ValueError):
     """Raised when a MOEX ISS response cannot be parsed as expected."""
 
 
+def normalize_moex_ticker(ticker: object) -> str:
+    normalized = str(ticker or "").strip().upper()
+    return normalized if normalized.replace("-", "").isalnum() else ""
+
+
+def configured_moex_index_tickers(raw_value: Optional[str] = None) -> tuple[str, ...]:
+    if raw_value is None:
+        raw_value = os.getenv(MOEX_MARKET_CONTEXT_INDEXES_ENV)
+
+    if raw_value is None or not str(raw_value).strip():
+        return DEFAULT_MARKET_CONTEXT_INDEXES
+
+    tickers: list[str] = []
+    seen: set[str] = set()
+    for part in re.split(r"[,;\s]+", str(raw_value)):
+        normalized = normalize_moex_ticker(part)
+        if not normalized or normalized in seen:
+            continue
+        tickers.append(normalized)
+        seen.add(normalized)
+
+    return tuple(tickers) or DEFAULT_MARKET_CONTEXT_INDEXES
+
+
 class MOEXISSClient:
     """Small read-only client for public MOEX ISS JSON endpoints."""
 
@@ -133,6 +160,32 @@ class MOEXISSClient:
         self.now_provider = now_provider or datetime.utcnow
 
     def get_security_metadata(self, ticker: str) -> MOEXSecurityMetadata:
+        return self._get_security_metadata(
+            ticker,
+            path_builder=lambda normalized_ticker: f"/securities/{quote(normalized_ticker, safe='')}.json",
+            engine=self.engine,
+            market=self.market,
+            default_board=self.board,
+        )
+
+    def get_index_security_metadata(self, ticker: str) -> MOEXSecurityMetadata:
+        return self._get_security_metadata(
+            ticker,
+            path_builder=self._index_security_path,
+            engine=self.engine,
+            market=INDEX_MARKET,
+            default_board="",
+        )
+
+    def _get_security_metadata(
+        self,
+        ticker: str,
+        *,
+        path_builder,
+        engine: str,
+        market: str,
+        default_board: str,
+    ) -> MOEXSecurityMetadata:
         fetched_at = self.now_provider()
         normalized_ticker = self._normalize_ticker(ticker)
         gaps: list[MOEXDataGap] = []
@@ -140,22 +193,38 @@ class MOEXISSClient:
 
         if not normalized_ticker:
             gaps.append(MOEXDataGap("ticker", "Ticker is required and must use letters, numbers, or hyphen.", "high"))
-            return MOEXSecurityMetadata(ticker="", fetched_at=fetched_at, data_gaps=gaps, errors=errors)
+            return MOEXSecurityMetadata(ticker="", fetched_at=fetched_at, board=default_board, data_gaps=gaps, errors=errors)
 
         try:
-            payload = self._get_json(f"/securities/{quote(normalized_ticker, safe='')}.json")
+            payload = self._get_json(path_builder(normalized_ticker))
             description_rows = iss_table_to_rows(payload, "description", required=False)
             security_rows = iss_table_to_rows(payload, "securities", required=False)
         except Exception as exc:
             gaps.append(MOEXDataGap("instrument_identity", f"MOEX ISS metadata is unavailable for {normalized_ticker}.", "medium"))
             errors.append(f"MOEX ISS metadata lookup failed: {sanitize_error_message(exc)}")
-            return MOEXSecurityMetadata(ticker=normalized_ticker, fetched_at=fetched_at, data_gaps=gaps, errors=errors)
+            return MOEXSecurityMetadata(
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                board=default_board,
+                engine=engine,
+                market=market,
+                data_gaps=gaps,
+                errors=errors,
+            )
 
         description = _description_values(description_rows)
         security = _first_matching_row(security_rows, normalized_ticker)
         if not description and security is None:
             gaps.append(MOEXDataGap("instrument_identity", f"MOEX ISS metadata was empty for {normalized_ticker}.", "low"))
-            return MOEXSecurityMetadata(ticker=normalized_ticker, fetched_at=fetched_at, data_gaps=gaps, errors=errors)
+            return MOEXSecurityMetadata(
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                board=default_board,
+                engine=engine,
+                market=market,
+                data_gaps=gaps,
+                errors=errors,
+            )
 
         board = _clean_string(
             _first_present(
@@ -164,7 +233,7 @@ class MOEXISSClient:
                 _row_value(security, "marketprice_boardid"),
                 description.get("MARKETPRICE_BOARDID"),
             )
-        ) or self.board
+        ) or default_board
         currency = _normalize_currency(
             _first_present(
                 _row_value(security, "faceunit"),
@@ -182,8 +251,8 @@ class MOEXISSClient:
             short_name=_clean_string(_first_present(_row_value(security, "shortname"), description.get("SHORTNAME"))),
             isin=_clean_string(_first_present(_row_value(security, "isin"), description.get("ISIN"))),
             board=board,
-            engine=self.engine,
-            market=self.market,
+            engine=engine,
+            market=market,
             currency=currency,
             lot_size=_to_int(_first_present(_row_value(security, "lotsize"), description.get("LOTSIZE"))),
             security_type=_clean_string(_first_present(_row_value(security, "type"), description.get("TYPE"))),
@@ -193,6 +262,20 @@ class MOEXISSClient:
         )
 
     def get_market_data(self, ticker: str) -> MOEXMarketData:
+        return self._get_market_data(
+            ticker,
+            path_builder=self._board_security_path,
+            default_board=self.board,
+        )
+
+    def get_index_market_data(self, ticker: str) -> MOEXMarketData:
+        return self._get_market_data(
+            ticker,
+            path_builder=self._index_security_path,
+            default_board="",
+        )
+
+    def _get_market_data(self, ticker: str, *, path_builder, default_board: str) -> MOEXMarketData:
         fetched_at = self.now_provider()
         normalized_ticker = self._normalize_ticker(ticker)
         gaps: list[MOEXDataGap] = []
@@ -200,25 +283,25 @@ class MOEXISSClient:
 
         if not normalized_ticker:
             gaps.append(MOEXDataGap("ticker", "Ticker is required and must use letters, numbers, or hyphen.", "high"))
-            return MOEXMarketData(ticker="", fetched_at=fetched_at, data_gaps=gaps, errors=errors)
+            return MOEXMarketData(ticker="", fetched_at=fetched_at, board=default_board, data_gaps=gaps, errors=errors)
 
         try:
-            payload = self._get_json(self._board_security_path(normalized_ticker))
+            payload = self._get_json(path_builder(normalized_ticker))
             security_rows = iss_table_to_rows(payload, "securities", required=False)
             market_rows = iss_table_to_rows(payload, "marketdata", required=False)
         except Exception as exc:
             gaps.append(MOEXDataGap("market_data", f"MOEX ISS market data is unavailable for {normalized_ticker}.", "medium"))
             errors.append(f"MOEX ISS market data lookup failed: {sanitize_error_message(exc)}")
-            return MOEXMarketData(ticker=normalized_ticker, fetched_at=fetched_at, board=self.board, data_gaps=gaps, errors=errors)
+            return MOEXMarketData(ticker=normalized_ticker, fetched_at=fetched_at, board=default_board, data_gaps=gaps, errors=errors)
 
         security = _first_matching_row(security_rows, normalized_ticker)
         market_row = _first_matching_row(market_rows, normalized_ticker)
         if market_row is None:
             gaps.append(MOEXDataGap("market_data", f"MOEX ISS market data was empty for {normalized_ticker}.", "low"))
-            return MOEXMarketData(ticker=normalized_ticker, fetched_at=fetched_at, board=self.board, data_gaps=gaps, errors=errors)
+            return MOEXMarketData(ticker=normalized_ticker, fetched_at=fetched_at, board=default_board, data_gaps=gaps, errors=errors)
 
-        close_price = _first_float(market_row, "close", "closeprice", "marketprice", "last")
-        trade_date = _first_date(market_row, "tradedate", "tradetime", "systime")
+        close_price = _first_float(market_row, "close", "closeprice", "marketprice", "last", "currentvalue", "lastvalue")
+        trade_date = _first_date(market_row, "tradedate", "tradetime", "systime", "updatetime")
         currency = _normalize_currency(
             _first_present(
                 _row_value(market_row, "currencyid"),
@@ -230,13 +313,13 @@ class MOEXISSClient:
         return MOEXMarketData(
             ticker=normalized_ticker,
             fetched_at=fetched_at,
-            board=_clean_string(_first_present(_row_value(market_row, "boardid"), _row_value(security, "boardid"))) or self.board,
+            board=_clean_string(_first_present(_row_value(market_row, "boardid"), _row_value(security, "boardid"))) or default_board,
             trade_date=trade_date,
-            open=_first_float(market_row, "open"),
-            high=_first_float(market_row, "high"),
-            low=_first_float(market_row, "low"),
+            open=_first_float(market_row, "open", "openvalue"),
+            high=_first_float(market_row, "high", "highvalue"),
+            low=_first_float(market_row, "low", "lowvalue"),
             close=close_price,
-            last=_first_float(market_row, "last"),
+            last=_first_float(market_row, "last", "currentvalue", "lastvalue"),
             volume=_first_int(market_row, "volume", "voltoday", "qty"),
             value=_first_float(market_row, "value", "valtoday"),
             currency=currency,
@@ -252,11 +335,53 @@ class MOEXISSClient:
     ) -> list[MOEXDailyCandle]:
         return self.get_daily_candles_result(ticker, from_date=from_date, till_date=till_date).candles
 
+    def get_index_daily_candles(
+        self,
+        ticker: str,
+        from_date: Optional[date] = None,
+        till_date: Optional[date] = None,
+    ) -> list[MOEXDailyCandle]:
+        return self.get_index_daily_candles_result(ticker, from_date=from_date, till_date=till_date).candles
+
     def get_daily_candles_result(
         self,
         ticker: str,
         from_date: Optional[date] = None,
         till_date: Optional[date] = None,
+    ) -> MOEXDailyCandlesResult:
+        return self._get_daily_candles_result(
+            ticker,
+            from_date=from_date,
+            till_date=till_date,
+            candles_path_builder=lambda normalized_ticker: f"{self._board_security_path(normalized_ticker)}/candles.json",
+            unavailable_description="MOEX ISS daily candles are unavailable",
+            empty_description="MOEX ISS returned no daily candles",
+        )
+
+    def get_index_daily_candles_result(
+        self,
+        ticker: str,
+        from_date: Optional[date] = None,
+        till_date: Optional[date] = None,
+    ) -> MOEXDailyCandlesResult:
+        return self._get_daily_candles_result(
+            ticker,
+            from_date=from_date,
+            till_date=till_date,
+            candles_path_builder=self._index_candles_path,
+            unavailable_description="MOEX ISS daily index candles are unavailable",
+            empty_description="MOEX ISS returned no daily index candles",
+        )
+
+    def _get_daily_candles_result(
+        self,
+        ticker: str,
+        from_date: Optional[date] = None,
+        till_date: Optional[date] = None,
+        *,
+        candles_path_builder,
+        unavailable_description: str,
+        empty_description: str,
     ) -> MOEXDailyCandlesResult:
         fetched_at = self.now_provider()
         normalized_ticker = self._normalize_ticker(ticker)
@@ -275,12 +400,12 @@ class MOEXISSClient:
 
         try:
             rows = self._get_paged_rows(
-                f"{self._board_security_path(normalized_ticker)}/candles.json",
+                candles_path_builder(normalized_ticker),
                 table_name="candles",
                 params=params,
             )
         except Exception as exc:
-            gaps.append(MOEXDataGap("price_history", f"MOEX ISS daily candles are unavailable for {normalized_ticker}.", "medium"))
+            gaps.append(MOEXDataGap("price_history", f"{unavailable_description} for {normalized_ticker}.", "medium"))
             errors.append(f"MOEX ISS candle lookup failed: {sanitize_error_message(exc)}")
             return MOEXDailyCandlesResult(ticker=normalized_ticker, fetched_at=fetched_at, data_gaps=gaps, errors=errors)
 
@@ -304,7 +429,7 @@ class MOEXISSClient:
 
         candles = sorted(candles, key=lambda item: item.begin)
         if not candles:
-            gaps.append(MOEXDataGap("price_history", f"MOEX ISS returned no daily candles for {normalized_ticker}.", "low"))
+            gaps.append(MOEXDataGap("price_history", f"{empty_description} for {normalized_ticker}.", "low"))
 
         return MOEXDailyCandlesResult(
             ticker=normalized_ticker,
@@ -404,9 +529,22 @@ class MOEXISSClient:
             f"/securities/{quote(ticker, safe='')}.json"
         )
 
+    def _index_security_path(self, ticker: str) -> str:
+        return (
+            f"/engines/{quote(self.engine, safe='')}"
+            f"/markets/{quote(INDEX_MARKET, safe='')}"
+            f"/securities/{quote(ticker, safe='')}.json"
+        )
+
+    def _index_candles_path(self, ticker: str) -> str:
+        return (
+            f"/engines/{quote(self.engine, safe='')}"
+            f"/markets/{quote(INDEX_MARKET, safe='')}"
+            f"/securities/{quote(ticker, safe='')}/candles.json"
+        )
+
     def _normalize_ticker(self, ticker: object) -> str:
-        normalized = str(ticker or "").strip().upper()
-        return normalized if normalized.replace("-", "").isalnum() else ""
+        return normalize_moex_ticker(ticker)
 
 
 class MOEXDataAdapter:

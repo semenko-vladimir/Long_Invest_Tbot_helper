@@ -86,6 +86,7 @@ class ResearchReport:
     dividends: Optional[dict[str, Any]] = None
     sector_industry: Optional[dict[str, Any]] = None
     competitors: Optional[list[dict[str, Any]]] = None
+    market_context: Optional[dict[str, Any]] = None
     macro_context: Optional[dict[str, Any]] = None
     news_osint: Optional[list[dict[str, Any]]] = None
     risks: list[str] = field(default_factory=list)

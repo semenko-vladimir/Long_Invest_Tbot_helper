@@ -119,6 +119,7 @@ class ResearchReportService:
             dividends=fields.get("dividends"),
             sector_industry=fields.get("sector_industry"),
             competitors=fields.get("competitors"),
+            market_context=fields.get("market_context"),
             macro_context=fields.get("macro_context"),
             news_osint=fields.get("news_osint"),
             risks=risks,
@@ -137,6 +138,7 @@ class ResearchReportService:
             "dividends",
             "sector_industry",
             "competitors",
+            "market_context",
             "macro_context",
             "news_osint",
         ):

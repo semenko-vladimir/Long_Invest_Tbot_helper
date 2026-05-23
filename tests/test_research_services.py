@@ -57,6 +57,40 @@ class PartialAdapter:
         )
 
 
+class MarketContextAdapter:
+    source_name = "market-context"
+
+    def fetch(self, ticker: str) -> AdapterResult:
+        fetched_at = datetime(2026, 5, 4, 12, 0)
+        return AdapterResult(
+            source_name=self.source_name,
+            data={
+                "ticker": ticker,
+                "market_context": {
+                    "source": "MOEX ISS",
+                    "fetched_at": fetched_at,
+                    "as_of_date": "2026-05-03",
+                    "period": "month",
+                    "indexes": [
+                        {
+                            "ticker": "IMOEX",
+                            "latest_close": 3200.0,
+                            "recent_change_pct": 1.5,
+                            "as_of_date": "2026-05-03",
+                        }
+                    ],
+                    "data_gaps": [],
+                    "errors": [],
+                },
+            },
+            freshness=SourceFreshness(
+                source_name=self.source_name,
+                fetched_at=fetched_at,
+                as_of_date="2026-05-03",
+            ),
+        )
+
+
 class FailingAdapter:
     source_name = "failing"
 
@@ -123,6 +157,18 @@ class ResearchServicesTests(unittest.TestCase):
 
         self.assertIsNone(report.instrument_identity)
         self.assertTrue(any(gap.category == "financials" for gap in report.data_gaps))
+
+    def test_market_context_merges_into_report_without_rating(self):
+        results = TickerResearchService(
+            [SuccessfulAdapter(), MarketContextAdapter()],
+            now_provider=self.now_provider,
+        ).collect("SBER")
+        report = ResearchReportService(now_provider=self.now_provider).build_report("SBER", results)
+
+        self.assertEqual(report.market_context["source"], "MOEX ISS")
+        self.assertEqual(report.market_context["indexes"][0]["ticker"], "IMOEX")
+        self.assertEqual(report.market_context["indexes"][0]["latest_close"], 3200.0)
+        self.assertIsNone(report.educational_rating)
 
     def test_educational_rating_remains_none_and_disclaimer_is_present(self):
         results = TickerResearchService(

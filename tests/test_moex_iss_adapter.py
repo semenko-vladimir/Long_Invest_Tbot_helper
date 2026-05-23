@@ -13,6 +13,7 @@ from app.integrations.moex_iss import (
     MOEXISSClient,
     MOEXMarketData,
     MOEXSecurityMetadata,
+    configured_moex_index_tickers,
     iss_table_to_rows,
 )
 from app.research.schemas import InstrumentIdentity, MarketSnapshot
@@ -167,6 +168,89 @@ class MOEXISSClientTests(unittest.TestCase):
         self.assertEqual(result.value, 171250.0)
         self.assertEqual(result.currency, "RUB")
         self.assertEqual(result.errors, [])
+
+    def test_successful_index_metadata_parse_uses_index_market_endpoint(self):
+        payload = {
+            "description": {
+                "columns": ["name", "title", "value"],
+                "data": [
+                    ["SECID", "Ticker", "IMOEX"],
+                    ["NAME", "Name", "MOEX Russia Index"],
+                ],
+            },
+            "securities": {
+                "columns": ["SECID", "SHORTNAME", "NAME", "TYPE", "GROUP"],
+                "data": [["IMOEX", "IMOEX", "MOEX Russia Index", "stock_index", "stock_index"]],
+            },
+        }
+        patcher, requests = self.patch_urlopen([payload])
+
+        with patcher:
+            result = self.build_client().get_index_security_metadata(" imoex ")
+
+        self.assertEqual(result.ticker, "IMOEX")
+        self.assertEqual(result.name, "MOEX Russia Index")
+        self.assertEqual(result.short_name, "IMOEX")
+        self.assertEqual(result.market, "index")
+        self.assertEqual(result.board, "")
+        self.assertEqual(result.errors, [])
+        self.assertIn("/engines/stock/markets/index/securities/IMOEX.json?", requests[0][0].full_url)
+        self.assertNotIn("/boards/TQBR/", requests[0][0].full_url)
+
+    def test_successful_index_market_data_parse(self):
+        payload = {
+            "securities": {
+                "columns": ["SECID"],
+                "data": [["RTSI"]],
+            },
+            "marketdata": {
+                "columns": ["SECID", "OPENVALUE", "HIGHVALUE", "LOWVALUE", "CURRENTVALUE", "UPDATETIME"],
+                "data": [["RTSI", 1100.0, 1125.0, 1095.0, 1115.5, "2026-05-22 18:45:00"]],
+            },
+        }
+        patcher, _ = self.patch_urlopen([payload])
+
+        with patcher:
+            result = self.build_client().get_index_market_data("rtsi")
+
+        self.assertEqual(result.ticker, "RTSI")
+        self.assertEqual(result.board, "")
+        self.assertEqual(result.trade_date, date(2026, 5, 22))
+        self.assertEqual(result.open, 1100.0)
+        self.assertEqual(result.high, 1125.0)
+        self.assertEqual(result.low, 1095.0)
+        self.assertEqual(result.close, 1115.5)
+        self.assertEqual(result.last, 1115.5)
+        self.assertEqual(result.errors, [])
+
+    def test_successful_index_candles_use_index_candles_endpoint(self):
+        payload = {
+            "candles": {
+                "columns": ["begin", "end", "open", "high", "low", "close"],
+                "data": [["2026-05-20 00:00:00", "2026-05-20 23:59:59", 3000, 3050, 2990, 3040]],
+            },
+            "candles.cursor": {"columns": ["INDEX", "TOTAL", "PAGESIZE"], "data": [[0, 1, 100]]},
+        }
+        patcher, requests = self.patch_urlopen([payload])
+
+        with patcher:
+            result = self.build_client().get_index_daily_candles_result(
+                "imoex",
+                from_date=date(2026, 5, 1),
+                till_date=date(2026, 5, 31),
+            )
+
+        self.assertEqual(result.ticker, "IMOEX")
+        self.assertEqual(result.errors, [])
+        self.assertEqual(len(result.candles), 1)
+        self.assertEqual(result.candles[0].close, 3040.0)
+        self.assertIn("/engines/stock/markets/index/securities/IMOEX/candles.json?", requests[0][0].full_url)
+        self.assertNotIn("/boards/TQBR/", requests[0][0].full_url)
+        self.assertIn("interval=24", requests[0][0].full_url)
+
+    def test_configured_moex_index_tickers_defaults_dedupes_and_ignores_invalid_values(self):
+        self.assertEqual(configured_moex_index_tickers(""), ("IMOEX", "RTSI"))
+        self.assertEqual(configured_moex_index_tickers("imoex, RTSI; imoex bad! RGBI"), ("IMOEX", "RTSI", "RGBI"))
 
     def test_successful_candles_parse_with_pagination(self):
         first_page = {

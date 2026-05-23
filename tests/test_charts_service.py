@@ -30,9 +30,16 @@ class FakeMOEXDailyCandlesClient:
         self.result = result
         self.error = error
         self.calls = []
+        self.index_calls = []
 
     def get_daily_candles_result(self, ticker, from_date=None, till_date=None):
         self.calls.append((ticker, from_date, till_date))
+        if self.error:
+            raise self.error
+        return self.result
+
+    def get_index_daily_candles_result(self, ticker, from_date=None, till_date=None):
+        self.index_calls.append((ticker, from_date, till_date))
         if self.error:
             raise self.error
         return self.result
@@ -286,6 +293,30 @@ class ChartHistoryServiceTests(unittest.TestCase):
         self.assertEqual(result.candles[0].close, 250.5)
         self.assertTrue(any(gap.category == "sample" for gap in result.data_gaps))
         self.assertTrue(any(gap.category == "granularity" for gap in result.data_gaps))
+
+    def test_moex_iss_chart_adapter_uses_index_candles_for_configured_index(self):
+        fetched_at = datetime(2026, 5, 21, 13, 0)
+        client = FakeMOEXDailyCandlesClient(
+            MOEXDailyCandlesResult(
+                ticker="IMOEX",
+                fetched_at=fetched_at,
+                candles=[moex_candle(20, close=3200.5, fetched_at=fetched_at)],
+            )
+        )
+        adapter = MOEXISSCandlesAdapter(
+            client=client,
+            index_tickers=("IMOEX",),
+            now_provider=lambda: self.now,
+        )
+
+        result = adapter.fetch_candles(" imoex ", "month")
+
+        self.assertEqual(client.calls, [])
+        self.assertEqual(client.index_calls, [("IMOEX", date(2026, 4, 20), date(2026, 5, 21))])
+        self.assertEqual(result.source_name, "MOEX ISS")
+        self.assertEqual(result.ticker, "IMOEX")
+        self.assertEqual(len(result.candles), 1)
+        self.assertEqual(result.candles[0].close, 3200.5)
 
     def test_range_normalization(self):
         self.assertEqual(normalize_chart_range("day"), "day")

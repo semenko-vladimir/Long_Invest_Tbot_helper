@@ -8,6 +8,7 @@ from app.client.config import get_invest_mode
 from app.client.handlers.utils.message_utils import send_or_edit_message
 from app.integrations.tinvest import TInvestBroker
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
+from app.research.market_context import MOEXMarketContextAdapter
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.tinvest_adapter import TInvestDataAdapter
 from app.services.dividends import DividendsService
@@ -104,6 +105,7 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
             [
                 TInvestDataAdapter(broker=broker, token_provider=token_provider),
                 LocalFundamentalsAdapter(),
+                MOEXMarketContextAdapter(),
             ]
         ),
         report_builder=ResearchReportService(),

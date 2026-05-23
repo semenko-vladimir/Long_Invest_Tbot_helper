@@ -78,6 +78,7 @@ class ResearchReportTypedFieldsTests(unittest.TestCase):
         r = self._minimal_report()
         self.assertEqual(r.risk_factors, [])
         self.assertEqual(r.analysis_signals, [])
+        self.assertIsNone(r.market_context)
 
     def test_existing_fields_still_present(self):
         r = self._minimal_report()

@@ -71,6 +71,40 @@ class PartialAdapter:
         )
 
 
+class MarketContextAdapter:
+    source_name = "market-context"
+
+    def fetch(self, ticker: str) -> AdapterResult:
+        fetched_at = datetime(2026, 5, 4, 12, 0)
+        return AdapterResult(
+            source_name=self.source_name,
+            data={
+                "ticker": ticker,
+                "market_context": {
+                    "source": "MOEX ISS",
+                    "fetched_at": fetched_at,
+                    "as_of_date": "2026-05-03",
+                    "period": "month",
+                    "indexes": [
+                        {
+                            "ticker": "IMOEX",
+                            "latest_close": 3200.0,
+                            "recent_change_pct": 1.5,
+                            "as_of_date": "2026-05-03",
+                        }
+                    ],
+                    "data_gaps": [],
+                    "errors": [],
+                },
+            },
+            freshness=SourceFreshness(
+                source_name=self.source_name,
+                fetched_at=fetched_at,
+                as_of_date="2026-05-03",
+            ),
+        )
+
+
 class FailingAdapter:
     source_name = "failing"
 
@@ -147,6 +181,16 @@ class ResearchApiTests(unittest.TestCase):
         payload = response.json()
         self.assertIsNone(payload["instrument_identity"])
         self.assertTrue(any(gap["category"] == "financials" for gap in payload["data_gaps"]))
+
+    def test_get_research_endpoint_includes_market_context(self):
+        response = self.build_client([SuccessfulAdapter(), MarketContextAdapter()]).get("/api/research/sber")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["market_context"]["source"], "MOEX ISS")
+        self.assertEqual(payload["market_context"]["indexes"][0]["ticker"], "IMOEX")
+        self.assertEqual(payload["market_context"]["indexes"][0]["latest_close"], 3200.0)
+        self.assertIsNone(payload["educational_rating"])
 
     def test_adapter_error_is_reported_without_order_action(self):
         response = self.build_client([SuccessfulAdapter(), FailingAdapter()]).get("/api/research/SBER")

@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartRange, PriceCandle
-from app.integrations.moex_iss import MOEXISSClient, MOEX_SOURCE_NAME, MOEXDailyCandle, sanitize_error_message
+from app.integrations.moex_iss import (
+    MOEXISSClient,
+    MOEX_SOURCE_NAME,
+    MOEXDailyCandle,
+    configured_moex_index_tickers,
+    sanitize_error_message,
+)
 
 
 @dataclass(frozen=True)
@@ -21,10 +27,14 @@ class MOEXISSCandlesAdapter:
     def __init__(
         self,
         client: Optional[MOEXISSClient] = None,
+        index_tickers: Optional[Sequence[str]] = None,
         now_provider: Optional[Callable[[], datetime]] = None,
     ):
         self.now_provider = now_provider or (lambda: datetime.now(timezone.utc))
         self.client = client or MOEXISSClient(now_provider=self.now_provider)
+        self.index_tickers = self._normalize_index_tickers(
+            index_tickers if index_tickers is not None else configured_moex_index_tickers()
+        )
 
     def fetch_candles(self, ticker: str, range_name: ChartRange) -> ChartAdapterResult:
         fetched_at = self.now_provider()
@@ -39,11 +49,18 @@ class MOEXISSCandlesAdapter:
 
         from_date, till_date = self._date_window(range_name)
         try:
-            result = self.client.get_daily_candles_result(
-                normalized_ticker,
-                from_date=from_date,
-                till_date=till_date,
-            )
+            if normalized_ticker in self.index_tickers:
+                result = self.client.get_index_daily_candles_result(
+                    normalized_ticker,
+                    from_date=from_date,
+                    till_date=till_date,
+                )
+            else:
+                result = self.client.get_daily_candles_result(
+                    normalized_ticker,
+                    from_date=from_date,
+                    till_date=till_date,
+                )
         except Exception as exc:
             message = f"MOEX ISS candle lookup failed: {sanitize_error_message(exc)}"
             return ChartAdapterResult(
@@ -135,6 +152,13 @@ class MOEXISSCandlesAdapter:
     def _normalize_ticker(self, ticker: object) -> str:
         normalized = str(ticker or "").strip().upper()
         return normalized if normalized.replace("-", "").isalnum() else ""
+
+    def _normalize_index_tickers(self, index_tickers: Sequence[str]) -> set[str]:
+        return {
+            normalized
+            for normalized in (self._normalize_ticker(ticker) for ticker in index_tickers)
+            if normalized
+        }
 
 
 def moex_chart_range_spec(range_name: ChartRange) -> MOEXChartRangeSpec:
