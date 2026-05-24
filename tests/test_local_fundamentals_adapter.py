@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.backend.models.database import Base
+from app.data_sources.schemas import DATA_SOURCE_LOCAL_FUNDAMENTALS, DELAY_STATUS_LOCAL_FILE
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.snapshots import ResearchSnapshotService, snapshot_to_dict
@@ -26,15 +27,16 @@ class LocalFundamentalsAdapterTests(unittest.TestCase):
 
         result = adapter.fetch(" sber ")
 
-        self.assertEqual(result.source_name, "local-fundamentals")
+        self.assertEqual(result.source_name, DATA_SOURCE_LOCAL_FUNDAMENTALS)
         self.assertEqual(result.errors, [])
         self.assertEqual(result.data["ticker"], "SBER")
         self.assertEqual(result.data["company_profile"]["name"], "Sberbank of Russia PJSC")
         self.assertEqual(result.data["sector_industry"]["sector"], "Financials")
         self.assertNotIn("educational_rating", result.data)
         self.assertIsNotNone(result.freshness)
-        self.assertEqual(result.freshness.source_name, "local-fundamentals")
+        self.assertEqual(result.freshness.source_name, DATA_SOURCE_LOCAL_FUNDAMENTALS)
         self.assertEqual(result.freshness.as_of_date, "2026-05-05")
+        self.assertEqual(result.freshness.delay_status, DELAY_STATUS_LOCAL_FILE)
 
     def test_unknown_ticker_returns_explicit_data_gaps_without_guessing(self):
         adapter = LocalFundamentalsAdapter(now_provider=lambda: self.now)
@@ -89,7 +91,7 @@ class LocalFundamentalsAdapterTests(unittest.TestCase):
         results = TickerResearchService([adapter], now_provider=lambda: self.now).collect("test")
         report = ResearchReportService(now_provider=lambda: self.now).build_report("test", results)
 
-        self.assertEqual(report.sources, ["local-fundamentals"])
+        self.assertEqual(report.sources, [DATA_SOURCE_LOCAL_FUNDAMENTALS])
         self.assertEqual(report.company_profile["name"], "Test Company")
         self.assertEqual(report.sector_industry["industry"], "Software")
         self.assertIsNone(report.financials)

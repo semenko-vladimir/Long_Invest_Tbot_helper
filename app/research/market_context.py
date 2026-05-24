@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Optional, Sequence
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_MOEX_ISS,
+    DELAY_STATUS_DELAYED_PUBLIC_ISS,
+    FRESHNESS_DELAYED_PUBLIC_DATA,
+)
 from app.integrations.moex_iss import (
     MOEXISSClient,
     MOEX_SOURCE_NAME,
@@ -14,7 +19,7 @@ from app.integrations.moex_iss import (
 from app.research.schemas import AdapterResult, DataGap, SourceFreshness
 
 
-MARKET_CONTEXT_SOURCE_NAME = "MOEX Market Context"
+MARKET_CONTEXT_SOURCE_NAME = DATA_SOURCE_MOEX_ISS
 DEFAULT_MARKET_CONTEXT_PERIOD_DAYS = 31
 DEFAULT_MARKET_CONTEXT_PERIOD_LABEL = "month"
 
@@ -75,6 +80,8 @@ class MarketContextService:
             "source": MOEX_SOURCE_NAME,
             "fetched_at": fetched_at,
             "as_of_date": as_of_date,
+            "freshness": FRESHNESS_DELAYED_PUBLIC_DATA,
+            "delay_status": DELAY_STATUS_DELAYED_PUBLIC_ISS,
             "period": self.period_label,
             "period_days": self.period_days,
             "indexes": indexes,
@@ -101,6 +108,8 @@ class MarketContextService:
             "source": MOEX_SOURCE_NAME,
             "fetched_at": None,
             "as_of_date": None,
+            "freshness": FRESHNESS_DELAYED_PUBLIC_DATA,
+            "delay_status": DELAY_STATUS_DELAYED_PUBLIC_ISS,
             "data_gaps": [],
             "errors": [],
         }
@@ -170,6 +179,8 @@ class MOEXMarketContextAdapter:
             source_name=self.source_name,
             fetched_at=fetched_at,
             as_of_date=fetched_at.date().isoformat(),
+            freshness=FRESHNESS_DELAYED_PUBLIC_DATA,
+            delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
             notes="Read-only public MOEX ISS index context. No broker token is used.",
         )
 
@@ -190,6 +201,8 @@ class MOEXMarketContextAdapter:
                 source_name=self.source_name,
                 fetched_at=fetched_at,
                 as_of_date=as_of_date,
+                freshness=FRESHNESS_DELAYED_PUBLIC_DATA,
+                delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
                 notes="Read-only public MOEX ISS index context. No broker token is used.",
             )
 

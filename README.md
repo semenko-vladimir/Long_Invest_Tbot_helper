@@ -49,6 +49,16 @@ graph TD
 - Web: Browser -> FastAPI Route -> WebRequestServices -> Service -> DB/Broker.
 - User context: Telegram chat_id -> UserContextResolver -> single configured UserContext -> SessionFactory.
 
+## Источники данных
+
+Tbot v1 использует read-only data adapters с явной metadata свежести: `source`, `fetched_at`, `as_of_date`, `freshness`, `delay_status`, `data_gaps` и `errors`. Отсутствующие значения показываются как пробелы в данных, а не додумываются.
+
+- `T_INVEST` - основной источник текущих и broker-facing данных: portfolio positions, доступность брокера, текущие/последние цены, стакан, сделки, trading status, market data stream, дивиденды/купоны, когда они доступны через T-Invest.
+- `MOEX_ISS` - вторичный публичный exchange-data источник для справочников MOEX, secid/board/classcode mapping, исторических дневных свечей, индексного market context и fallback/verification, когда T-Invest candles или metadata недоступны.
+- `LOCAL_FUNDAMENTALS` - опциональный локальный JSON-источник для профиля компании и фундаментальных полей research.
+
+Бесплатные данные MOEX ISS считаются delayed public data, не real-time. MOEX ISS не получает T-Invest токены, локальные секреты или cookies. Все data adapters read-only и не создают broker order previews, confirmations или broker orders.
+
 ## Установка
 
 **Python 3.12 is the canonical supported version for this project. Python 3.13/3.14 are not currently tested.**

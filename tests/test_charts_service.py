@@ -3,6 +3,11 @@ from datetime import date, datetime
 from pathlib import Path
 import unittest
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_MOEX_ISS,
+    DATA_SOURCE_T_INVEST,
+    DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
+)
 from app.charts.adapters import FallbackChartDataAdapter
 from app.charts.moex_iss_candles_adapter import MOEXISSCandlesAdapter
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, PriceCandle
@@ -178,7 +183,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
     def test_fallback_adapter_keeps_tinvest_success_path(self):
         primary = FakeChartAdapter(
             ChartAdapterResult(
-                source_name="t-invest-candles",
+                source_name=DATA_SOURCE_T_INVEST,
                 ticker="SBER",
                 figi="FIGI-SBER",
                 fetched_at=self.now,
@@ -187,7 +192,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
         )
         fallback = FakeChartAdapter(
             ChartAdapterResult(
-                source_name="MOEX ISS",
+                source_name=DATA_SOURCE_MOEX_ISS,
                 ticker="SBER",
                 candles=[candle(3, close=103.0)],
             )
@@ -201,7 +206,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
 
         self.assertEqual(primary.calls, [("SBER", "month")])
         self.assertEqual(fallback.calls, [])
-        self.assertEqual(history.source, "t-invest-candles")
+        self.assertEqual(history.source, DATA_SOURCE_T_INVEST)
         self.assertEqual(history.figi, "FIGI-SBER")
         self.assertEqual(len(history.candles), 2)
         self.assertEqual(history.errors, [])
@@ -210,7 +215,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
         moex_fetched_at = datetime(2026, 5, 21, 13, 0)
         primary = FakeChartAdapter(
             ChartAdapterResult(
-                source_name="t-invest-candles",
+                source_name=DATA_SOURCE_T_INVEST,
                 ticker="SBER",
                 data_gaps=[ChartDataGap("authentication", "T-Invest token is unavailable.", "high")],
                 errors=["No T-Invest token is configured."],
@@ -218,7 +223,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
         )
         fallback = FakeChartAdapter(
             ChartAdapterResult(
-                source_name="MOEX ISS",
+                source_name=DATA_SOURCE_MOEX_ISS,
                 ticker="SBER",
                 fetched_at=moex_fetched_at,
                 candles=[candle(1), candle(2, close=102.0)],
@@ -233,7 +238,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
 
         self.assertEqual(primary.calls, [("SBER", "month")])
         self.assertEqual(fallback.calls, [("SBER", "month")])
-        self.assertEqual(history.source, "MOEX ISS")
+        self.assertEqual(history.source, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
         self.assertEqual(history.fetched_at, moex_fetched_at)
         self.assertEqual(len(history.candles), 2)
         self.assertEqual(history.errors, [])
@@ -242,7 +247,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
     def test_fallback_adapter_returns_explicit_error_when_both_sources_unavailable(self):
         primary = FakeChartAdapter(
             ChartAdapterResult(
-                source_name="t-invest-candles",
+                source_name=DATA_SOURCE_T_INVEST,
                 ticker="SBER",
                 data_gaps=[ChartDataGap("price_history", "T-Invest candles unavailable.", "medium")],
                 errors=["T-Invest candle lookup failed."],
@@ -250,7 +255,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
         )
         fallback = FakeChartAdapter(
             ChartAdapterResult(
-                source_name="MOEX ISS",
+                source_name=DATA_SOURCE_MOEX_ISS,
                 ticker="SBER",
                 data_gaps=[ChartDataGap("price_history", "MOEX ISS returned no daily candles.", "low")],
                 errors=["MOEX ISS candle lookup failed."],
@@ -264,7 +269,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
         history = service.get_history("SBER", "month")
 
         self.assertEqual(history.candles, [])
-        self.assertEqual(history.source, "t-invest-candles + MOEX ISS")
+        self.assertEqual(history.source, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
         self.assertTrue(any("T-Invest candle lookup failed" in error for error in history.errors))
         self.assertTrue(any("MOEX ISS candle lookup failed" in error for error in history.errors))
         self.assertTrue(any(gap.category == "price_history" for gap in history.data_gaps))
@@ -284,7 +289,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
         result = adapter.fetch_candles(" sber ", "day")
 
         self.assertEqual(client.calls, [("SBER", date(2026, 5, 20), date(2026, 5, 21))])
-        self.assertEqual(result.source_name, "MOEX ISS")
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
         self.assertEqual(result.ticker, "SBER")
         self.assertEqual(result.fetched_at, fetched_at)
         self.assertEqual(result.errors, [])
@@ -313,7 +318,7 @@ class ChartHistoryServiceTests(unittest.TestCase):
 
         self.assertEqual(client.calls, [])
         self.assertEqual(client.index_calls, [("IMOEX", date(2026, 4, 20), date(2026, 5, 21))])
-        self.assertEqual(result.source_name, "MOEX ISS")
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
         self.assertEqual(result.ticker, "IMOEX")
         self.assertEqual(len(result.candles), 1)
         self.assertEqual(result.candles[0].close, 3200.5)

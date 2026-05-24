@@ -93,7 +93,8 @@ class ResearchReportService:
         fields: dict[str, Any] = {}
 
         for result in adapter_results:
-            sources.append(result.source_name)
+            if result.source_name not in sources:
+                sources.append(result.source_name)
             if result.freshness is not None:
                 freshness.append(result.freshness)
             data_gaps.extend(result.gaps)
@@ -120,6 +121,7 @@ class ResearchReportService:
             sector_industry=fields.get("sector_industry"),
             competitors=fields.get("competitors"),
             market_context=fields.get("market_context"),
+            exchange_reference=fields.get("exchange_reference"),
             macro_context=fields.get("macro_context"),
             news_osint=fields.get("news_osint"),
             risks=risks,
@@ -139,6 +141,7 @@ class ResearchReportService:
             "sector_industry",
             "competitors",
             "market_context",
+            "exchange_reference",
             "macro_context",
             "news_osint",
         ):

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+from app.data_sources.schemas import DATA_SOURCE_MOEX_ISS, DELAY_STATUS_DELAYED_PUBLIC_ISS
 
 os.environ["BOT_TOKEN"] = "123456:TEST"
 
@@ -142,8 +143,10 @@ class TelegramChartHandlerTests(unittest.TestCase):
         fake_service = FakeChartImageService(
             chart_result(
                 history=SimpleNamespace(
-                    source="MOEX ISS",
+                    source=DATA_SOURCE_MOEX_ISS,
                     fetched_at=datetime(2026, 5, 21, 13, 0, tzinfo=timezone.utc),
+                    as_of_date="2026-05-20",
+                    delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
                 )
             )
         )
@@ -155,8 +158,10 @@ class TelegramChartHandlerTests(unittest.TestCase):
                     chart_handler.chart_command_handler(FakeMessage("/chart sber month"))
 
         caption = send_photo.call_args.kwargs["caption"]
-        self.assertIn("Source: MOEX ISS", caption)
+        self.assertIn(f"Source: {DATA_SOURCE_MOEX_ISS}", caption)
+        self.assertIn("As of: 2026-05-20", caption)
         self.assertIn("Fetched: 2026-05-21 13:00 UTC", caption)
+        self.assertIn(f"Delay: {DELAY_STATUS_DELAYED_PUBLIC_ISS}", caption)
         self.assertIn("No broker orders were created", caption)
 
     def test_plain_command_sends_png_without_analytics(self):

@@ -1,5 +1,6 @@
 from typing import Protocol
 
+from app.data_sources.schemas import DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartRange
 
 
@@ -17,7 +18,7 @@ class ChartDataAdapter(Protocol):
 class FallbackChartDataAdapter:
     """Read-only primary/fallback adapter composition for chart candles."""
 
-    source_name = "chart-data-fallback"
+    source_name = DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK
 
     def __init__(self, primary: ChartDataAdapter, fallback: ChartDataAdapter):
         self.primary = primary
@@ -31,12 +32,16 @@ class FallbackChartDataAdapter:
         fallback_result = self._fetch_safely(self.fallback, ticker, range_name)
         if fallback_result.candles:
             return ChartAdapterResult(
-                source_name=fallback_result.source_name,
+                source_name=DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
                 ticker=fallback_result.ticker or primary_result.ticker or ticker,
                 figi=fallback_result.figi or primary_result.figi,
                 fetched_at=fallback_result.fetched_at,
+                as_of_date=fallback_result.as_of_date,
+                freshness=fallback_result.freshness,
+                delay_status=fallback_result.delay_status,
                 candles=list(fallback_result.candles),
-                data_gaps=list(fallback_result.data_gaps)
+                data_gaps=list(primary_result.data_gaps)
+                + list(fallback_result.data_gaps)
                 + [self._fallback_gap(primary_result, fallback_result.source_name)],
                 errors=list(fallback_result.errors),
             )
@@ -54,10 +59,13 @@ class FallbackChartDataAdapter:
             errors.append(message)
 
         return ChartAdapterResult(
-            source_name=f"{primary_result.source_name} + {fallback_result.source_name}",
+            source_name=DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
             ticker=fallback_result.ticker or primary_result.ticker or ticker,
             figi=primary_result.figi or fallback_result.figi,
             fetched_at=fallback_result.fetched_at or primary_result.fetched_at,
+            as_of_date=fallback_result.as_of_date or primary_result.as_of_date,
+            freshness=fallback_result.freshness or primary_result.freshness,
+            delay_status=fallback_result.delay_status or primary_result.delay_status,
             candles=[],
             data_gaps=gaps,
             errors=errors,

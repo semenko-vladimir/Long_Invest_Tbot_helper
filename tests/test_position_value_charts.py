@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 
+from app.data_sources.schemas import DATA_SOURCE_MOEX_ISS
 from app.charts.position_values import PositionValueChartService
 from app.charts.schemas import ChartHistory, PriceCandle
 
@@ -150,7 +151,7 @@ class PositionValueChartServiceTests(unittest.TestCase):
                 "month": history(
                     "month",
                     [candle(1, 200.0), candle(2, 210.0)],
-                    source="MOEX ISS",
+                    source=DATA_SOURCE_MOEX_ISS,
                     fetched_at=fetched_at,
                 )
             }
@@ -163,8 +164,8 @@ class PositionValueChartServiceTests(unittest.TestCase):
         result = service.get_position_value("SBER", "month")
 
         self.assertTrue(result.ok)
-        self.assertEqual(result.source, "MOEX ISS")
-        self.assertEqual(result.source_name, "MOEX ISS")
+        self.assertEqual(result.source, DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
         self.assertEqual(result.fetched_at, fetched_at)
         self.assertEqual([point.value for point in result.value_series], [400.0, 420.0])
 

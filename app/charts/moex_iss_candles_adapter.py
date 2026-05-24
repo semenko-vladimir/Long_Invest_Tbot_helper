@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Optional, Sequence
 
+from app.data_sources.schemas import DELAY_STATUS_DELAYED_PUBLIC_ISS, FRESHNESS_DELAYED_PUBLIC_DATA
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartRange, PriceCandle
 from app.integrations.moex_iss import (
     MOEXISSClient,
@@ -44,6 +45,9 @@ class MOEXISSCandlesAdapter:
                 source_name=self.source_name,
                 ticker="",
                 fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_DELAYED_PUBLIC_DATA,
+                delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
                 data_gaps=[ChartDataGap("ticker", "Ticker is required.", "high")],
             )
 
@@ -67,6 +71,9 @@ class MOEXISSCandlesAdapter:
                 source_name=self.source_name,
                 ticker=normalized_ticker,
                 fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_DELAYED_PUBLIC_DATA,
+                delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
                 data_gaps=[
                     ChartDataGap(
                         "price_history",
@@ -102,6 +109,9 @@ class MOEXISSCandlesAdapter:
             ticker=result.ticker or normalized_ticker,
             figi=None,
             fetched_at=result.fetched_at,
+            as_of_date=result.as_of_date,
+            freshness=result.freshness or FRESHNESS_DELAYED_PUBLIC_DATA,
+            delay_status=result.delay_status or DELAY_STATUS_DELAYED_PUBLIC_ISS,
             candles=candles,
             data_gaps=data_gaps,
             errors=list(result.errors),

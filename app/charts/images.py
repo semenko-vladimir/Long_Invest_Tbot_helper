@@ -188,6 +188,10 @@ class ChartImageService:
         generated = self._format_metadata_time(history.generated_at)
         fetched = self._format_metadata_time(history.fetched_at)
         note = f"Source: {history.source} | Fetched: {fetched} | Generated: {generated}"
+        if history.as_of_date:
+            note = f"{note} | As of: {history.as_of_date}"
+        if history.delay_status:
+            note = f"{note} | Delay: {history.delay_status}"
         if history.figi:
             note = f"{note} | FIGI: {history.figi}"
         figure.text(0.01, 0.035, note, fontsize=8, color="#475569")
@@ -224,6 +228,10 @@ class ChartImageService:
             f"Generated: {generated} | "
             f"Current quantity: {position_value.quantity:g}"
         )
+        if position_value.as_of_date:
+            note = f"{note} | As of: {position_value.as_of_date}"
+        if position_value.delay_status:
+            note = f"{note} | Delay: {position_value.delay_status}"
         if position_value.figi:
             note = f"{note} | FIGI: {position_value.figi}"
         figure.text(0.01, 0.035, note, fontsize=8, color="#475569")
@@ -361,6 +369,9 @@ class ChartImageService:
             generated_at=position_value.generated_at,
             source=position_value.source,
             fetched_at=position_value.fetched_at,
+            as_of_date=position_value.as_of_date,
+            freshness=position_value.freshness,
+            delay_status=position_value.delay_status,
             data_gaps=list(position_value.data_gaps),
             errors=list(position_value.errors),
             disclaimer=position_value.disclaimer,
@@ -375,6 +386,7 @@ class ChartImageService:
             generated_at=datetime.now(timezone.utc),
             source="chart-renderer",
             fetched_at=datetime.now(timezone.utc),
+            as_of_date=datetime.now(timezone.utc).date().isoformat(),
             data_gaps=[],
             errors=list(errors),
         )

@@ -61,6 +61,7 @@ class ChartHistoryService:
                 generated_at=generated_at,
                 source=self._adapter_source_name(),
                 fetched_at=generated_at,
+                as_of_date=generated_at.date().isoformat(),
                 data_gaps=gaps,
                 errors=errors,
                 disclaimer=self.disclaimer,
@@ -77,6 +78,7 @@ class ChartHistoryService:
                 generated_at=generated_at,
                 source=self._adapter_source_name(),
                 fetched_at=generated_at,
+                as_of_date=generated_at.date().isoformat(),
                 data_gaps=[ChartDataGap("adapter", "Chart adapter failed before returning data.", "medium")],
                 errors=[f"{self._adapter_source_name()} adapter failed: {str(exc)}"],
                 disclaimer=self.disclaimer,
@@ -100,6 +102,9 @@ class ChartHistoryService:
             generated_at=generated_at,
             source=result.source_name or self._adapter_source_name(),
             fetched_at=result.fetched_at or generated_at,
+            as_of_date=result.as_of_date or self._candles_as_of_date(result.candles),
+            freshness=result.freshness,
+            delay_status=result.delay_status,
             data_gaps=data_gaps,
             errors=list(result.errors),
             disclaimer=self.disclaimer,
@@ -111,6 +116,11 @@ class ChartHistoryService:
     def _normalize_ticker(self, ticker: str) -> str:
         normalized = str(ticker or "").strip().upper()
         return normalized if normalized.replace("-", "").isalnum() else ""
+
+    def _candles_as_of_date(self, candles) -> Optional[str]:
+        if not candles:
+            return None
+        return max(candle.time for candle in candles).date().isoformat()
 
 
 def normalize_chart_range(range_name: str) -> Optional[ChartRange]:

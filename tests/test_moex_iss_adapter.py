@@ -7,16 +7,17 @@ import unittest
 from unittest import mock
 from urllib.error import URLError
 
+from app.data_sources.schemas import DATA_SOURCE_MOEX_ISS, DELAY_STATUS_DELAYED_PUBLIC_ISS
 from app.integrations.moex_iss import (
     MOEXDailyCandlesResult,
-    MOEXDataAdapter,
     MOEXISSClient,
     MOEXMarketData,
     MOEXSecurityMetadata,
     configured_moex_index_tickers,
     iss_table_to_rows,
 )
-from app.research.schemas import InstrumentIdentity, MarketSnapshot
+from app.research.moex_iss_adapter import MOEXISSResearchAdapter
+from app.research.schemas import InstrumentIdentity
 
 
 class FakeHTTPResponse:
@@ -116,7 +117,8 @@ class MOEXISSClientTests(unittest.TestCase):
             result = self.build_client().get_security_metadata(" sber ")
 
         self.assertEqual(result.ticker, "SBER")
-        self.assertEqual(result.source, "MOEX ISS")
+        self.assertEqual(result.source, DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(result.delay_status, DELAY_STATUS_DELAYED_PUBLIC_ISS)
         self.assertEqual(result.name, "Sberbank PJSC")
         self.assertEqual(result.short_name, "Sber")
         self.assertEqual(result.isin, "RU0009029540")
@@ -383,32 +385,36 @@ class MOEXISSClientTests(unittest.TestCase):
         self.assertEqual(rows, [{"secid": "SBER", "open": 100, "close": None}])
 
 
-class MOEXDataAdapterTests(unittest.TestCase):
+class MOEXISSResearchAdapterTests(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 5, 23, 12, 0)
 
     def test_fetch_maps_moex_metadata_and_market_snapshot(self):
         client = FakeMOEXAdapterClient(self.now)
-        adapter = MOEXDataAdapter(client=client, now_provider=lambda: self.now)
+        adapter = MOEXISSResearchAdapter(client=client, now_provider=lambda: self.now)
 
         result = adapter.fetch(" gazp ")
 
-        self.assertEqual(result.source_name, "MOEX ISS")
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
         self.assertEqual(result.errors, [])
         self.assertEqual(result.gaps, [])
         self.assertEqual(client.calls, [("metadata", "GAZP"), ("market", "GAZP")])
         self.assertIsInstance(result.data["instrument_identity"], InstrumentIdentity)
         self.assertEqual(result.data["instrument_identity"].ticker, "GAZP")
         self.assertEqual(result.data["instrument_identity"].exchange, "MOEX")
-        self.assertIsInstance(result.data["market_snapshot"], MarketSnapshot)
-        self.assertEqual(result.data["market_snapshot"].current_price, 171.25)
-        self.assertEqual(result.data["moex_metadata"]["source"], "MOEX ISS")
-        self.assertEqual(result.data["moex_market_data"]["trade_date"], "2026-05-22")
+        self.assertNotIn("market_snapshot", result.data)
+        self.assertEqual(result.data["exchange_reference"]["source"], DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(result.data["exchange_reference"]["instrument"]["source"], DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(
+            result.data["exchange_reference"]["latest_public_market_data"]["trade_date"],
+            "2026-05-22",
+        )
+        self.assertEqual(result.freshness.delay_status, DELAY_STATUS_DELAYED_PUBLIC_ISS)
         self.assertNotIn("educational_rating", result.data)
         self.assertIn("No broker token is used", result.freshness.notes)
 
     def test_adapter_exposes_no_order_methods(self):
-        adapter = MOEXDataAdapter(client=FakeMOEXAdapterClient(self.now), now_provider=lambda: self.now)
+        adapter = MOEXISSResearchAdapter(client=FakeMOEXAdapterClient(self.now), now_provider=lambda: self.now)
 
         forbidden_methods = {"place_order", "post_order", "preview", "execute", "buy", "sell", "execute_order"}
         self.assertEqual(forbidden_methods.intersection(dir(adapter)), set())
@@ -429,31 +435,33 @@ class MOEXDataAdapterTests(unittest.TestCase):
             "g4f",
         )
         forbidden_names = {"OrderService", "manual_order_handler", "place_order", "post_order"}
-        module_path = Path(__file__).resolve().parents[1] / "app" / "integrations" / "moex_iss.py"
-        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        for relative_path in ("app/integrations/moex_iss.py", "app/research/moex_iss_adapter.py"):
+            with self.subTest(relative_path=relative_path):
+                module_path = Path(__file__).resolve().parents[1] / relative_path
+                tree = ast.parse(module_path.read_text(encoding="utf-8"))
 
-        imported_modules = set()
-        imported_names = set()
-        attribute_names = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                imported_modules.update(alias.name for alias in node.names)
-                imported_names.update(alias.asname or alias.name.split(".")[-1] for alias in node.names)
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                imported_modules.add(node.module)
-                imported_names.update(alias.asname or alias.name for alias in node.names)
-            elif isinstance(node, ast.Attribute):
-                attribute_names.add(node.attr)
+                imported_modules = set()
+                imported_names = set()
+                attribute_names = set()
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Import):
+                        imported_modules.update(alias.name for alias in node.names)
+                        imported_names.update(alias.asname or alias.name.split(".")[-1] for alias in node.names)
+                    elif isinstance(node, ast.ImportFrom) and node.module:
+                        imported_modules.add(node.module)
+                        imported_names.update(alias.asname or alias.name for alias in node.names)
+                    elif isinstance(node, ast.Attribute):
+                        attribute_names.add(node.attr)
 
-        forbidden_imports = sorted(
-            module
-            for module in imported_modules
-            if any(module == prefix or module.startswith(f"{prefix}.") for prefix in forbidden_prefixes)
-        )
+                forbidden_imports = sorted(
+                    module
+                    for module in imported_modules
+                    if any(module == prefix or module.startswith(f"{prefix}.") for prefix in forbidden_prefixes)
+                )
 
-        self.assertEqual(forbidden_imports, [])
-        self.assertEqual(forbidden_names.intersection(imported_names), set())
-        self.assertEqual({"place_order", "post_order"}.intersection(attribute_names), set())
+                self.assertEqual(forbidden_imports, [])
+                self.assertEqual(forbidden_names.intersection(imported_names), set())
+                self.assertEqual({"place_order", "post_order"}.intersection(attribute_names), set())
 
 
 if __name__ == "__main__":

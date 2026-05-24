@@ -88,6 +88,9 @@ class ChartAdapterResult:
     ticker: str
     figi: Optional[str] = None
     fetched_at: Optional[datetime] = None
+    as_of_date: Optional[str] = None
+    freshness: Optional[str] = None
+    delay_status: Optional[str] = None
     candles: list[PriceCandle] = field(default_factory=list)
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -102,6 +105,9 @@ class ChartHistory:
     generated_at: datetime
     source: str
     fetched_at: Optional[datetime] = None
+    as_of_date: Optional[str] = None
+    freshness: Optional[str] = None
+    delay_status: Optional[str] = None
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     disclaimer: str = (
@@ -131,6 +137,9 @@ class PositionValueChart:
     generated_at: datetime
     source: str
     fetched_at: Optional[datetime] = None
+    as_of_date: Optional[str] = None
+    freshness: Optional[str] = None
+    delay_status: Optional[str] = None
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     disclaimer: str = POSITION_VALUE_CHART_DISCLAIMER
@@ -170,3 +179,21 @@ class ChartImageResult:
         if self.mode == "position_value" and self.position_value is not None:
             return self.position_value.fetched_at
         return self.history.fetched_at
+
+    @property
+    def as_of_date(self) -> Optional[str]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.as_of_date
+        return self.history.as_of_date
+
+    @property
+    def freshness(self) -> Optional[str]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.freshness
+        return self.history.freshness
+
+    @property
+    def delay_status(self) -> Optional[str]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.delay_status
+        return self.history.delay_status

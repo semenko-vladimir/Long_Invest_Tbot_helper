@@ -208,24 +208,34 @@ def format_position_chart_caption(result) -> str:
 def format_source_suffix(result) -> str:
     source = str(getattr(result, "source_name", "") or "").strip()
     fetched_at = getattr(result, "fetched_at", None)
+    as_of_date = getattr(result, "as_of_date", None)
+    delay_status = str(getattr(result, "delay_status", "") or "").strip()
 
     if not source:
         history = getattr(result, "history", None)
         source = str(getattr(history, "source", "") or "").strip()
         fetched_at = fetched_at or getattr(history, "fetched_at", None)
+        as_of_date = as_of_date or getattr(history, "as_of_date", None)
+        delay_status = delay_status or str(getattr(history, "delay_status", "") or "").strip()
 
     if not source:
         position_value = getattr(result, "position_value", None)
         source = str(getattr(position_value, "source", "") or "").strip()
         fetched_at = fetched_at or getattr(position_value, "fetched_at", None)
+        as_of_date = as_of_date or getattr(position_value, "as_of_date", None)
+        delay_status = delay_status or str(getattr(position_value, "delay_status", "") or "").strip()
 
     if not source:
         return ""
 
     suffix = f"\n\nSource: {source}"
+    if as_of_date:
+        suffix = f"{suffix} | As of: {as_of_date}"
     formatted_fetched_at = format_metadata_time(fetched_at)
     if formatted_fetched_at:
         suffix = f"{suffix} | Fetched: {formatted_fetched_at}"
+    if delay_status:
+        suffix = f"{suffix} | Delay: {delay_status}"
     return suffix
 
 

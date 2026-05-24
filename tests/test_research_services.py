@@ -8,6 +8,7 @@ from unittest import mock
 from grpc import StatusCode
 from tinkoff.invest import RequestError
 
+from app.data_sources.schemas import DATA_SOURCE_MOEX_ISS, DELAY_STATUS_DELAYED_PUBLIC_ISS
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
 from app.research.schemas import (
     AdapterResult,
@@ -91,6 +92,38 @@ class MarketContextAdapter:
         )
 
 
+class MOEXReferenceAdapter:
+    source_name = DATA_SOURCE_MOEX_ISS
+
+    def fetch(self, ticker: str) -> AdapterResult:
+        fetched_at = datetime(2026, 5, 4, 12, 0)
+        return AdapterResult(
+            source_name=self.source_name,
+            data={
+                "ticker": ticker,
+                "exchange_reference": {
+                    "source": DATA_SOURCE_MOEX_ISS,
+                    "as_of_date": "2026-05-03",
+                    "delay_status": DELAY_STATUS_DELAYED_PUBLIC_ISS,
+                    "instrument": {"ticker": ticker, "board": "TQBR"},
+                },
+            },
+            freshness=SourceFreshness(
+                source_name=self.source_name,
+                fetched_at=fetched_at,
+                as_of_date="2026-05-03",
+                delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
+            ),
+        )
+
+
+class FailingMOEXReferenceAdapter:
+    source_name = DATA_SOURCE_MOEX_ISS
+
+    def fetch(self, ticker: str) -> AdapterResult:
+        raise RuntimeError("moex unavailable")
+
+
 class FailingAdapter:
     source_name = "failing"
 
@@ -168,6 +201,32 @@ class ResearchServicesTests(unittest.TestCase):
         self.assertEqual(report.market_context["source"], "MOEX ISS")
         self.assertEqual(report.market_context["indexes"][0]["ticker"], "IMOEX")
         self.assertEqual(report.market_context["indexes"][0]["latest_close"], 3200.0)
+        self.assertIsNone(report.educational_rating)
+
+    def test_moex_reference_source_merges_into_report_without_replacing_tinvest_price(self):
+        results = TickerResearchService(
+            [SuccessfulAdapter(), MOEXReferenceAdapter()],
+            now_provider=self.now_provider,
+        ).collect("SBER")
+        report = ResearchReportService(now_provider=self.now_provider).build_report("SBER", results)
+
+        self.assertIn(DATA_SOURCE_MOEX_ISS, report.sources)
+        self.assertEqual(report.market_snapshot.current_price, 101.5)
+        self.assertEqual(report.exchange_reference["source"], DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(report.exchange_reference["delay_status"], DELAY_STATUS_DELAYED_PUBLIC_ISS)
+        self.assertIsNone(report.educational_rating)
+
+    def test_moex_reference_failure_does_not_break_report(self):
+        results = TickerResearchService(
+            [SuccessfulAdapter(), FailingMOEXReferenceAdapter()],
+            now_provider=self.now_provider,
+        ).collect("SBER")
+        report = ResearchReportService(now_provider=self.now_provider).build_report("SBER", results)
+
+        self.assertEqual(report.instrument_identity.figi, "FIGI-SBER")
+        self.assertIn(DATA_SOURCE_MOEX_ISS, report.sources)
+        self.assertTrue(any("MOEX_ISS adapter failed" in error for error in report.errors))
+        self.assertTrue(any(gap.category == "source_errors" for gap in report.data_gaps))
         self.assertIsNone(report.educational_rating)
 
     def test_educational_rating_remains_none_and_disclaimer_is_present(self):

@@ -13,6 +13,8 @@ class SourceFreshness:
     source_name: str
     fetched_at: datetime
     as_of_date: Optional[str] = None
+    freshness: Optional[str] = None
+    delay_status: Optional[str] = None
     is_stale: bool = False
     notes: Optional[str] = None
 
@@ -87,6 +89,7 @@ class ResearchReport:
     sector_industry: Optional[dict[str, Any]] = None
     competitors: Optional[list[dict[str, Any]]] = None
     market_context: Optional[dict[str, Any]] = None
+    exchange_reference: Optional[dict[str, Any]] = None
     macro_context: Optional[dict[str, Any]] = None
     news_osint: Optional[list[dict[str, Any]]] = None
     risks: list[str] = field(default_factory=list)

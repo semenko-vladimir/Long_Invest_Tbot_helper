@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pathlib import Path
 import unittest
 
+from app.data_sources.schemas import DATA_SOURCE_MOEX_ISS, DELAY_STATUS_DELAYED_PUBLIC_ISS
 from app.integrations.moex_iss import MOEXDailyCandle, MOEXDailyCandlesResult, MOEXDataGap
 from app.research.market_context import MarketContextService, MOEXMarketContextAdapter
 
@@ -65,8 +66,9 @@ class MarketContextServiceTests(unittest.TestCase):
         self.assertEqual(client.calls, [("IMOEX", date(2026, 4, 22), date(2026, 5, 23))])
         self.assertEqual(result.errors, [])
         self.assertEqual(result.data_gaps, [])
-        self.assertEqual(result.payload["source"], "MOEX ISS")
+        self.assertEqual(result.payload["source"], DATA_SOURCE_MOEX_ISS)
         self.assertEqual(result.payload["as_of_date"], "2026-05-22")
+        self.assertEqual(result.payload["delay_status"], DELAY_STATUS_DELAYED_PUBLIC_ISS)
         index = result.payload["indexes"][0]
         self.assertEqual(index["ticker"], "IMOEX")
         self.assertEqual(index["latest_close"], 110.0)
@@ -127,12 +129,13 @@ class MarketContextServiceTests(unittest.TestCase):
 
         result = adapter.fetch("sber")
 
-        self.assertEqual(result.source_name, "MOEX Market Context")
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
         self.assertEqual(result.errors, [])
         self.assertEqual(result.data["ticker"], "SBER")
         self.assertIn("market_context", result.data)
         self.assertNotIn("educational_rating", result.data)
         self.assertIn("No broker token is used", result.freshness.notes)
+        self.assertEqual(result.freshness.delay_status, DELAY_STATUS_DELAYED_PUBLIC_ISS)
         forbidden_methods = {"place_order", "post_order", "preview", "execute", "buy", "sell", "execute_order"}
         self.assertEqual(forbidden_methods.intersection(dir(adapter)), set())
 

@@ -4,6 +4,11 @@ from typing import Callable, Optional, Protocol
 
 from tinkoff.invest import CandleInterval, Client
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_T_INVEST,
+    DELAY_STATUS_BROKER_API,
+    FRESHNESS_CURRENT_OR_LATEST,
+)
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartRange, PriceCandle
 from app.client.utils.helpers import cast_money
 
@@ -30,7 +35,7 @@ class ReadOnlyInstrumentResolver(Protocol):
 class TInvestCandlesAdapter:
     """Read-only T-Invest candle adapter for chart data."""
 
-    source_name = "t-invest-candles"
+    source_name = DATA_SOURCE_T_INVEST
 
     def __init__(
         self,
@@ -54,6 +59,9 @@ class TInvestCandlesAdapter:
                 self.source_name,
                 ticker=normalized_ticker,
                 fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
                 data_gaps=gaps,
                 errors=errors,
             )
@@ -76,6 +84,9 @@ class TInvestCandlesAdapter:
                 self.source_name,
                 ticker=normalized_ticker,
                 fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
                 data_gaps=gaps,
                 errors=errors,
             )
@@ -91,6 +102,9 @@ class TInvestCandlesAdapter:
                 self.source_name,
                 ticker=normalized_ticker,
                 fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
                 data_gaps=gaps,
                 errors=errors,
             )
@@ -104,6 +118,9 @@ class TInvestCandlesAdapter:
                 self.source_name,
                 ticker=resolved_ticker,
                 fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
                 data_gaps=gaps,
                 errors=errors,
             )
@@ -118,6 +135,9 @@ class TInvestCandlesAdapter:
                 ticker=resolved_ticker,
                 figi=figi,
                 fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
                 data_gaps=gaps,
                 errors=errors,
             )
@@ -127,6 +147,9 @@ class TInvestCandlesAdapter:
             ticker=resolved_ticker,
             figi=figi,
             fetched_at=fetched_at,
+            as_of_date=self._candles_as_of_date(candles) or fetched_at.date().isoformat(),
+            freshness=FRESHNESS_CURRENT_OR_LATEST,
+            delay_status=DELAY_STATUS_BROKER_API,
             candles=candles,
             data_gaps=gaps,
             errors=errors,
@@ -227,6 +250,11 @@ class TInvestCandlesAdapter:
 
     def _clean_token(self, token: Optional[str]) -> str:
         return "" if token is None else str(token).strip().strip('"').strip("'")
+
+    def _candles_as_of_date(self, candles: list[PriceCandle]) -> Optional[str]:
+        if not candles:
+            return None
+        return max(candle.time for candle in candles).date().isoformat()
 
     def _format_lookup_error(self, label: str, exc: Exception, token_context: ChartTokenContext) -> str:
         if self._is_auth_error(exc):

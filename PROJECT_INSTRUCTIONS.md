@@ -86,6 +86,25 @@ Preferred future local/private-VM LLM for the research adapter:
 it must not enable runtime LLM behavior, trading signals, ratings, or broker
 order integration by itself.
 
+## Data Source Architecture
+
+T-Invest API is the primary source for current and broker-facing operational
+data: current/last prices, order book, last trades, trading status, streaming
+market data, portfolio positions, broker availability, and dividends/coupons
+when available through T-Invest.
+
+MOEX ISS is the secondary public exchange-data source for MOEX reference data,
+secid/board/classcode mapping, historical daily candles, index market context,
+listing/status metadata, and fallback/verification when T-Invest candles or
+metadata are unavailable. Free MOEX ISS data must be treated as delayed public
+data, not real-time.
+
+External data results should expose source metadata where practical:
+`source`, `fetched_at`, `as_of_date`, `freshness`, `delay_status`,
+`data_gaps`, and `errors`. Missing data must be reported as data gaps, not
+guessed. Data adapters must remain read-only and must not import order services
+or call broker order placement APIs.
+
 ## Future Educational Ratings
 
 Educational long-term analytical ratings may be added later, including:
