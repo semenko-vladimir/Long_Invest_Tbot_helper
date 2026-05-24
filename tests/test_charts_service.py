@@ -207,6 +207,8 @@ class ChartHistoryServiceTests(unittest.TestCase):
         self.assertEqual(primary.calls, [("SBER", "month")])
         self.assertEqual(fallback.calls, [])
         self.assertEqual(history.source, DATA_SOURCE_T_INVEST)
+        self.assertNotEqual(history.source, DATA_SOURCE_MOEX_ISS)
+        self.assertNotEqual(history.source, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
         self.assertEqual(history.figi, "FIGI-SBER")
         self.assertEqual(len(history.candles), 2)
         self.assertEqual(history.errors, [])
@@ -238,11 +240,54 @@ class ChartHistoryServiceTests(unittest.TestCase):
 
         self.assertEqual(primary.calls, [("SBER", "month")])
         self.assertEqual(fallback.calls, [("SBER", "month")])
-        self.assertEqual(history.source, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
+        self.assertEqual(history.source, DATA_SOURCE_MOEX_ISS)
+        self.assertNotEqual(history.source, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
         self.assertEqual(history.fetched_at, moex_fetched_at)
         self.assertEqual(len(history.candles), 2)
         self.assertEqual(history.errors, [])
-        self.assertTrue(any(gap.category == "source_fallback" for gap in history.data_gaps))
+        fallback_gaps = [gap for gap in history.data_gaps if gap.category == "source_fallback"]
+        self.assertEqual(len(fallback_gaps), 1)
+        self.assertIn(DATA_SOURCE_T_INVEST, fallback_gaps[0].description)
+        self.assertIn("attempted first", fallback_gaps[0].description)
+        self.assertIn(DATA_SOURCE_MOEX_ISS, fallback_gaps[0].description)
+        self.assertIn("fallback", fallback_gaps[0].description)
+        self.assertTrue(any(gap.category == "authentication" for gap in history.data_gaps))
+
+    def test_fallback_adapter_uses_moex_source_when_tinvest_returns_no_candles(self):
+        primary = FakeChartAdapter(
+            ChartAdapterResult(
+                source_name=DATA_SOURCE_T_INVEST,
+                ticker="SBER",
+                figi="FIGI-SBER",
+                data_gaps=[ChartDataGap("price_history", "T-Invest returned no candles.", "low")],
+                candles=[],
+            )
+        )
+        fallback = FakeChartAdapter(
+            ChartAdapterResult(
+                source_name=DATA_SOURCE_MOEX_ISS,
+                ticker="SBER",
+                candles=[candle(1), candle(2, close=102.0)],
+            )
+        )
+        service = ChartHistoryService(
+            adapter=FallbackChartDataAdapter(primary=primary, fallback=fallback),
+            now_provider=lambda: self.now,
+        )
+
+        history = service.get_history("SBER", "month")
+
+        self.assertEqual(primary.calls, [("SBER", "month")])
+        self.assertEqual(fallback.calls, [("SBER", "month")])
+        self.assertEqual(history.source, DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(history.figi, "FIGI-SBER")
+        self.assertEqual(len(history.candles), 2)
+        self.assertEqual(history.errors, [])
+        fallback_gaps = [gap for gap in history.data_gaps if gap.category == "source_fallback"]
+        self.assertEqual(len(fallback_gaps), 1)
+        self.assertIn("returned no usable candles", fallback_gaps[0].description)
+        self.assertIn(DATA_SOURCE_T_INVEST, fallback_gaps[0].description)
+        self.assertIn(DATA_SOURCE_MOEX_ISS, fallback_gaps[0].description)
 
     def test_fallback_adapter_returns_explicit_error_when_both_sources_unavailable(self):
         primary = FakeChartAdapter(

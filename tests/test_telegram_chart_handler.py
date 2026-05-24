@@ -6,7 +6,11 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from app.data_sources.schemas import DATA_SOURCE_MOEX_ISS, DELAY_STATUS_DELAYED_PUBLIC_ISS
+from app.data_sources.schemas import (
+    DATA_SOURCE_MOEX_ISS,
+    DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
+    DELAY_STATUS_DELAYED_PUBLIC_ISS,
+)
 
 os.environ["BOT_TOKEN"] = "123456:TEST"
 
@@ -159,6 +163,7 @@ class TelegramChartHandlerTests(unittest.TestCase):
 
         caption = send_photo.call_args.kwargs["caption"]
         self.assertIn(f"Source: {DATA_SOURCE_MOEX_ISS}", caption)
+        self.assertNotIn(DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK, caption)
         self.assertIn("As of: 2026-05-20", caption)
         self.assertIn("Fetched: 2026-05-21 13:00 UTC", caption)
         self.assertIn(f"Delay: {DELAY_STATUS_DELAYED_PUBLIC_ISS}", caption)
@@ -192,6 +197,28 @@ class TelegramChartHandlerTests(unittest.TestCase):
         self.assertIn("current position quantity valued at historical close prices", caption)
         self.assertIn("not historical holdings", caption)
         self.assertIn("no broker orders were created", caption)
+
+    def test_successful_position_chart_caption_includes_moex_fallback_source(self):
+        fake_service = FakeChartImageService(
+            chart_result(
+                source_name=DATA_SOURCE_MOEX_ISS,
+                fetched_at=datetime(2026, 5, 21, 13, 0, tzinfo=timezone.utc),
+                as_of_date="2026-05-20",
+                delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
+            )
+        )
+        services = SimpleNamespace(chart_image_service=fake_service)
+
+        with patch.object(chart_handler, "get_telegram_services_or_notify", return_value=services):
+            with patch.object(chart_handler.bot, "send_photo", return_value=SimpleNamespace(message_id=101)) as send_photo:
+                with patch.object(chart_handler.bot, "send_message"):
+                    chart_handler.position_chart_command_handler(FakeMessage("/position_chart sber month"))
+
+        caption = send_photo.call_args.kwargs["caption"]
+        self.assertIn(f"Source: {DATA_SOURCE_MOEX_ISS}", caption)
+        self.assertNotIn(DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK, caption)
+        self.assertIn("As of: 2026-05-20", caption)
+        self.assertIn("current position quantity valued at historical close prices", caption)
 
     def test_position_chart_non_portfolio_ticker_sends_clear_message(self):
         fake_service = FakeChartImageService(

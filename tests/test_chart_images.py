@@ -4,6 +4,7 @@ from pathlib import Path
 import unittest
 
 from app.charts.images import ChartImageService
+from app.data_sources.schemas import DATA_SOURCE_MOEX_ISS, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK
 from app.charts.schemas import (
     ChartAnalytics,
     ChartDataGap,
@@ -128,6 +129,16 @@ class ChartImageServiceTests(unittest.TestCase):
         self.assertEqual(result.mode, "price")
         self.assertTrue(result.png_bytes.startswith(PNG_SIGNATURE))
 
+    def test_price_chart_result_exposes_moex_source_without_composite_label(self):
+        fake_history = history(source=DATA_SOURCE_MOEX_ISS)
+        service = ChartImageService(FakeHistoryService(fake_history))
+
+        result = service.render_png("SBER", "month", mode="price")
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
+        self.assertNotEqual(result.source_name, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
+
     def test_analytics_enabled_calculates_overlay_and_still_generates_png(self):
         fake_history = history()
         fake_analytics = FakeAnalyticsService()
@@ -174,6 +185,19 @@ class ChartImageServiceTests(unittest.TestCase):
         self.assertEqual(result.fetched_at, fake_position_value.fetched_at)
         self.assertIn("current position quantity valued at historical close prices", result.position_value.disclaimer)
         self.assertIn("not historical holdings", result.position_value.disclaimer)
+
+    def test_position_value_image_result_exposes_moex_source_without_composite_label(self):
+        fake_position_value = position_value(source=DATA_SOURCE_MOEX_ISS)
+        service = ChartImageService(
+            FakeHistoryService(history()),
+            position_value_service=FakePositionValueService(fake_position_value),
+        )
+
+        result = service.render_png("SBER", "month", mode="position_value")
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
+        self.assertNotEqual(result.source_name, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
 
     def test_position_value_mode_returns_structured_error_without_png(self):
         fake_position_value = position_value(

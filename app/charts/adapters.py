@@ -31,8 +31,9 @@ class FallbackChartDataAdapter:
 
         fallback_result = self._fetch_safely(self.fallback, ticker, range_name)
         if fallback_result.candles:
+            fallback_source_name = fallback_result.source_name or self._adapter_source_name(self.fallback)
             return ChartAdapterResult(
-                source_name=DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
+                source_name=fallback_source_name,
                 ticker=fallback_result.ticker or primary_result.ticker or ticker,
                 figi=fallback_result.figi or primary_result.figi,
                 fetched_at=fallback_result.fetched_at,
@@ -42,7 +43,7 @@ class FallbackChartDataAdapter:
                 candles=list(fallback_result.candles),
                 data_gaps=list(primary_result.data_gaps)
                 + list(fallback_result.data_gaps)
-                + [self._fallback_gap(primary_result, fallback_result.source_name)],
+                + [self._fallback_gap(primary_result, fallback_source_name)],
                 errors=list(fallback_result.errors),
             )
 
@@ -91,13 +92,13 @@ class FallbackChartDataAdapter:
     def _fallback_gap(self, primary_result: ChartAdapterResult, fallback_source_name: str) -> ChartDataGap:
         if primary_result.errors:
             description = (
-                f"{primary_result.source_name} did not provide usable candles; "
-                f"using {fallback_source_name}."
+                f"{primary_result.source_name} was attempted first and did not provide usable candles; "
+                f"using {fallback_source_name} fallback."
             )
         else:
             description = (
-                f"{primary_result.source_name} returned no usable candles; "
-                f"using {fallback_source_name}."
+                f"{primary_result.source_name} was attempted first and returned no usable candles; "
+                f"using {fallback_source_name} fallback."
             )
         return ChartDataGap("source_fallback", description, "low")
 
