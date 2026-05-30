@@ -118,6 +118,9 @@ ALLOW_PROD_TRADING = "false"
 WEB_AUTH_ENABLED = "false"
 WEB_AUTH_TOKEN = ""
 ENABLE_BACKGROUND_SCHEDULERS = "false"
+ENABLE_CHART_DATA_REFRESH = "false"
+CHART_DATA_REFRESH_SECONDS = "60"
+CHART_DATA_REFRESH_RANGES = "day,month"
 ENABLE_INVESTOR_REMINDERS = "false"
 INVESTOR_REMINDER_TIME = "09:00"
 API_BASE_URL = "http://localhost:8000"
@@ -225,12 +228,15 @@ Read-only chart по тикеру:
 /chart SBER month
 /chart SBER month plain
 /chart SBER month no_analytics
+/moex_chart SBER month
 /position_chart SBER month
 ```
 
-Команда `/chart` требует тикер и диапазон: `day`, `week`, `month`, `six_months`, `year` или `all`. Бот отправляет PNG-график только по запросу. По умолчанию график включает deterministic hindsight-only analytics overlays: исторический минимум закрытия в выбранном диапазоне, лучший последующий максимум закрытия, max drawdown, положение последнего close относительно high/low выбранного диапазона и SMA20/SMA50 при достаточном количестве свечей. Добавьте `plain` или `no_analytics`, чтобы получить график без analytics overlays.
+Команда `/chart` требует тикер и диапазон: `day`, `week`, `month`, `six_months`, `year` или `all`. Бот отправляет PNG-график только по запросу. По умолчанию график включает deterministic hindsight-only analytics overlays: исторический минимум закрытия в выбранном диапазоне, лучший последующий максимум закрытия, max drawdown, положение последнего close относительно high/low выбранного диапазона, SMA20/SMA50, EMA12/EMA26 и Bollinger 20 при достаточном количестве свечей. Добавьте `plain` или `no_analytics`, чтобы получить график без analytics overlays.
 
 Исторические свечи для charts берутся из read-only источников market data: T-Invest остается основным источником, а публичный MOEX ISS может использоваться как fallback для дневных свечей российских тикеров, если T-Invest не вернул пригодные данные. Настроенные индексные тикеры MOEX, по умолчанию `IMOEX` и `RTSI`, могут строиться через MOEX ISS index candles в обычном режиме `Price chart`. Подпись/metadata графика показывает фактический источник данных.
+
+Команда `/moex_chart SBER month` строит read-only PNG-график только по delayed public MOEX ISS daily candles, без T-Invest токена и без обращения к broker-facing candle source. Она поддерживает те же диапазоны и аргументы `plain` / `no_analytics`; для `day` используются дневные MOEX ISS свечи без синтеза intraday-данных.
 
 Команда `/position_chart SBER month` строит read-only график "current position quantity valued at historical prices": текущая брокерская quantity по тикеру умножается на historical close prices выбранного диапазона. Это не историческая стоимость портфеля и не реконструкция прошлых долей; такой режим станет historical portfolio value только если позднее будет реализована история quantities/holdings.
 
@@ -253,7 +259,11 @@ FastAPI также отдает локальный терминал инвест
 
 Экраны планов создают определения регулярных инвестиционных планов и ручные предложения. Они не создают брокерские заявки на основе анализа или торговых сигналов.
 
-Страница `Charts` строит PNG-график по запросу: откройте `Charts`, введите тикер или выберите его из текущих portfolio positions, выберите режим `Price chart` или `Current quantity value chart` и диапазон `day`, `week`, `month`, `six_months`, `year` или `all`. В `Price chart` hindsight-only analytics включены по умолчанию через `analytics=1`; снимите checkbox или откройте PNG с `analytics=0`, чтобы получить plain chart без overlays. В `Current quantity value chart` analytics overlays не добавляются: график показывает только текущую quantity позиции, оцененную по historical close prices выбранного диапазона. Это не historical portfolio value, пока не реализована история quantities/holdings. Изображения не сохраняются на диск, генерируются в памяти и имеют read-only safety-caption; брокерские заявки через charts не создаются.
+Страница `Charts` для режима `Price chart` использует JSON endpoint `/charts/{ticker}.json` и локальный canvas-график с автообновлением открытого тикера раз в 60 секунд. Web-график показывает OHLC candles, volume, SMA20/SMA50, EMA12/EMA26, Bollinger 20, RSI14, MACD, range return, latest change, max drawdown, volatility и volume-vs-average. JSON, web UI и Telegram captions используют единый read-only `data_status`: фактический source, freshness (`current`, `latest_available`, `stale`, `partial`), delay (`broker_api`, `moex_delayed`, `cached`), fetched/as-of даты, candle count, gaps/errors и `educational_only=true`. PNG endpoint `/charts/{ticker}.png` сохранен как fallback и для Telegram.
+
+Локальный SQLite-кэш `price_candles` хранит read-only свечи по `ticker + interval + time`, чтобы сервер мог достраивать графики инкрементально, а не перекачивать всю историю при каждом запросе. Optional scheduler включается только явно: `ENABLE_BACKGROUND_SCHEDULERS=true` и `ENABLE_CHART_DATA_REFRESH=true`; интервал задается `CHART_DATA_REFRESH_SECONDS` (по умолчанию 60), диапазоны `CHART_DATA_REFRESH_RANGES` (по умолчанию `day,month`). Scheduler обновляет только выбранные локальные тикеры из watchlist и portfolio positions и не использует `OrderService`. Если live refresh не дает usable candles, Charts может показать локальный кэш как `stale`/`cached`; если кэша нет, возвращается понятная ошибка `No chart data available`.
+
+В `Current quantity value chart` analytics overlays не добавляются: график показывает только текущую quantity позиции, оцененную по historical close prices выбранного диапазона. Это не historical portfolio value, пока не реализована история quantities/holdings. Изображения не сохраняются на диск, генерируются в памяти и имеют read-only safety-caption; брокерские заявки через charts не создаются.
 
 Chart data может приходить из T-Invest или из публичного exchange-data API MOEX ISS как read-only fallback. MOEX ISS используется только для свечей/metadata графиков и индексного market context, не создает сигналов, рейтингов, previews или брокерских заявок.
 
@@ -261,7 +271,7 @@ Chart data может приходить из T-Invest или из публич�
 
 Anti-greedy policy включается отдельно через `ENABLE_ANTI_GREEDY_POLICY=true`. По умолчанию `ANTI_GREEDY_PROFIT_PCT=20`: ежедневная проверка в `ANTI_GREEDY_CHECK_TIME` находит позиции, где текущая валовая доходность выше 20%, и отправляет Telegram-подтверждение на продажу позиции в целых лотах. Заявка не отправляется без явного подтверждения, а перед исполнением позиция, порог прибыли и sell preview с проверкой доступного количества проверяются заново.
 
-Страница `Settings` работает в read-only-режиме. Она показывает активный режим, статус настройки токена без секретных значений, feature flags, API base URL, время напоминаний, статус безопасности инвестиционного плана, anti-greedy policy и web-auth. Чтобы изменить эти значения, отредактируйте `.env` и перезапустите приложение.
+Страница `Settings` работает в read-only-режиме. Она показывает активный режим, статус настройки токена без секретных значений, feature flags, API base URL, время напоминаний, chart data refresh/cache diagnostics, статус безопасности инвестиционного плана, anti-greedy policy и web-auth. Чтобы изменить эти значения, отредактируйте `.env` и перезапустите приложение.
 
 Web-аутентификация опциональна для локального `API_HOST="127.0.0.1"` / `localhost`: `WEB_AUTH_ENABLED` может оставаться `false`. Если FastAPI слушает `0.0.0.0` или другой не-localhost адрес, startup блокируется, пока `WEB_AUTH_ENABLED="true"` и `WEB_AUTH_TOKEN` не заданы. При включенной авторизации web-терминал и `/api/*` требуют `Authorization: Bearer <WEB_AUTH_TOKEN>` или cookie `web_auth_token`; `/static/*` и `/api/health` остаются открытыми. Значение токена не выводится в Settings, логах или ошибках.
 

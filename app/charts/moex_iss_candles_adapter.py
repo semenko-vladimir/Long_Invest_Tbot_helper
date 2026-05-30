@@ -49,6 +49,7 @@ class MOEXISSCandlesAdapter:
                 freshness=FRESHNESS_DELAYED_PUBLIC_DATA,
                 delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
                 data_gaps=[ChartDataGap("ticker", "Ticker is required.", "high")],
+                interval="day",
             )
 
         from_date, till_date = self._date_window(range_name)
@@ -82,6 +83,7 @@ class MOEXISSCandlesAdapter:
                     )
                 ],
                 errors=[message],
+                interval="day",
             )
 
         data_gaps = [self._map_gap(gap) for gap in result.data_gaps]
@@ -115,6 +117,7 @@ class MOEXISSCandlesAdapter:
             candles=candles,
             data_gaps=data_gaps,
             errors=list(result.errors),
+            interval="day",
         )
 
     def _date_window(self, range_name: ChartRange) -> tuple[Optional[date], date]:

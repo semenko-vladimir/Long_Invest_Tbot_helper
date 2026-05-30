@@ -1,4 +1,5 @@
 import ast
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -7,6 +8,8 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 from app.backend.main_api import app
+from app.charts.analytics import ChartAnalyticsService
+from app.charts.schemas import ChartHistory, PriceCandle
 from app.services.mode import ModeContext
 
 
@@ -26,6 +29,59 @@ class FakeChartImageService:
 class RaisingChartImageService:
     def render_png(self, ticker, range_name, include_analytics=True, mode="price"):
         raise RuntimeError(f"render failed for {ticker} {range_name}")
+
+
+class FakeChartSnapshotService:
+    def __init__(self, result=None):
+        self.result = result
+        self.calls = []
+
+    def get_snapshot(self, ticker, range_name, interval_name="auto", refresh=True):
+        self.calls.append((ticker, range_name, interval_name, refresh))
+        if self.result is not None:
+            return self.result
+
+        candles = [
+            PriceCandle(
+                time=datetime(2026, 5, 1, 10, 0),
+                open=100.0,
+                high=102.0,
+                low=99.0,
+                close=101.0,
+                volume=1000,
+            ),
+            PriceCandle(
+                time=datetime(2026, 5, 2, 10, 0),
+                open=101.0,
+                high=104.0,
+                low=100.0,
+                close=103.0,
+                volume=1200,
+            ),
+        ]
+        history = ChartHistory(
+            ticker=ticker,
+            figi=f"FIGI-{ticker}",
+            range=range_name,
+            interval="day",
+            candles=candles,
+            generated_at=datetime(2026, 5, 2, 10, 1),
+            source="fake-market-data",
+            fetched_at=datetime(2026, 5, 2, 10, 0),
+            as_of_date="2026-05-02",
+            freshness="current_or_latest",
+            delay_status="broker_api",
+            data_gaps=[],
+            errors=[],
+        )
+        return SimpleNamespace(
+            ok=True,
+            history=history,
+            analytics=ChartAnalyticsService().calculate(candles),
+            interval="day",
+            cache_candle_count=2,
+            refreshed=True,
+        )
 
 
 def chart_result(**overrides):
@@ -72,11 +128,12 @@ class WebChartsTests(unittest.TestCase):
             error=None,
         )
 
-    def services(self, chart_image_service=None, portfolio_view=None):
+    def services(self, chart_image_service=None, portfolio_view=None, chart_snapshot_service=None):
         return SimpleNamespace(
             user=SimpleNamespace(display_name="Test User", user_id="test", db_path=":memory:"),
             mode_service=SimpleNamespace(current=self.mode),
             chart_image_service=chart_image_service or FakeChartImageService(chart_result()),
+            chart_snapshot_service=chart_snapshot_service or FakeChartSnapshotService(),
             portfolio_service=SimpleNamespace(get_portfolio_view=lambda: portfolio_view or self.portfolio_view()),
         )
 
@@ -111,6 +168,9 @@ class WebChartsTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('/charts/SBER.png?range=month&amp;mode=price&amp;analytics=1', response.text)
+        self.assertIn('/charts/SBER.json?range=month&amp;interval=auto&amp;analytics=1', response.text)
+        self.assertIn("data-chart-data-status", response.text)
+        self.assertIn("Hindsight-only analytics are educational diagnostics", response.text)
 
     def test_charts_page_with_analytics_disabled_preserves_png_image_url_flag(self):
         with mock.patch("app.backend.web.chart_routes.get_web_services", return_value=self.services()):
@@ -141,6 +201,45 @@ class WebChartsTests(unittest.TestCase):
         self.assertEqual(response.headers["content-type"], "image/png")
         self.assertEqual(response.content, PNG_BYTES)
         self.assertEqual(fake_chart_service.calls, [("SBER", "month", True, "price")])
+
+    def test_chart_json_returns_candles_metrics_and_metadata(self):
+        snapshot_service = FakeChartSnapshotService()
+        with mock.patch(
+            "app.backend.web.chart_routes.get_web_services",
+            return_value=self.services(chart_snapshot_service=snapshot_service),
+        ):
+            response = self.client.get("/charts/SBER.json?range=month")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["ticker"], "SBER")
+        self.assertEqual(payload["interval"], "day")
+        self.assertEqual(payload["cache"]["candle_count"], 2)
+        self.assertIn("data_status", payload)
+        self.assertEqual(payload["data_status"]["source"], "fake-market-data")
+        self.assertEqual(payload["data_status"]["delay_status"], "broker_api")
+        self.assertIn("refresh", payload)
+        self.assertTrue(payload["educational_only"])
+        self.assertTrue(payload["analytics"]["educational_only"])
+        self.assertEqual(len(payload["candles"]), 2)
+        metric_keys = {metric["key"] for metric in payload["analytics"]["metrics"]}
+        self.assertIn("range_return_pct", metric_keys)
+        self.assertIn("max_drawdown_pct", metric_keys)
+        self.assertEqual(snapshot_service.calls, [("SBER", "month", "day", True)])
+
+    def test_chart_json_forwards_disabled_refresh_and_analytics_flags(self):
+        snapshot_service = FakeChartSnapshotService()
+        with mock.patch(
+            "app.backend.web.chart_routes.get_web_services",
+            return_value=self.services(chart_snapshot_service=snapshot_service),
+        ):
+            response = self.client.get("/charts/SBER.json?range=month&analytics=0&refresh=0")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["analytics"]["metrics"][0]["display"], "n/a")
+        self.assertEqual(snapshot_service.calls, [("SBER", "month", "day", False)])
 
     def test_chart_png_forwards_disabled_analytics_flag(self):
         fake_chart_service = FakeChartImageService(chart_result())

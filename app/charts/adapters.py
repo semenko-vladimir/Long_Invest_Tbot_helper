@@ -1,4 +1,5 @@
 from typing import Protocol
+from datetime import datetime
 
 from app.data_sources.schemas import DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartRange
@@ -12,6 +13,9 @@ class ChartDataAdapter(Protocol):
         ...
 
     def fetch_candles(self, ticker: str, range_name: ChartRange) -> ChartAdapterResult:
+        ...
+
+    def fetch_candles_since(self, ticker: str, range_name: ChartRange, since: datetime) -> ChartAdapterResult:
         ...
 
 
@@ -45,6 +49,7 @@ class FallbackChartDataAdapter:
                 + list(fallback_result.data_gaps)
                 + [self._fallback_gap(primary_result, fallback_source_name)],
                 errors=list(fallback_result.errors),
+                interval=fallback_result.interval or primary_result.interval,
             )
 
         message = (
@@ -70,7 +75,14 @@ class FallbackChartDataAdapter:
             candles=[],
             data_gaps=gaps,
             errors=errors,
+            interval=fallback_result.interval or primary_result.interval,
         )
+
+    def fetch_candles_since(self, ticker: str, range_name: ChartRange, since: datetime) -> ChartAdapterResult:
+        primary_result = self._fetch_since_safely(self.primary, ticker, range_name, since)
+        if primary_result.candles:
+            return primary_result
+        return self.fetch_candles(ticker, range_name)
 
     def _fetch_safely(
         self,
@@ -87,6 +99,27 @@ class FallbackChartDataAdapter:
                 ticker=ticker,
                 data_gaps=[ChartDataGap("adapter", f"{source_name} failed before returning data.", "medium")],
                 errors=[f"{source_name} adapter failed: {str(exc)}"],
+            )
+
+    def _fetch_since_safely(
+        self,
+        adapter: ChartDataAdapter,
+        ticker: str,
+        range_name: ChartRange,
+        since: datetime,
+    ) -> ChartAdapterResult:
+        source_name = self._adapter_source_name(adapter)
+        method = getattr(adapter, "fetch_candles_since", None)
+        if method is None:
+            return ChartAdapterResult(source_name=source_name, ticker=ticker)
+        try:
+            return method(ticker, range_name, since)
+        except Exception as exc:
+            return ChartAdapterResult(
+                source_name=source_name,
+                ticker=ticker,
+                data_gaps=[ChartDataGap("adapter", f"{source_name} failed before returning incremental data.", "medium")],
+                errors=[f"{source_name} incremental adapter failed: {str(exc)}"],
             )
 
     def _fallback_gap(self, primary_result: ChartAdapterResult, fallback_source_name: str) -> ChartDataGap:

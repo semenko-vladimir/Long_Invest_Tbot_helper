@@ -9,6 +9,7 @@ from app.data_sources.schemas import (
     DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
 )
 from app.charts.adapters import FallbackChartDataAdapter
+from app.charts.factory import build_moex_chart_image_service
 from app.charts.moex_iss_candles_adapter import MOEXISSCandlesAdapter
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, PriceCandle
 from app.charts.services import ChartHistoryService, normalize_chart_mode, normalize_chart_range
@@ -367,6 +368,12 @@ class ChartHistoryServiceTests(unittest.TestCase):
         self.assertEqual(result.ticker, "IMOEX")
         self.assertEqual(len(result.candles), 1)
         self.assertEqual(result.candles[0].close, 3200.5)
+
+    def test_moex_chart_image_service_uses_moex_adapter_without_position_service(self):
+        service = build_moex_chart_image_service()
+
+        self.assertIsInstance(service.history_service.adapter, MOEXISSCandlesAdapter)
+        self.assertIsNone(service.position_value_service)
 
     def test_range_normalization(self):
         self.assertEqual(normalize_chart_range("day"), "day")

@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable, Optional
 
 from app.charts.adapters import ChartDataAdapter
-from app.charts.schemas import ChartDataGap, ChartHistory, ChartMode, ChartRange
+from app.charts.schemas import ChartCandleInterval, ChartDataGap, ChartHistory, ChartMode, ChartRange
 
 
 CHART_DISCLAIMER = (
@@ -57,6 +57,7 @@ class ChartHistoryService:
                 ticker=normalized_ticker,
                 figi=None,
                 range=normalized_range or str(range_name or "").strip(),
+                interval=chart_interval_for_range(normalized_range) if normalized_range else None,
                 candles=[],
                 generated_at=generated_at,
                 source=self._adapter_source_name(),
@@ -74,6 +75,7 @@ class ChartHistoryService:
                 ticker=normalized_ticker,
                 figi=None,
                 range=normalized_range,
+                interval=chart_interval_for_range(normalized_range),
                 candles=[],
                 generated_at=generated_at,
                 source=self._adapter_source_name(),
@@ -98,6 +100,7 @@ class ChartHistoryService:
             ticker=result.ticker or normalized_ticker,
             figi=result.figi,
             range=normalized_range,
+            interval=result.interval or chart_interval_for_range(normalized_range),
             candles=list(result.candles),
             generated_at=generated_at,
             source=result.source_name or self._adapter_source_name(),
@@ -153,3 +156,43 @@ def normalize_chart_mode(mode: str) -> Optional[ChartMode]:
     if normalized in SUPPORTED_CHART_MODES:
         return normalized
     return None
+
+
+def normalize_chart_interval(interval_name: str, range_name: ChartRange) -> Optional[ChartCandleInterval]:
+    normalized = str(interval_name or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"", "auto"}:
+        return chart_interval_for_range(range_name)
+
+    aliases = {
+        "1h": "hour",
+        "h": "hour",
+        "hourly": "hour",
+        "1d": "day",
+        "d": "day",
+        "daily": "day",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized == "hour" and range_name == "day":
+        return "hour"
+    if normalized == "day":
+        return "day"
+    return None
+
+
+def chart_interval_for_range(range_name: ChartRange) -> ChartCandleInterval:
+    return "hour" if range_name == "day" else "day"
+
+
+def chart_range_start(range_name: ChartRange, now: datetime) -> datetime | None:
+    days_by_range = {
+        "day": 1,
+        "week": 7,
+        "month": 31,
+        "six_months": 183,
+        "year": 366,
+        "all": None,
+    }
+    days = days_by_range[range_name]
+    if days is None:
+        return None
+    return now - timedelta(days=days)

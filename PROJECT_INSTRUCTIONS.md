@@ -31,7 +31,7 @@ The active v1 runtime is limited to:
 - investment plans, anti-greedy sell proposals, and reminders for manual review;
 - local settings and mode visibility;
 - read-only ticker research in the web terminal and Telegram;
-- read-only chart data and on-demand PNG rendering for educational price review.
+- read-only chart data, local candle caching, optional read-only chart data refresh, interactive web charts, and on-demand PNG rendering for educational price review.
 
 Manual orders and explicitly confirmed plan/anti-greedy prompts are the only active broker order paths.
 
@@ -104,6 +104,11 @@ External data results should expose source metadata where practical:
 `data_gaps`, and `errors`. Missing data must be reported as data gaps, not
 guessed. Data adapters must remain read-only and must not import order services
 or call broker order placement APIs.
+
+Local chart candle caching is read-only market-data infrastructure. Background
+chart refresh may update only locally selected tickers such as watchlist and
+portfolio tickers, must stay disabled unless explicitly enabled, and must never
+call order preview/execution services or create trading signals.
 
 ## Future Educational Ratings
 

@@ -20,6 +20,27 @@ from app.charts.schemas import (
 from app.charts.services import ChartHistoryService, normalize_chart_mode
 
 
+FIGURE_BG = "#f8fafc"
+PANEL_BG = "#ffffff"
+GRID_COLOR = "#e2e8f0"
+AXIS_COLOR = "#cbd5e1"
+TEXT_PRIMARY = "#0f172a"
+TEXT_MUTED = "#64748b"
+PRICE_LINE_COLOR = "#1d4ed8"
+PRICE_FILL_COLOR = "#bfdbfe"
+VOLUME_BAR_COLOR = "#94a3b8"
+POSITION_LINE_COLOR = "#047857"
+POSITION_FILL_COLOR = "#bbf7d0"
+ANALYTICS_SMA20_COLOR = "#b45309"
+ANALYTICS_SMA50_COLOR = "#7c3aed"
+ANALYTICS_EMA12_COLOR = "#0f766e"
+ANALYTICS_EMA26_COLOR = "#9f1239"
+ANALYTICS_BOLLINGER_COLOR = "#60a5fa"
+ANALYTICS_ENTRY_COLOR = "#15803d"
+ANALYTICS_EXIT_COLOR = "#be123c"
+ANALYTICS_DRAWDOWN_COLOR = "#dc2626"
+
+
 class ChartImageService:
     """On-demand read-only PNG renderer for chart history."""
 
@@ -159,28 +180,43 @@ class ChartImageService:
         candles = self._sorted_candles(history.candles)
         has_volume = any(candle.volume is not None for candle in candles)
         if has_volume:
-            figure = Figure(figsize=(9, 5.6), dpi=120)
+            figure = Figure(figsize=(9.6, 5.8), dpi=130, facecolor=FIGURE_BG)
             price_axis = figure.add_subplot(2, 1, 1)
             volume_axis = figure.add_subplot(2, 1, 2, sharex=price_axis)
         else:
-            figure = Figure(figsize=(9, 4.8), dpi=120)
+            figure = Figure(figsize=(9.6, 4.9), dpi=130, facecolor=FIGURE_BG)
             price_axis = figure.add_subplot(1, 1, 1)
             volume_axis = None
 
         times = [candle.time for candle in candles]
         closes = [candle.close for candle in candles]
-        price_axis.plot(times, closes, color="#2563eb", linewidth=1.8, label="Close")
-        price_axis.set_title(f"{history.ticker} price history ({history.range})", fontsize=13, pad=12)
-        price_axis.set_ylabel("Price")
-        price_axis.grid(True, color="#e5e7eb", linewidth=0.8)
+        price_axis.plot(times, closes, color=PRICE_LINE_COLOR, linewidth=2.2, label="Close", zorder=3)
+        price_axis.fill_between(times, closes, min(closes), color=PRICE_FILL_COLOR, alpha=0.34, linewidth=0, zorder=2)
+        price_axis.set_title(
+            f"{history.ticker} price history ({history.range})",
+            fontsize=13,
+            fontweight="bold",
+            color=TEXT_PRIMARY,
+            loc="left",
+            pad=12,
+        )
+        price_axis.set_ylabel("Price", color=TEXT_MUTED)
+        self._style_axis(price_axis)
         if analytics is not None:
             self._draw_analytics(price_axis, analytics)
 
         if volume_axis is not None:
             volumes = [candle.volume or 0 for candle in candles]
-            volume_axis.bar(times, volumes, color="#94a3b8", width=self._bar_width_days(history), align="center")
-            volume_axis.set_ylabel("Volume")
-            volume_axis.grid(True, axis="y", color="#e5e7eb", linewidth=0.8)
+            volume_axis.bar(
+                times,
+                volumes,
+                color=VOLUME_BAR_COLOR,
+                alpha=0.62,
+                width=self._bar_width_days(history),
+                align="center",
+            )
+            volume_axis.set_ylabel("Volume", color=TEXT_MUTED)
+            self._style_axis(volume_axis, grid_axis="y")
             self._format_time_axis(volume_axis, history)
         else:
             self._format_time_axis(price_axis, history)
@@ -194,8 +230,8 @@ class ChartImageService:
             note = f"{note} | Delay: {history.delay_status}"
         if history.figi:
             note = f"{note} | FIGI: {history.figi}"
-        figure.text(0.01, 0.035, note, fontsize=8, color="#475569")
-        figure.text(0.01, 0.01, history.disclaimer, fontsize=7.5, color="#64748b")
+        figure.text(0.01, 0.035, note, fontsize=8, color=TEXT_MUTED)
+        figure.text(0.01, 0.01, history.disclaimer, fontsize=7.5, color=TEXT_MUTED)
         figure.tight_layout(rect=(0, 0.08, 1, 0.96))
 
         output = BytesIO()
@@ -204,21 +240,25 @@ class ChartImageService:
 
     def _render_position_value(self, position_value: PositionValueChart) -> bytes:
         ordered = sorted(position_value.value_series, key=lambda point: point.time)
-        figure = Figure(figsize=(9, 4.8), dpi=120)
+        figure = Figure(figsize=(9.6, 4.9), dpi=130, facecolor=FIGURE_BG)
         axis = figure.add_subplot(1, 1, 1)
 
         times = [point.time for point in ordered]
         values = [point.value for point in ordered]
-        axis.plot(times, values, color="#1f7a4d", linewidth=1.8, label="Current quantity value")
+        axis.plot(times, values, color=POSITION_LINE_COLOR, linewidth=2.2, label="Current quantity value", zorder=3)
+        axis.fill_between(times, values, min(values), color=POSITION_FILL_COLOR, alpha=0.34, linewidth=0, zorder=2)
         axis.set_title(
             f"{position_value.ticker} current position quantity valued at historical prices "
             f"({position_value.range})",
             fontsize=13,
+            fontweight="bold",
+            color=TEXT_PRIMARY,
+            loc="left",
             pad=12,
         )
-        axis.set_ylabel("Value (RUB)")
-        axis.grid(True, color="#e5e7eb", linewidth=0.8)
-        axis.legend(loc="best", fontsize=7.5, frameon=False)
+        axis.set_ylabel("Value (RUB)", color=TEXT_MUTED)
+        self._style_axis(axis)
+        axis.legend(loc="best", fontsize=7.5, frameon=False, labelcolor=TEXT_MUTED)
         self._format_time_axis(axis, position_value)
 
         generated = self._format_metadata_time(position_value.generated_at)
@@ -234,8 +274,8 @@ class ChartImageService:
             note = f"{note} | Delay: {position_value.delay_status}"
         if position_value.figi:
             note = f"{note} | FIGI: {position_value.figi}"
-        figure.text(0.01, 0.035, note, fontsize=8, color="#475569")
-        figure.text(0.01, 0.01, position_value.disclaimer, fontsize=7.5, color="#64748b")
+        figure.text(0.01, 0.035, note, fontsize=8, color=TEXT_MUTED)
+        figure.text(0.01, 0.01, position_value.disclaimer, fontsize=7.5, color=TEXT_MUTED)
         figure.tight_layout(rect=(0, 0.08, 1, 0.96))
 
         output = BytesIO()
@@ -247,24 +287,63 @@ class ChartImageService:
             axis.plot(
                 [point.time for point in analytics.sma20.points],
                 [point.value for point in analytics.sma20.points],
-                color="#b45309",
-                linewidth=1.2,
+                color=ANALYTICS_SMA20_COLOR,
+                linewidth=1.3,
                 label=analytics.sma20.label,
+                zorder=4,
             )
         if analytics.sma50.points:
             axis.plot(
                 [point.time for point in analytics.sma50.points],
                 [point.value for point in analytics.sma50.points],
-                color="#7c3aed",
-                linewidth=1.2,
+                color=ANALYTICS_SMA50_COLOR,
+                linewidth=1.3,
                 label=analytics.sma50.label,
+                zorder=4,
+            )
+        if analytics.ema12.points:
+            axis.plot(
+                [point.time for point in analytics.ema12.points],
+                [point.value for point in analytics.ema12.points],
+                color=ANALYTICS_EMA12_COLOR,
+                linewidth=1.1,
+                label=analytics.ema12.label,
+                zorder=4,
+            )
+        if analytics.ema26.points:
+            axis.plot(
+                [point.time for point in analytics.ema26.points],
+                [point.value for point in analytics.ema26.points],
+                color=ANALYTICS_EMA26_COLOR,
+                linewidth=1.1,
+                label=analytics.ema26.label,
+                zorder=4,
+            )
+        if analytics.bollinger20.points:
+            times = [point.time for point in analytics.bollinger20.points]
+            axis.plot(
+                times,
+                [point.upper for point in analytics.bollinger20.points],
+                color=ANALYTICS_BOLLINGER_COLOR,
+                linewidth=0.9,
+                alpha=0.85,
+                label=analytics.bollinger20.label,
+                zorder=3,
+            )
+            axis.plot(
+                times,
+                [point.lower for point in analytics.bollinger20.points],
+                color=ANALYTICS_BOLLINGER_COLOR,
+                linewidth=0.9,
+                alpha=0.85,
+                zorder=3,
             )
 
         if analytics.entry_marker is not None:
             axis.scatter(
                 [analytics.entry_marker.time],
                 [analytics.entry_marker.close],
-                color="#15803d",
+                color=ANALYTICS_ENTRY_COLOR,
                 marker="^",
                 s=54,
                 zorder=5,
@@ -279,7 +358,7 @@ class ChartImageService:
             axis.scatter(
                 [analytics.exit_marker.time],
                 [analytics.exit_marker.close],
-                color="#be123c",
+                color=ANALYTICS_EXIT_COLOR,
                 marker="v",
                 s=54,
                 zorder=5,
@@ -292,10 +371,11 @@ class ChartImageService:
             axis.plot(
                 [drawdown.peak_time, drawdown.trough_time],
                 [drawdown.peak_close, drawdown.trough_close],
-                color="#dc2626",
+                color=ANALYTICS_DRAWDOWN_COLOR,
                 linestyle="--",
                 linewidth=1.0,
                 label="Max drawdown",
+                zorder=4,
             )
             self._annotate_marker(
                 axis,
@@ -318,11 +398,11 @@ class ChartImageService:
                 va="top",
                 ha="left",
                 fontsize=7.5,
-                color="#334155",
-                bbox={"facecolor": "#ffffff", "edgecolor": "#cbd5e1", "alpha": 0.86, "pad": 4},
+                color=TEXT_PRIMARY,
+                bbox={"facecolor": PANEL_BG, "edgecolor": AXIS_COLOR, "alpha": 0.92, "pad": 4},
             )
 
-        axis.legend(loc="best", fontsize=7.5, frameon=False)
+        axis.legend(loc="best", fontsize=7.5, frameon=False, labelcolor=TEXT_MUTED)
 
     def _annotate_marker(self, axis, time, price: float, label: str) -> None:
         axis.annotate(
@@ -331,12 +411,22 @@ class ChartImageService:
             xytext=(8, 12),
             textcoords="offset points",
             fontsize=7.5,
-            color="#334155",
-            arrowprops={"arrowstyle": "->", "color": "#64748b", "linewidth": 0.8},
+            color=TEXT_PRIMARY,
+            arrowprops={"arrowstyle": "->", "color": TEXT_MUTED, "linewidth": 0.8},
         )
 
     def _sorted_candles(self, candles: list[PriceCandle]) -> list[PriceCandle]:
         return sorted(candles, key=lambda candle: candle.time)
+
+    def _style_axis(self, axis, grid_axis: str = "both") -> None:
+        axis.set_facecolor(PANEL_BG)
+        axis.grid(True, axis=grid_axis, color=GRID_COLOR, linewidth=0.8)
+        axis.tick_params(axis="both", colors=TEXT_MUTED, labelsize=8)
+        axis.margins(x=0.015)
+        axis.spines["top"].set_visible(False)
+        axis.spines["right"].set_visible(False)
+        axis.spines["left"].set_color(AXIS_COLOR)
+        axis.spines["bottom"].set_color(AXIS_COLOR)
 
     def _format_time_axis(self, axis, history: ChartHistory) -> None:
         if history.range == "day":

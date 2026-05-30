@@ -19,7 +19,23 @@ def candle(day: int, close: float) -> PriceCandle:
     )
 
 
+def candle_with_volume(day: int, close: float, volume: int) -> PriceCandle:
+    candle_time = candle_time_for(day)
+    return PriceCandle(
+        time=candle_time,
+        open=close - 1,
+        high=close + 2,
+        low=close - 2,
+        close=close,
+        volume=volume,
+    )
+
+
 def candle_time(day: int) -> datetime:
+    return candle_time_for(day)
+
+
+def candle_time_for(day: int) -> datetime:
     return datetime(2026, 5, 1, 10, 0) + timedelta(days=day - 1)
 
 
@@ -97,6 +113,40 @@ class ChartAnalyticsServiceTests(unittest.TestCase):
         self.assertEqual(len(analytics.sma50.points), 6)
         self.assertEqual(analytics.sma50.points[0].time, candle_time(50))
         self.assertAlmostEqual(analytics.sma50.points[0].value, 25.5)
+
+    def test_extended_indicators_use_only_current_and_prior_candles(self):
+        analytics = self.service.calculate([candle(day, float(day)) for day in range(1, 61)])
+
+        self.assertAlmostEqual(analytics.range_return_pct, 5900.0)
+        self.assertAlmostEqual(analytics.latest_change_pct, (60.0 - 59.0) / 59.0 * 100)
+        self.assertIsNotNone(analytics.periodic_volatility_pct)
+        self.assertIsNotNone(analytics.annualized_volatility_pct)
+
+        self.assertEqual(analytics.ema12.points[0].time, candle_time(12))
+        self.assertAlmostEqual(analytics.ema12.points[0].value, 6.5)
+        self.assertEqual(analytics.ema26.points[0].time, candle_time(26))
+        self.assertAlmostEqual(analytics.ema26.points[0].value, 13.5)
+
+        self.assertEqual(analytics.rsi14.points[0].time, candle_time(15))
+        self.assertAlmostEqual(analytics.rsi14.points[0].value, 100.0)
+        self.assertEqual(analytics.bollinger20.points[0].time, candle_time(20))
+        self.assertAlmostEqual(analytics.bollinger20.points[0].middle, 10.5)
+        self.assertTrue(analytics.bollinger20.points[0].upper > analytics.bollinger20.points[0].middle)
+        self.assertTrue(analytics.macd.points)
+
+    def test_volume_stats_and_atr_are_reported_when_data_exists(self):
+        analytics = self.service.calculate(
+            [
+                candle_with_volume(day, 100.0 + day, volume=day * 100)
+                for day in range(1, 21)
+            ]
+        )
+
+        self.assertEqual(analytics.volume_stats.latest_volume, 2000)
+        self.assertAlmostEqual(analytics.volume_stats.average_volume, 1050.0)
+        self.assertAlmostEqual(analytics.volume_stats.latest_vs_average_pct, (2000 - 1050.0) / 1050.0 * 100)
+        self.assertEqual(analytics.atr14.points[0].time, candle_time(14))
+        self.assertGreater(analytics.atr14.points[0].value, 0)
 
     def test_calculation_sorts_candles_by_time_before_analytics(self):
         analytics = self.service.calculate([candle(3, 14.0), candle(1, 10.0), candle(2, 12.0)])

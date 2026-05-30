@@ -594,6 +594,118 @@ td.wrap-cell {
   background: #ffffff;
 }
 
+.live-chart {
+  display: grid;
+  gap: 12px;
+}
+
+.chart-status {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: #fbfcfb;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.chart-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.data-status {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfcfb;
+}
+
+.data-status div {
+  min-width: 0;
+}
+
+.data-status span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.data-status strong {
+  display: block;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  text-transform: capitalize;
+}
+
+.data-status p {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.chart-analytics-note {
+  margin: 0;
+}
+
+.chart-summary div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.chart-summary span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.chart-summary strong {
+  display: block;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.chart-summary strong.positive {
+  color: var(--accent);
+}
+
+.chart-summary strong.negative {
+  color: var(--danger);
+}
+
+.chart-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.indicator-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -621,6 +733,8 @@ td.wrap-cell {
   .chart-form,
   .plan-form,
   .plan-form.compact,
+  .data-status,
+  .chart-summary,
   .summary-grid {
     grid-template-columns: 1fr;
   }

@@ -10,24 +10,34 @@ class SchedulerConfigSafetyTests(unittest.TestCase):
     def test_configure_schedulers_respects_disabled_background_default(self):
         with mock.patch.object(schedulers_config, "background_schedulers_enabled", return_value=False), \
             mock.patch.object(schedulers_config, "configure_market_scheduler") as market_scheduler, \
+            mock.patch.object(schedulers_config, "configure_chart_data_scheduler") as chart_data_scheduler, \
             mock.patch.object(schedulers_config, "configure_plan_scheduler") as plan_scheduler, \
             mock.patch.object(schedulers_config, "configure_anti_greedy_scheduler") as anti_greedy_scheduler:
             schedulers_config.configure_schedulers()
 
         market_scheduler.assert_not_called()
+        chart_data_scheduler.assert_not_called()
         plan_scheduler.assert_not_called()
         anti_greedy_scheduler.assert_not_called()
 
     def test_configure_schedulers_runs_only_active_single_owner_schedulers(self):
         with mock.patch.object(schedulers_config, "background_schedulers_enabled", return_value=True), \
             mock.patch.object(schedulers_config, "configure_market_scheduler") as market_scheduler, \
+            mock.patch.object(schedulers_config, "configure_chart_data_scheduler") as chart_data_scheduler, \
             mock.patch.object(schedulers_config, "configure_plan_scheduler") as plan_scheduler, \
             mock.patch.object(schedulers_config, "configure_anti_greedy_scheduler") as anti_greedy_scheduler:
             schedulers_config.configure_schedulers()
 
         market_scheduler.assert_called_once()
+        chart_data_scheduler.assert_called_once()
         plan_scheduler.assert_called_once()
         anti_greedy_scheduler.assert_called_once()
+
+    def test_chart_data_scheduler_is_disabled_by_default(self):
+        with mock.patch.object(schedulers_config, "chart_data_refresh_enabled", return_value=False):
+            schedulers_config.configure_chart_data_scheduler()
+
+        self.assertIsNone(schedulers_config.chart_data_scheduler)
 
     def test_scheduler_config_has_no_strategy_scheduler_or_direct_order_calls(self):
         source_path = Path(__file__).resolve().parents[1] / "app" / "client" / "config" / "schedulers_config.py"

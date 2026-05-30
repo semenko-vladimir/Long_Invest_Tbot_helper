@@ -130,7 +130,10 @@ if __name__ == '__main__':
                 bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=20)
                 logger.warning("Telegram polling stopped without an exception; restarting in 10 seconds")
             except Exception as e:
-                logger.exception("Telegram polling failed; restarting in 10 seconds: %s", e)
+                logger.error(
+                    "Telegram polling failed; restarting in 10 seconds: %s",
+                    type(e).__name__,
+                )
             time.sleep(10)
     
     except Exception as e:

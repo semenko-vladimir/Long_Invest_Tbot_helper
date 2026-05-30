@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from app.charts.factory import build_chart_services
+from app.charts.factory import build_chart_services, build_moex_chart_image_service
 from app.charts.images import ChartImageService
 from app.charts.position_values import PositionValueChartService
 from app.client.config import get_invest_mode
@@ -34,6 +34,7 @@ class TelegramUserServices:
     ticker_research: TickerResearchService
     report_builder: ResearchReportService
     chart_image_service: ChartImageService
+    moex_chart_image_service: ChartImageService
     position_value_chart_service: PositionValueChartService
 
 
@@ -84,6 +85,7 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
         broker=broker,
         token_provider=token_provider,
         portfolio_service=portfolio_service,
+        session_factory=session_factory,
     )
     return TelegramUserServices(
         user=user,
@@ -112,6 +114,7 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
         ),
         report_builder=ResearchReportService(),
         chart_image_service=chart_services.image_service,
+        moex_chart_image_service=build_moex_chart_image_service(),
         position_value_chart_service=chart_services.position_value_service,
     )
 

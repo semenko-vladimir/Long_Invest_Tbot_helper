@@ -3,8 +3,11 @@ from datetime import datetime
 from app.client.config import (
     anti_greedy_policy_enabled,
     background_schedulers_enabled,
+    chart_data_refresh_enabled,
     get_anti_greedy_check_time,
     get_anti_greedy_profit_pct,
+    get_chart_data_refresh_interval_seconds,
+    get_chart_data_refresh_ranges,
     get_invest_mode,
     investment_plans_enabled,
 )
@@ -13,6 +16,7 @@ from app.client.log.logger import setup_logger
 logger = setup_logger(__name__)
 plan_scheduler = None
 anti_greedy_scheduler = None
+chart_data_scheduler = None
 confirmation_service = None
 
 
@@ -31,8 +35,95 @@ def configure_schedulers():
         return
 
     configure_market_scheduler()
+    configure_chart_data_scheduler()
     configure_plan_scheduler()
     configure_anti_greedy_scheduler()
+
+
+def configure_chart_data_scheduler():
+    global chart_data_scheduler
+
+    if not chart_data_refresh_enabled():
+        logger.info("Chart data refresh scheduler disabled because ENABLE_CHART_DATA_REFRESH=false")
+        return
+
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+
+        from app.charts.factory import build_chart_services
+        from app.charts.refresh_scheduler import ChartDataRefreshRunner
+        from app.integrations.tinvest import TInvestBroker
+        from app.services.mode import ModeService
+        from app.services.portfolio import PortfolioService
+        from app.services.user_context import UserContextResolver
+        from app.services.user_database import session_factory_for_user
+        from app.services.watchlist import WatchlistService
+    except ImportError as exc:
+        logger.error("Chart data refresh scheduler requires active runtime dependencies: %s", exc)
+        return
+
+    try:
+        interval_seconds = get_chart_data_refresh_interval_seconds()
+        ranges = get_chart_data_refresh_ranges()
+    except Exception as exc:
+        logger.error("Chart data refresh scheduler has invalid config: %s", exc)
+        return
+
+    if chart_data_scheduler:
+        chart_data_scheduler.shutdown()
+
+    scheduler = BackgroundScheduler(timezone="Europe/Moscow")
+    scheduled_count = 0
+
+    try:
+        users = UserContextResolver().enabled_users()
+    except Exception as exc:
+        logger.error("Chart data refresh scheduler could not load users: %s", exc)
+        return
+
+    for user in users:
+        session_factory = session_factory_for_user(user)
+        token_provider = lambda user=user: user.active_token(get_invest_mode())
+        mode_service = ModeService()
+        broker = TInvestBroker(session_factory=session_factory)
+        portfolio_service = PortfolioService(
+            broker=broker,
+            mode_service=mode_service,
+            token_provider=token_provider,
+        )
+        watchlist_service = WatchlistService(
+            broker=broker,
+            session_factory=session_factory,
+            token_provider=token_provider,
+        )
+        chart_services = build_chart_services(
+            broker=broker,
+            token_provider=token_provider,
+            portfolio_service=portfolio_service,
+            session_factory=session_factory,
+        )
+        runner = ChartDataRefreshRunner(
+            watchlist_service=watchlist_service,
+            portfolio_service=portfolio_service,
+            refresh_service=chart_services.refresh_service,
+            ranges=ranges,
+        )
+        scheduler.add_job(
+            runner.run,
+            "interval",
+            seconds=interval_seconds,
+            id=f"chart_data_refresh_{user.user_id}",
+            replace_existing=True,
+        )
+        scheduled_count += 1
+
+    scheduler.start()
+    chart_data_scheduler = scheduler
+    logger.info(
+        "Chart data refresh scheduler started with %d user job(s), interval %d seconds",
+        scheduled_count,
+        interval_seconds,
+    )
 
 
 def configure_plan_scheduler():
