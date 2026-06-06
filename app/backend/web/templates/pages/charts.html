@@ -62,10 +62,10 @@
         <div class="data-status" data-chart-data-status aria-label="Data status"></div>
         <div class="chart-summary" data-chart-summary></div>
         <p class="muted chart-analytics-note">Hindsight-only analytics are educational diagnostics, not investment advice.</p>
-        <canvas class="chart-canvas price-canvas" data-chart-canvas width="1080" height="560"></canvas>
-        <div class="indicator-grid">
-          <canvas class="chart-canvas indicator-canvas" data-rsi-canvas width="1080" height="180"></canvas>
-          <canvas class="chart-canvas indicator-canvas" data-macd-canvas width="1080" height="180"></canvas>
+        <div class="terminal-chart-shell">
+          <div class="chart-headline" data-chart-headline></div>
+          <div class="chart-tooltip" data-chart-tooltip hidden></div>
+          <div class="chart-library-host" data-chart-host aria-label="Interactive price and volume chart"></div>
         </div>
         <p class="muted" data-chart-meta>{{ read_only_notice }}</p>
         <p class="muted">PNG fallback: <a href="{{ chart_image_url }}">open static chart</a></p>

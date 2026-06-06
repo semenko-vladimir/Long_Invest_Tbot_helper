@@ -161,6 +161,7 @@ class WebChartsTests(unittest.TestCase):
         self.assertIn('value="all"', response.text)
         self.assertIn("Read-only educational chart", response.text)
         self.assertIn("Not a trading signal", response.text)
+        self.assertIn("/static/vendor/lightweight-charts.standalone.production.js", response.text)
 
     def test_charts_page_with_ticker_includes_png_image_url(self):
         with mock.patch("app.backend.web.chart_routes.get_web_services", return_value=self.services()):
@@ -170,6 +171,10 @@ class WebChartsTests(unittest.TestCase):
         self.assertIn('/charts/SBER.png?range=month&amp;mode=price&amp;analytics=1', response.text)
         self.assertIn('/charts/SBER.json?range=month&amp;interval=auto&amp;analytics=1', response.text)
         self.assertIn("data-chart-data-status", response.text)
+        self.assertIn("data-chart-host", response.text)
+        self.assertIn("data-chart-tooltip", response.text)
+        self.assertNotIn("data-rsi-canvas", response.text)
+        self.assertNotIn("data-macd-canvas", response.text)
         self.assertIn("Hindsight-only analytics are educational diagnostics", response.text)
 
     def test_charts_page_with_analytics_disabled_preserves_png_image_url_flag(self):

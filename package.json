@@ -1,0 +1,13 @@
+{
+  "name": "tbot-web-assets",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local web assets for the Tbot investor terminal.",
+  "scripts": {
+    "build:web": "node scripts/vendor-lightweight-charts.mjs"
+  },
+  "dependencies": {
+    "lightweight-charts": "5.2.0"
+  },
+  "devDependencies": {}
+}
