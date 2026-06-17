@@ -4,8 +4,15 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_MOEX_ISS,
+    DATA_SOURCE_T_INVEST,
+    DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
+)
+from app.charts.adapters import FallbackChartDataAdapter
 from app.charts.position_values import PositionValueChartService
-from app.charts.schemas import ChartHistory, PriceCandle
+from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartHistory, PriceCandle
+from app.charts.services import ChartHistoryService
 
 
 def candle(day: int, close: float) -> PriceCandle:
@@ -19,14 +26,15 @@ def candle(day: int, close: float) -> PriceCandle:
     )
 
 
-def history(range_name: str = "month", candles=None, errors=None) -> ChartHistory:
+def history(range_name: str = "month", candles=None, errors=None, source="fake-history", fetched_at=None) -> ChartHistory:
     return ChartHistory(
         ticker="SBER",
         figi="FIGI-SBER",
         range=range_name,
         candles=list(candles if candles is not None else [candle(1, 100.0), candle(2, 110.0)]),
         generated_at=datetime(2026, 5, 21, 12, 0),
-        source="fake-history",
+        source=source,
+        fetched_at=fetched_at,
         data_gaps=[],
         errors=list(errors or []),
     )
@@ -62,6 +70,20 @@ class FakeHistoryService:
     def get_history(self, ticker, range_name):
         self.calls.append((ticker, range_name))
         return self.histories[range_name]
+
+
+class FakeChartAdapter:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    @property
+    def source_name(self):
+        return self.result.source_name
+
+    def fetch_candles(self, ticker, range_name):
+        self.calls.append((ticker, range_name))
+        return self.result
 
 
 class PositionValueChartServiceTests(unittest.TestCase):
@@ -141,6 +163,67 @@ class PositionValueChartServiceTests(unittest.TestCase):
 
         self.assertEqual(history_service.calls, [("SBER", "week")])
         self.assertEqual([point.value for point in result.value_series], [40.0])
+
+    def test_position_value_preserves_moex_source_metadata(self):
+        fetched_at = datetime(2026, 5, 21, 13, 0)
+        history_service = FakeHistoryService(
+            {
+                "month": history(
+                    "month",
+                    [candle(1, 200.0), candle(2, 210.0)],
+                    source=DATA_SOURCE_MOEX_ISS,
+                    fetched_at=fetched_at,
+                )
+            }
+        )
+        service = PositionValueChartService(
+            portfolio_service=FakePortfolioService(positions=[position(quantity=2)]),
+            history_service=history_service,
+        )
+
+        result = service.get_position_value("SBER", "month")
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.source, DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(result.fetched_at, fetched_at)
+        self.assertEqual([point.value for point in result.value_series], [400.0, 420.0])
+
+    def test_position_value_inherits_moex_fallback_source_metadata(self):
+        primary = FakeChartAdapter(
+            ChartAdapterResult(
+                source_name=DATA_SOURCE_T_INVEST,
+                ticker="SBER",
+                data_gaps=[ChartDataGap("price_history", "T-Invest returned no candles.", "low")],
+                candles=[],
+            )
+        )
+        fallback = FakeChartAdapter(
+            ChartAdapterResult(
+                source_name=DATA_SOURCE_MOEX_ISS,
+                ticker="SBER",
+                candles=[candle(1, 200.0), candle(2, 210.0)],
+            )
+        )
+        history_service = ChartHistoryService(
+            adapter=FallbackChartDataAdapter(primary=primary, fallback=fallback),
+            now_provider=lambda: datetime(2026, 5, 21, 12, 0),
+        )
+        service = PositionValueChartService(
+            portfolio_service=FakePortfolioService(positions=[position(quantity=2)]),
+            history_service=history_service,
+        )
+
+        result = service.get_position_value("SBER", "month")
+
+        self.assertTrue(result.ok)
+        self.assertEqual(primary.calls, [("SBER", "month")])
+        self.assertEqual(fallback.calls, [("SBER", "month")])
+        self.assertEqual(result.source, DATA_SOURCE_MOEX_ISS)
+        self.assertEqual(result.source_name, DATA_SOURCE_MOEX_ISS)
+        self.assertNotEqual(result.source, DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK)
+        self.assertTrue(any(gap.category == "source_fallback" for gap in result.data_gaps))
+        self.assertEqual([point.value for point in result.value_series], [400.0, 420.0])
 
     def test_position_value_service_imports_no_order_signal_or_rating_modules(self):
         forbidden_prefixes = (

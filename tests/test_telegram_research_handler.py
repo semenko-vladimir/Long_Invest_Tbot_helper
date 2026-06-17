@@ -175,6 +175,41 @@ class TelegramResearchHandlerTests(unittest.TestCase):
         for forbidden_rating in ("BUY", "HOLD", "SELL", "WATCH", "AVOID"):
             self.assertNotIn(forbidden_rating, text)
 
+    def test_formatter_includes_compact_market_context_without_rating(self):
+        report = ResearchReport(
+            ticker="SBER",
+            generated_at=datetime(2026, 5, 4, 12, 30),
+            sources=["market-context"],
+            market_context={
+                "source": "MOEX ISS",
+                "period": "month",
+                "indexes": [
+                    {
+                        "ticker": "IMOEX",
+                        "latest_close": 3200.0,
+                        "recent_change_pct": 1.5,
+                        "as_of_date": "2026-05-03",
+                    },
+                    {
+                        "ticker": "RTSI",
+                        "latest_close": None,
+                        "recent_change_pct": None,
+                    },
+                ],
+            },
+        )
+
+        text = research_handler.format_research_report(report)
+
+        self.assertIn("Market context:", text)
+        self.assertIn("IMOEX: close 3200", text)
+        self.assertIn("+1.50% over month", text)
+        self.assertIn("as of 2026-05-03", text)
+        self.assertIn("RTSI: unavailable", text)
+        self.assertIn("Source: MOEX ISS", text)
+        for forbidden_rating in ("BUY", "HOLD", "SELL", "WATCH", "AVOID"):
+            self.assertNotIn(forbidden_rating, text)
+
     def test_telegram_research_handler_imports_no_order_signal_or_llm_modules(self):
         forbidden_prefixes = (
             "app.services.orders",

@@ -10,6 +10,7 @@ from unittest import mock
 from grpc import StatusCode
 from tinkoff.invest import RequestError
 
+from app.data_sources.schemas import DATA_SOURCE_T_INVEST, DELAY_STATUS_BROKER_API
 from app.research.schemas import InstrumentIdentity, MarketSnapshot
 from app.research.tinvest_adapter import TInvestDataAdapter
 
@@ -75,7 +76,7 @@ class TInvestDataAdapterTests(unittest.TestCase):
 
         result = adapter.fetch(" sber ")
 
-        self.assertEqual(result.source_name, "t-invest")
+        self.assertEqual(result.source_name, DATA_SOURCE_T_INVEST)
         self.assertEqual(result.errors, [])
         self.assertEqual(result.gaps, [])
         self.assertIsInstance(result.data["instrument_identity"], InstrumentIdentity)
@@ -85,7 +86,8 @@ class TInvestDataAdapterTests(unittest.TestCase):
         self.assertEqual(result.data["market_snapshot"].current_price, 101.5)
         self.assertEqual(result.data["dividends"]["yield_value"], "5.2")
         self.assertIsNotNone(result.freshness)
-        self.assertEqual(result.freshness.source_name, "t-invest")
+        self.assertEqual(result.freshness.source_name, DATA_SOURCE_T_INVEST)
+        self.assertEqual(result.freshness.delay_status, DELAY_STATUS_BROKER_API)
         self.assertNotIn(("place_order",), broker.calls)
 
     def test_partial_data_returns_explicit_gaps(self):

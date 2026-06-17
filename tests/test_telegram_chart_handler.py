@@ -1,10 +1,16 @@
 import ast
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_MOEX_ISS,
+    DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK,
+    DELAY_STATUS_DELAYED_PUBLIC_ISS,
+)
 
 os.environ["BOT_TOKEN"] = "123456:TEST"
 
@@ -65,6 +71,20 @@ class TelegramChartHandlerTests(unittest.TestCase):
         self.assertEqual(no_analytics.range_name, "month")
         self.assertFalse(no_analytics.include_analytics)
 
+    def test_moex_parser_accepts_supported_ranges_and_plain_forms(self):
+        command = chart_handler.parse_moex_chart_command("/moex_chart sber month")
+        plain = chart_handler.parse_moex_chart_command("/moex_chart sber month plain")
+        no_analytics = chart_handler.parse_moex_chart_command("/moex_chart sber month no_analytics")
+
+        self.assertIsNotNone(command)
+        self.assertEqual(command.ticker, "SBER")
+        self.assertEqual(command.range_name, "month")
+        self.assertTrue(command.include_analytics)
+        self.assertIsNotNone(plain)
+        self.assertFalse(plain.include_analytics)
+        self.assertIsNotNone(no_analytics)
+        self.assertFalse(no_analytics.include_analytics)
+
     def test_parser_rejects_missing_or_unsupported_arguments(self):
         invalid_inputs = [
             None,
@@ -80,6 +100,22 @@ class TelegramChartHandlerTests(unittest.TestCase):
         for text in invalid_inputs:
             with self.subTest(text=text):
                 self.assertIsNone(chart_handler.parse_chart_command(text))
+
+    def test_moex_parser_rejects_missing_or_unsupported_arguments(self):
+        invalid_inputs = [
+            None,
+            "",
+            "/moex_chart",
+            "/moex_chart SBER",
+            "/moex_chart SBER intraday",
+            "/moex_chart SBER month analytics",
+            "/moex_chart *** month",
+            "/chart SBER month",
+        ]
+
+        for text in invalid_inputs:
+            with self.subTest(text=text):
+                self.assertIsNone(chart_handler.parse_moex_chart_command(text))
 
     def test_position_chart_parser_accepts_ticker_and_supported_range(self):
         command = chart_handler.parse_position_chart_command("/position_chart sber month")
@@ -120,6 +156,18 @@ class TelegramChartHandlerTests(unittest.TestCase):
         self.assertIn("Not investment advice", text)
         self.assertIn("No broker orders were created", text)
 
+    def test_invalid_moex_chart_command_sends_usage_without_loading_services(self):
+        with patch.object(chart_handler, "get_telegram_services_or_notify") as get_services:
+            with patch.object(chart_handler.bot, "send_message", return_value=SimpleNamespace(message_id=100)) as send:
+                chart_handler.moex_chart_command_handler(FakeMessage("/moex_chart SBER"))
+
+        get_services.assert_not_called()
+        text = send.call_args.kwargs["text"]
+        self.assertIn("/moex_chart SBER month", text)
+        self.assertIn("/moex_chart SBER month plain", text)
+        self.assertIn("delayed public MOEX ISS data", text)
+        self.assertIn("No broker orders were created", text)
+
     def test_successful_command_sends_png_with_safe_caption(self):
         fake_service = FakeChartImageService(chart_result())
         services = SimpleNamespace(chart_image_service=fake_service)
@@ -137,6 +185,68 @@ class TelegramChartHandlerTests(unittest.TestCase):
         self.assertIn("Hindsight-only analytics", send_photo.call_args.kwargs["caption"])
         self.assertIn("Not a trading signal", send_photo.call_args.kwargs["caption"])
 
+    def test_successful_command_caption_includes_moex_source_metadata(self):
+        fake_service = FakeChartImageService(
+            chart_result(
+                history=SimpleNamespace(
+                    source=DATA_SOURCE_MOEX_ISS,
+                    fetched_at=datetime(2026, 5, 21, 13, 0, tzinfo=timezone.utc),
+                    as_of_date="2026-05-20",
+                    delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
+                )
+            )
+        )
+        services = SimpleNamespace(chart_image_service=fake_service)
+
+        with patch.object(chart_handler, "get_telegram_services_or_notify", return_value=services):
+            with patch.object(chart_handler.bot, "send_photo", return_value=SimpleNamespace(message_id=101)) as send_photo:
+                with patch.object(chart_handler.bot, "send_message"):
+                    chart_handler.chart_command_handler(FakeMessage("/chart sber month"))
+
+        caption = send_photo.call_args.kwargs["caption"]
+        self.assertIn(f"Source: {DATA_SOURCE_MOEX_ISS}", caption)
+        self.assertNotIn(DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK, caption)
+        self.assertIn("As of: 2026-05-20", caption)
+        self.assertIn("Fetched: 2026-05-21 13:00 UTC", caption)
+        self.assertIn("Freshness: latest_available", caption)
+        self.assertIn("Delay: moex_delayed", caption)
+        self.assertIn("Candles: 0", caption)
+        self.assertIn("No broker orders were created", caption)
+
+    def test_successful_moex_chart_command_uses_moex_service_and_caption(self):
+        regular_service = FakeChartImageService(chart_result())
+        moex_service = FakeChartImageService(
+            chart_result(
+                source_name=DATA_SOURCE_MOEX_ISS,
+                fetched_at=datetime(2026, 5, 21, 13, 0, tzinfo=timezone.utc),
+                as_of_date="2026-05-20",
+                delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
+            )
+        )
+        services = SimpleNamespace(
+            chart_image_service=regular_service,
+            moex_chart_image_service=moex_service,
+        )
+
+        with patch.object(chart_handler, "get_telegram_services_or_notify", return_value=services):
+            with patch.object(chart_handler.bot, "send_photo", return_value=SimpleNamespace(message_id=101)) as send_photo:
+                with patch.object(chart_handler.bot, "send_message") as send_message:
+                    chart_handler.moex_chart_command_handler(FakeMessage("/moex_chart sber month"))
+
+        self.assertEqual(regular_service.calls, [])
+        self.assertEqual(moex_service.calls, [("SBER", "month", True, "price")])
+        send_message.assert_not_called()
+        caption = send_photo.call_args.kwargs["caption"]
+        self.assertIn("Read-only MOEX ISS chart", caption)
+        self.assertIn("delayed public MOEX ISS data", caption)
+        self.assertIn(f"Source: {DATA_SOURCE_MOEX_ISS}", caption)
+        self.assertNotIn(DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK, caption)
+        self.assertIn("As of: 2026-05-20", caption)
+        self.assertIn("Freshness: latest_available", caption)
+        self.assertIn("Delay: moex_delayed", caption)
+        self.assertIn("Candles: 0", caption)
+        self.assertIn("No broker orders were created", caption)
+
     def test_plain_command_sends_png_without_analytics(self):
         fake_service = FakeChartImageService(chart_result())
         services = SimpleNamespace(chart_image_service=fake_service)
@@ -147,6 +257,22 @@ class TelegramChartHandlerTests(unittest.TestCase):
                     chart_handler.chart_command_handler(FakeMessage("/chart sber month plain"))
 
         self.assertEqual(fake_service.calls, [("SBER", "month", False, "price")])
+
+    def test_moex_plain_command_sends_png_without_analytics(self):
+        regular_service = FakeChartImageService(chart_result())
+        moex_service = FakeChartImageService(chart_result(source_name=DATA_SOURCE_MOEX_ISS))
+        services = SimpleNamespace(
+            chart_image_service=regular_service,
+            moex_chart_image_service=moex_service,
+        )
+
+        with patch.object(chart_handler, "get_telegram_services_or_notify", return_value=services):
+            with patch.object(chart_handler.bot, "send_photo", return_value=SimpleNamespace(message_id=101)):
+                with patch.object(chart_handler.bot, "send_message"):
+                    chart_handler.moex_chart_command_handler(FakeMessage("/moex_chart sber month plain"))
+
+        self.assertEqual(regular_service.calls, [])
+        self.assertEqual(moex_service.calls, [("SBER", "month", False, "price")])
 
     def test_successful_position_chart_command_sends_png_with_safe_caption(self):
         fake_service = FakeChartImageService(chart_result())
@@ -165,6 +291,28 @@ class TelegramChartHandlerTests(unittest.TestCase):
         self.assertIn("current position quantity valued at historical close prices", caption)
         self.assertIn("not historical holdings", caption)
         self.assertIn("no broker orders were created", caption)
+
+    def test_successful_position_chart_caption_includes_moex_fallback_source(self):
+        fake_service = FakeChartImageService(
+            chart_result(
+                source_name=DATA_SOURCE_MOEX_ISS,
+                fetched_at=datetime(2026, 5, 21, 13, 0, tzinfo=timezone.utc),
+                as_of_date="2026-05-20",
+                delay_status=DELAY_STATUS_DELAYED_PUBLIC_ISS,
+            )
+        )
+        services = SimpleNamespace(chart_image_service=fake_service)
+
+        with patch.object(chart_handler, "get_telegram_services_or_notify", return_value=services):
+            with patch.object(chart_handler.bot, "send_photo", return_value=SimpleNamespace(message_id=101)) as send_photo:
+                with patch.object(chart_handler.bot, "send_message"):
+                    chart_handler.position_chart_command_handler(FakeMessage("/position_chart sber month"))
+
+        caption = send_photo.call_args.kwargs["caption"]
+        self.assertIn(f"Source: {DATA_SOURCE_MOEX_ISS}", caption)
+        self.assertNotIn(DATA_SOURCE_T_INVEST_THEN_MOEX_ISS_FALLBACK, caption)
+        self.assertIn("As of: 2026-05-20", caption)
+        self.assertIn("current position quantity valued at historical close prices", caption)
 
     def test_position_chart_non_portfolio_ticker_sends_clear_message(self):
         fake_service = FakeChartImageService(
@@ -219,6 +367,21 @@ class TelegramChartHandlerTests(unittest.TestCase):
         text = send.call_args.kwargs["text"]
         self.assertIn("No candles are available", text)
         self.assertIn("Read-only chart could not be generated", text)
+        self.assertIn("No broker orders were created", text)
+
+    def test_moex_handler_error_sends_safe_text(self):
+        fake_service = FakeChartImageService(
+            chart_result(ok=False, png_bytes=None, errors=["MOEX ISS returned no daily candles."])
+        )
+        services = SimpleNamespace(moex_chart_image_service=fake_service)
+
+        with patch.object(chart_handler, "get_telegram_services_or_notify", return_value=services):
+            with patch.object(chart_handler.bot, "send_message", return_value=SimpleNamespace(message_id=102)) as send:
+                chart_handler.moex_chart_command_handler(FakeMessage("/moex_chart sber month"))
+
+        text = send.call_args.kwargs["text"]
+        self.assertIn("MOEX ISS returned no daily candles", text)
+        self.assertIn("MOEX ISS chart could not be generated", text)
         self.assertIn("No broker orders were created", text)
 
     def test_telegram_chart_handler_imports_no_order_signal_or_rating_modules(self):

@@ -179,6 +179,8 @@ class WebRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers["content-type"])
+        self.assertIn("Chart data", response.text)
+        self.assertIn("T-Invest -&gt; MOEX ISS -&gt; local cache", response.text)
 
     def test_unknown_route_returns_404(self):
         response = self.client.get("/nonexistent-page")

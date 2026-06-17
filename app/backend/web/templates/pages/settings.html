@@ -80,6 +80,10 @@
     <strong>{% if settings.background_schedulers_enabled %}true{% else %}false{% endif %}</strong>
   </div>
   <div>
+    <span>ENABLE_CHART_DATA_REFRESH</span>
+    <strong>{% if settings.chart_data_refresh_enabled %}true{% else %}false{% endif %}</strong>
+  </div>
+  <div>
     <span>ENABLE_INVESTMENT_PLANS</span>
     <strong>{% if settings.investment_plans_enabled %}true{% else %}false{% endif %}</strong>
   </div>
@@ -106,6 +110,51 @@
   <div>
     <span>INVESTOR_REMINDER_TIME</span>
     <strong>{{ settings.investor_reminder_time }}</strong>
+  </div>
+</section>
+
+<section class="page-header settings-section">
+  <p class="eyebrow">Chart data</p>
+  <h2>Read-only market data cache</h2>
+  <p>Source priority: {{ settings.chart_data.source_priority }}.</p>
+</section>
+
+<section class="settings-list">
+  <div>
+    <span>Refresh</span>
+    <strong>{% if settings.chart_data.refresh_enabled %}Enabled{% else %}Disabled{% endif %}</strong>
+  </div>
+  <div>
+    <span>Refresh ranges</span>
+    <strong>{{ settings.chart_data.ranges|join(", ") }}</strong>
+  </div>
+  <div>
+    <span>Refresh interval</span>
+    <strong>{{ settings.chart_data.interval_seconds }} seconds</strong>
+  </div>
+  <div>
+    <span>Tracked tickers in cache</span>
+    <strong>{{ settings.chart_data.tracked_ticker_count }}</strong>
+  </div>
+  <div>
+    <span>Cached candles</span>
+    <strong>{{ settings.chart_data.cache_candle_count }}</strong>
+  </div>
+  <div>
+    <span>Oldest candle</span>
+    <strong>{{ settings.chart_data.oldest_candle_at or "n/a" }}</strong>
+  </div>
+  <div>
+    <span>Latest candle</span>
+    <strong>{{ settings.chart_data.latest_candle_at or "n/a" }}</strong>
+  </div>
+  <div>
+    <span>Latest fetch</span>
+    <strong>{{ settings.chart_data.latest_fetched_at or "n/a" }}</strong>
+  </div>
+  <div>
+    <span>Last refresh status</span>
+    <strong>{{ settings.chart_data.last_refresh_status }}</strong>
   </div>
 </section>
 

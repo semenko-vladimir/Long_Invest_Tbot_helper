@@ -1,6 +1,7 @@
 import sys
 import os
 import threading
+import time
 import uvicorn
 from dotenv import load_dotenv
 from pathlib import Path
@@ -124,7 +125,16 @@ if __name__ == '__main__':
         
         # Запуск бота
         logger.info("Запуск бота...")
-        bot.polling()
+        while True:
+            try:
+                bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=20)
+                logger.warning("Telegram polling stopped without an exception; restarting in 10 seconds")
+            except Exception as e:
+                logger.error(
+                    "Telegram polling failed; restarting in 10 seconds: %s",
+                    type(e).__name__,
+                )
+            time.sleep(10)
     
     except Exception as e:
         logger.critical(f"Критическая ошибка при запуске приложения: {str(e)}")

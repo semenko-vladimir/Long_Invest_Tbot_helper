@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, Float, String, DateTime
+from sqlalchemy import Boolean, Column, Integer, Float, String, DateTime, UniqueConstraint
 from datetime import datetime
 from app.backend.models.database import Base
 
@@ -74,3 +74,28 @@ class InvestmentPlanExecution(Base):
     skipped_reason = Column(String, nullable=True)
     execution_mode = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class PriceCandleRecord(Base):
+    __tablename__ = "price_candles"
+    __table_args__ = (
+        UniqueConstraint("ticker", "interval", "time", name="uq_price_candles_ticker_interval_time"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String, index=True, nullable=False)
+    figi = Column(String, nullable=True)
+    interval = Column(String, index=True, nullable=False)
+    time = Column(DateTime, index=True, nullable=False)
+    open = Column(Float, nullable=False)
+    high = Column(Float, nullable=False)
+    low = Column(Float, nullable=False)
+    close = Column(Float, nullable=False)
+    volume = Column(Integer, nullable=True)
+    source = Column(String, nullable=False)
+    fetched_at = Column(DateTime, nullable=True)
+    as_of_date = Column(String, nullable=True)
+    freshness = Column(String, nullable=True)
+    delay_status = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)

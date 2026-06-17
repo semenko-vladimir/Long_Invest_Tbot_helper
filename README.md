@@ -19,6 +19,72 @@ Tbot v1 - это локальный помощник для одного уни�
 
 Investor v1 намеренно не включает runtime-сигналы RSI/MACD/EMA/SMA, GPT/LSTM-анализ, стратегии, скальпинг-сценарии и рекомендации BUY/HOLD/SELL/WATCH/AVOID. Активные пути выставления заявок проходят через `OrderService` preview -> confirmation -> execute; ручные заявки, плановые и anti-greedy предложения требуют явного подтверждения.
 
+## Цель развития: терминал факторов и тегов
+
+Одна из будущих целей проекта - оформить web UI как локальный терминал для
+долгосрочного инвестора, где тикеры можно размечать тегами факторов наблюдения.
+Это не торговые сигналы, а ручная аналитическая карта владельца: какие сырьевые,
+макро, секторные, географические или регуляторные факторы важны для конкретной
+компании.
+
+Целевая модель:
+
+- локальный справочник тегов, который владелец ведет сам;
+- много тегов на один тикер;
+- описание не только самого тега, а связи `тикер -> тег`, например почему для
+  конкретной компании важны `алюминий`, `уголь`, `молибден`, `ставка-цб`,
+  `курс-рубля`, `китай` или `санкции`;
+- будущая привязка тегов к read-only данным, например LME, SMM, MOEX, T-Invest,
+  локальным файлам или другим структурированным источникам;
+- просмотр по тегу: какие тикеры связаны с фактором, какие позиции есть в
+  портфеле/watchlist, какая доля портфеля относится к тегу, какие данные уже
+  подключены и где есть пробелы.
+
+Планируемая UI-реализация поэтапная: сначала страница `Ticker Tags` для
+разметки тикеров, затем страница `Tags` для просмотра фактора и связанных
+тикеров, затем фильтры в `Portfolio`/`Watchlist` и tag-based статистика. Эта
+функциональность должна оставаться read-only/observational и не должна создавать
+broker preview, broker order, runtime-сигналы или инвестиционные рекомендации.
+
+## Цель реализации: локальный research terminal
+
+Долгосрочная цель реализации - приблизить web-терминал Tbot к классу
+полноценного исследовательского финансового терминала, но в узких границах
+проекта:
+
+- только российский рынок и связанные с ним данные;
+- локальный single-owner runtime без SaaS/multi-user модели;
+- T-Invest как основной broker-facing источник;
+- MOEX ISS, CBR и локальные данные как read-only источники;
+- FastAPI + server-rendered Jinja2, без перехода на тяжелый desktop/SPA стек;
+- никакого алго-трейдинга, крипты, prediction markets, автоторговли,
+  торговых сигналов или инвестиционных рекомендаций.
+
+Из внешних терминальных проектов переносится не код, а набор продуктовых идей,
+переписанных под архитектуру Tbot:
+
+- `DataHubLite` - единый read-only слой тем данных с TTL, cache/freshness
+  metadata, source diagnostics и data gaps;
+- `Equity Research` - экран тикера с overview, профилем эмитента,
+  фундаментальными данными, дивидендами, конкурентами, рыночным контекстом,
+  новостями/событиями и качеством данных;
+- `Portfolio Terminal` - веса позиций, экспозиции, факторные срезы,
+  freshness-метки и read-only история стоимости;
+- `Watchlist + Instrument Search` - поиск и нормализация российских
+  инструментов через T-Invest/MOEX: ticker, FIGI, ISIN, lot size, board,
+  currency;
+- `Factor Map` - граф/карта связей тикеров с owner-managed тегами факторов,
+  а не граф торговых сигналов;
+- `News/Event Monitor` - read-only мониторинг событий по тикерам, секторам,
+  источникам и тегам;
+- `Reports/Snapshots` - локальные HTML/Markdown-отчеты по тикеру, портфелю
+  или фактору.
+
+Не переносится: algo trading, strategy builder, backtesting dashboards,
+crypto/wallets, multi-broker execution, paper/live trading engines,
+technical-signal dashboards, AI quant labs и любые агенты/LLM, которые могут
+создавать broker preview или broker orders.
+
 ## Архитектура
 
 ```mermaid
@@ -48,6 +114,16 @@ graph TD
 - Торговля: Telegram -> Handler -> OrderService -> preview -> confirm -> TInvestBroker.
 - Web: Browser -> FastAPI Route -> WebRequestServices -> Service -> DB/Broker.
 - User context: Telegram chat_id -> UserContextResolver -> single configured UserContext -> SessionFactory.
+
+## Источники данных
+
+Tbot v1 использует read-only data adapters с явной metadata свежести: `source`, `fetched_at`, `as_of_date`, `freshness`, `delay_status`, `data_gaps` и `errors`. Отсутствующие значения показываются как пробелы в данных, а не додумываются.
+
+- `T_INVEST` - основной источник текущих и broker-facing данных: portfolio positions, доступность брокера, текущие/последние цены, стакан, сделки, trading status, market data stream, дивиденды/купоны, когда они доступны через T-Invest.
+- `MOEX_ISS` - вторичный публичный exchange-data источник для справочников MOEX, secid/board/classcode mapping, исторических дневных свечей, индексного market context и fallback/verification, когда T-Invest candles или metadata недоступны.
+- `LOCAL_FUNDAMENTALS` - опциональный локальный JSON-источник для профиля компании и фундаментальных полей research.
+
+Бесплатные данные MOEX ISS считаются delayed public data, не real-time. MOEX ISS не получает T-Invest токены, локальные секреты или cookies. Все data adapters read-only и не создают broker order previews, confirmations или broker orders.
 
 ## Установка
 
@@ -81,6 +157,13 @@ python -m pip install -r requirements-optional.txt
 python -m pip install -r requirements-dev.txt
 ```
 
+Локальные web assets для интерактивных графиков используют npm только на этапе разработки/сборки. Runtime по-прежнему запускается через `python app/run.py`, а собранный vendor asset хранится в `app/backend/web/static/vendor/`:
+
+```powershell
+npm install
+npm run build:web
+```
+
 Legacy-пакеты T-Invest SDK, используемые здесь, находятся на PyPI в quarantine-состоянии, поэтому `requirements-base.txt` фиксирует их через прямые ссылки на PyPI wheel. Перед production-использованием эти фиксации нужно пересмотреть.
 
 ## Настройка `.env` и пользователя
@@ -108,10 +191,15 @@ ALLOW_PROD_TRADING = "false"
 WEB_AUTH_ENABLED = "false"
 WEB_AUTH_TOKEN = ""
 ENABLE_BACKGROUND_SCHEDULERS = "false"
+ENABLE_CHART_DATA_REFRESH = "false"
+CHART_DATA_REFRESH_SECONDS = "60"
+CHART_DATA_REFRESH_RANGES = "day,month"
 ENABLE_INVESTOR_REMINDERS = "false"
 INVESTOR_REMINDER_TIME = "09:00"
 API_BASE_URL = "http://localhost:8000"
 ```
+
+Опциональный read-only market context для research/charts берет индексы MOEX из `MOEX_MARKET_CONTEXT_INDEXES`; если переменная не задана, используются `IMOEX,RTSI`.
 
 В `users.json` должен быть настроен один включенный пользователь: его `telegram_chat_id`, `sandbox_token`, production-`token`, `broker_fee` и путь к локальной SQLite-базе `db_path`. `users.json` игнорируется git и не должен содержать секреты, которые можно передавать другим людям.
 
@@ -205,7 +293,7 @@ Read-only research по тикеру:
 research SBER
 ```
 
-Telegram-команда research возвращает компактную образовательную сводку с названиями источников, идентификацией инструмента при наличии, рыночным снимком при наличии, пробелами в данных, ошибками и disclaimer о том, что это не инвестиционная рекомендация. Она не показывает runtime-рейтинги или торговые сигналы и не создает и не подготавливает брокерские заявки.
+Telegram-команда research возвращает компактную образовательную сводку с названиями источников, идентификацией инструмента при наличии, рыночным снимком при наличии, read-only market context по настроенным индексам MOEX при наличии, пробелами в данных, ошибками и disclaimer о том, что это не инвестиционная рекомендация. Она не показывает runtime-рейтинги или торговые сигналы и не создает и не подготавливает брокерские заявки.
 
 Read-only chart по тикеру:
 
@@ -213,10 +301,15 @@ Read-only chart по тикеру:
 /chart SBER month
 /chart SBER month plain
 /chart SBER month no_analytics
+/moex_chart SBER month
 /position_chart SBER month
 ```
 
-Команда `/chart` требует тикер и диапазон: `day`, `week`, `month`, `six_months`, `year` или `all`. Бот отправляет PNG-график только по запросу. По умолчанию график включает deterministic hindsight-only analytics overlays: исторический минимум закрытия в выбранном диапазоне, лучший последующий максимум закрытия, max drawdown, положение последнего close относительно high/low выбранного диапазона и SMA20/SMA50 при достаточном количестве свечей. Добавьте `plain` или `no_analytics`, чтобы получить график без analytics overlays.
+Команда `/chart` требует тикер и диапазон: `day`, `week`, `month`, `six_months`, `year` или `all`. Бот отправляет PNG-график только по запросу. По умолчанию график включает deterministic hindsight-only analytics overlays: исторический минимум закрытия в выбранном диапазоне, лучший последующий максимум закрытия, max drawdown, положение последнего close относительно high/low выбранного диапазона, SMA20/SMA50, EMA12/EMA26 и Bollinger 20 при достаточном количестве свечей. Добавьте `plain` или `no_analytics`, чтобы получить график без analytics overlays.
+
+Исторические свечи для charts берутся из read-only источников market data: T-Invest остается основным источником, а публичный MOEX ISS может использоваться как fallback для дневных свечей российских тикеров, если T-Invest не вернул пригодные данные. Настроенные индексные тикеры MOEX, по умолчанию `IMOEX` и `RTSI`, могут строиться через MOEX ISS index candles в обычном режиме `Price chart`. Подпись/metadata графика показывает фактический источник данных.
+
+Команда `/moex_chart SBER month` строит read-only PNG-график только по delayed public MOEX ISS daily candles, без T-Invest токена и без обращения к broker-facing candle source. Она поддерживает те же диапазоны и аргументы `plain` / `no_analytics`; для `day` используются дневные MOEX ISS свечи без синтеза intraday-данных.
 
 Команда `/position_chart SBER month` строит read-only график "current position quantity valued at historical prices": текущая брокерская quantity по тикеру умножается на historical close prices выбранного диапазона. Это не историческая стоимость портфеля и не реконструкция прошлых долей; такой режим станет historical portfolio value только если позднее будет реализована история quantities/holdings.
 
@@ -239,13 +332,19 @@ FastAPI также отдает локальный терминал инвест
 
 Экраны планов создают определения регулярных инвестиционных планов и ручные предложения. Они не создают брокерские заявки на основе анализа или торговых сигналов.
 
-Страница `Charts` строит PNG-график по запросу: откройте `Charts`, введите тикер или выберите его из текущих portfolio positions, выберите режим `Price chart` или `Current quantity value chart` и диапазон `day`, `week`, `month`, `six_months`, `year` или `all`. В `Price chart` hindsight-only analytics включены по умолчанию через `analytics=1`; снимите checkbox или откройте PNG с `analytics=0`, чтобы получить plain chart без overlays. В `Current quantity value chart` analytics overlays не добавляются: график показывает только текущую quantity позиции, оцененную по historical close prices выбранного диапазона. Это не historical portfolio value, пока не реализована история quantities/holdings. Изображения не сохраняются на диск, генерируются в памяти и имеют read-only safety-caption; брокерские заявки через charts не создаются.
+Страница `Charts` для режима `Price chart` использует JSON endpoint `/charts/{ticker}.json` и локальный интерактивный график Lightweight Charts с автообновлением открытого тикера раз в 60 секунд. Web-график показывает clean candlestick + volume view с crosshair и tooltip; расширенные analytics остаются в JSON/summary, но RSI/MACD/SMA/Bollinger панели не показываются в первой dark-terminal итерации. JSON, web UI и Telegram captions используют единый read-only `data_status`: фактический source, freshness (`current`, `latest_available`, `stale`, `partial`), delay (`broker_api`, `moex_delayed`, `cached`), fetched/as-of даты, candle count, gaps/errors и `educational_only=true`. PNG endpoint `/charts/{ticker}.png` сохранен как fallback и для Telegram.
+
+Локальный SQLite-кэш `price_candles` хранит read-only свечи по `ticker + interval + time`, чтобы сервер мог достраивать графики инкрементально, а не перекачивать всю историю при каждом запросе. Optional scheduler включается только явно: `ENABLE_BACKGROUND_SCHEDULERS=true` и `ENABLE_CHART_DATA_REFRESH=true`; интервал задается `CHART_DATA_REFRESH_SECONDS` (по умолчанию 60), диапазоны `CHART_DATA_REFRESH_RANGES` (по умолчанию `day,month`). Scheduler обновляет только выбранные локальные тикеры из watchlist и portfolio positions и не использует `OrderService`. Если live refresh не дает usable candles, Charts может показать локальный кэш как `stale`/`cached`; если кэша нет, возвращается понятная ошибка `No chart data available`.
+
+В `Current quantity value chart` analytics overlays не добавляются: график показывает только текущую quantity позиции, оцененную по historical close prices выбранного диапазона. Это не historical portfolio value, пока не реализована история quantities/holdings. Изображения не сохраняются на диск, генерируются в памяти и имеют read-only safety-caption; брокерские заявки через charts не создаются.
+
+Chart data может приходить из T-Invest или из публичного exchange-data API MOEX ISS как read-only fallback. MOEX ISS используется только для свечей/metadata графиков и индексного market context, не создает сигналов, рейтингов, previews или брокерских заявок.
 
 Для ежедневной покупки по условию можно создать plan с `Schedule = Daily` и `Price rule = Yesterday average minus percent`. Значение по умолчанию `Percent threshold = 0.5` означает: проверять текущую цену покупки и продолжать только если она не выше `вчерашняя дневная OHLC-средняя * 0.995`. Если `ENABLE_BACKGROUND_SCHEDULERS=true` и `ENABLE_INVESTMENT_PLANS=true`, scheduler проверяет такие планы в заданное время и отправляет Telegram-подтверждение. Брокерская заявка все равно отправляется только после явного подтверждения; перед исполнением цена и условие проверяются повторно.
 
 Anti-greedy policy включается отдельно через `ENABLE_ANTI_GREEDY_POLICY=true`. По умолчанию `ANTI_GREEDY_PROFIT_PCT=20`: ежедневная проверка в `ANTI_GREEDY_CHECK_TIME` находит позиции, где текущая валовая доходность выше 20%, и отправляет Telegram-подтверждение на продажу позиции в целых лотах. Заявка не отправляется без явного подтверждения, а перед исполнением позиция, порог прибыли и sell preview с проверкой доступного количества проверяются заново.
 
-Страница `Settings` работает в read-only-режиме. Она показывает активный режим, статус настройки токена без секретных значений, feature flags, API base URL, время напоминаний, статус безопасности инвестиционного плана, anti-greedy policy и web-auth. Чтобы изменить эти значения, отредактируйте `.env` и перезапустите приложение.
+Страница `Settings` работает в read-only-режиме. Она показывает активный режим, статус настройки токена без секретных значений, feature flags, API base URL, время напоминаний, chart data refresh/cache diagnostics, статус безопасности инвестиционного плана, anti-greedy policy и web-auth. Чтобы изменить эти значения, отредактируйте `.env` и перезапустите приложение.
 
 Web-аутентификация опциональна для локального `API_HOST="127.0.0.1"` / `localhost`: `WEB_AUTH_ENABLED` может оставаться `false`. Если FastAPI слушает `0.0.0.0` или другой не-localhost адрес, startup блокируется, пока `WEB_AUTH_ENABLED="true"` и `WEB_AUTH_TOKEN` не заданы. При включенной авторизации web-терминал и `/api/*` требуют `Authorization: Bearer <WEB_AUTH_TOKEN>` или cookie `web_auth_token`; `/static/*` и `/api/health` остаются открытыми. Значение токена не выводится в Settings, логах или ошибках.
 
@@ -255,7 +354,7 @@ Local LLM/research/rating output (включая будущие BUY/HOLD/SELL/WA
 
 Активный локальный web-пользователь выбирается через `DEFAULT_WEB_USER_ID`; для целевого режима проекта это должен быть единственный включенный пользователь из `users.json`. Маршруты web-терминала и подключенные user-data API endpoints создают сервисы для этого пользователя и читают/пишут его настроенный SQLite-файл.
 
-Read-only research по тикеру доступен на `http://localhost:8000/api/research`. Введите тикер, чтобы вызвать `GET /api/research/{ticker}` и показать JSON частичного research-отчета. Отчет включает источники, metadata свежести, поля локального профиля компании при настройке, `data_gaps`, `errors`, образовательный disclaimer и пустой или null `educational_rating`. Этот research entry не создает брокерские заявки, не предоставляет торговые сигналы и не рекомендует сделки. Telegram также открывает тот же read-only research flow через `/research SBER` или `research SBER`.
+Read-only research по тикеру доступен на `http://localhost:8000/api/research`. Введите тикер, чтобы вызвать `GET /api/research/{ticker}` и показать JSON частичного research-отчета. Отчет включает источники, metadata свежести, поля локального профиля компании при настройке, опциональный `market_context` по индексам из `MOEX_MARKET_CONTEXT_INDEXES`, `data_gaps`, `errors`, образовательный disclaimer и пустой или null `educational_rating`. Этот research entry не создает брокерские заявки, не предоставляет торговые сигналы и не рекомендует сделки. Telegram также открывает тот же read-only research flow через `/research SBER` или `research SBER`.
 
 В sandbox-режиме read-only T-Invest research выбирает `SANDBOX_TOKEN`; отсутствующие или невалидные выбранные токены попадают в `errors` без вывода значений токена.
 
@@ -283,3 +382,7 @@ Read-only research по тикеру доступен на `http://localhost:800
 - `README_LOCAL_SETUP.md` - настройка ноутбука на Windows.
 - `INVESTOR_MODE.md` - workflow investor-mode.
 - `docs/repository_cleanup_audit.md` - отчет по cleanup-аудиту репозитория.
+- `docs/architecture/datahub_lite_ru_market.md` - проектная read-only архитектура DataHubLite для российских рыночных данных.
+- `docs/architecture/ru_market_profile.md` - проектный профиль источников MOEX/T-Invest/CBR/issuer disclosures.
+- `docs/roadmap/datahub_lite_ru_market_tasks.md` - пошаговый backlog для будущей реализации DataHubLite.
+- `docs/roadmap/research_terminal_goals.md` - цели реализации локального research terminal и границы переносимых идей.

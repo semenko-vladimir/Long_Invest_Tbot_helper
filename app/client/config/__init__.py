@@ -88,6 +88,29 @@ def anti_greedy_policy_enabled() -> bool:
     return _env_bool("ENABLE_ANTI_GREEDY_POLICY")
 
 
+def chart_data_refresh_enabled() -> bool:
+    return _env_bool("ENABLE_CHART_DATA_REFRESH")
+
+
+def get_chart_data_refresh_interval_seconds() -> int:
+    load_local_env()
+    value = _normalized(os.getenv("CHART_DATA_REFRESH_SECONDS") or "60")
+    try:
+        seconds = int(value)
+    except ValueError as exc:
+        raise ConfigError("Environment variable CHART_DATA_REFRESH_SECONDS must be a positive integer.") from exc
+    if seconds <= 0:
+        raise ConfigError("Environment variable CHART_DATA_REFRESH_SECONDS must be a positive integer.")
+    return seconds
+
+
+def get_chart_data_refresh_ranges() -> tuple[str, ...]:
+    load_local_env()
+    value = _normalized(os.getenv("CHART_DATA_REFRESH_RANGES") or "day,month")
+    ranges = tuple(part.strip().lower().replace("-", "_") for part in value.split(",") if part.strip())
+    return ranges or ("day", "month")
+
+
 def allow_auto_investing() -> bool:
     return _env_bool("ALLOW_AUTO_INVESTING")
 

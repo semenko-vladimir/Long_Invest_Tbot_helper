@@ -3,6 +3,11 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_LOCAL_FUNDAMENTALS,
+    DELAY_STATUS_LOCAL_FILE,
+    FRESHNESS_LOCAL_SNAPSHOT,
+)
 from app.research.schemas import AdapterResult, DataGap, SourceFreshness
 
 
@@ -14,7 +19,7 @@ SENSITIVE_FIELD_PARTS = ("token", "secret", "password", "authorization", "api_ke
 class LocalFundamentalsAdapter:
     """Read-only adapter for locally configured company and fundamental profile data."""
 
-    source_name = "local-fundamentals"
+    source_name = DATA_SOURCE_LOCAL_FUNDAMENTALS
 
     def __init__(
         self,
@@ -35,6 +40,8 @@ class LocalFundamentalsAdapter:
             source_name=self.source_name,
             fetched_at=fetched_at,
             as_of_date=fetched_at.date().isoformat(),
+            freshness=FRESHNESS_LOCAL_SNAPSHOT,
+            delay_status=DELAY_STATUS_LOCAL_FILE,
             notes="Local JSON fundamentals snapshot.",
         )
 
@@ -142,6 +149,8 @@ class LocalFundamentalsAdapter:
             source_name=freshness.source_name,
             fetched_at=freshness.fetched_at,
             as_of_date=as_of_date,
+            freshness=freshness.freshness,
+            delay_status=freshness.delay_status,
             is_stale=freshness.is_stale,
             notes=notes,
         )

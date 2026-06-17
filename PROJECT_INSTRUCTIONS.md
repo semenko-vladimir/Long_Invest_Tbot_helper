@@ -31,7 +31,7 @@ The active v1 runtime is limited to:
 - investment plans, anti-greedy sell proposals, and reminders for manual review;
 - local settings and mode visibility;
 - read-only ticker research in the web terminal and Telegram;
-- read-only chart data and on-demand PNG rendering for educational price review.
+- read-only chart data, local candle caching, optional read-only chart data refresh, interactive web charts, and on-demand PNG rendering for educational price review.
 
 Manual orders and explicitly confirmed plan/anti-greedy prompts are the only active broker order paths.
 
@@ -79,12 +79,96 @@ Future work may add long-term research workflows such as:
 - macro context;
 - risk summaries and data-quality notes.
 
+The target terminal direction may take inspiration from broad financial
+terminal products, but implementation must be native to Tbot's stack and
+ideology: Python 3.12, FastAPI, server-rendered Jinja2 templates, SQLite,
+T-Invest, MOEX ISS, CBR, and local owner-managed data. Do not copy external
+terminal source code, add Qt/C++ runtime dependencies, or import broad
+multi-asset/algo/crypto platform behavior.
+
+Transferable goals from the reference terminal concept are limited to
+read-only, Russian-market, long-term investor workflows:
+
+- a DataHubLite-style topic/data layer with TTL, source freshness, cache
+  diagnostics, sanitized errors, and explicit data gaps;
+- an equity research workspace organized around overview, issuer profile,
+  financials, dividends, peers/competitors, market context, news/events, and
+  data-quality notes;
+- portfolio terminal views with position weights, exposure summaries,
+  freshness labels, read-only performance history, and factor breakdowns;
+- watchlist and instrument-search workflows backed by T-Invest/MOEX identity
+  data such as ticker, FIGI, ISIN, lot size, board, exchange, and currency;
+- a factor/relationship map based on owner-managed tags, not trading signals;
+- read-only news/event monitoring filtered by ticker, sector, tag, or source;
+- simple generated research/portfolio/factor snapshots or reports, preferably
+  as HTML/Markdown first and only later as richer exports.
+
+Non-transferable areas from broad terminal products remain out of scope unless
+a future task explicitly introduces a separate safety design:
+
+- algorithmic trading, strategy builders, backtesting dashboards, auto-rebalancing,
+  paper/live trading engines, and order-routing engines;
+- crypto, wallets, prediction markets, multi-broker trading platforms, and
+  exchange integrations outside the Russian-market scope;
+- technical-signal dashboards, runtime BUY/SELL signals, quant/ML trading labs,
+  portfolio optimizers that imply action, and LLM/agent systems that can
+  initiate broker actions.
+
+Another explicit product goal is to evolve the web UI into a local terminal for
+long-term investor monitoring. The terminal may add a ticker tag system focused
+on observation factors, not trade signals:
+
+- a local tag dictionary managed by the owner;
+- many tags per stock/ticker, for example commodities, macro factors,
+  geography, sector drivers, regulation, sanctions, or other owner-defined
+  groups;
+- a ticker-tag note/description on the relationship itself, so `RUAL` can have
+  an `aluminum` tag with a company-specific note about why that factor matters;
+- tag views that show which tickers are connected to a factor such as aluminum,
+  coal, molybdenum, rates, FX, or China;
+- later read-only links between tags and external/attached data sources such as
+  LME, SMM, MOEX, T-Invest, local files, or other structured datasets;
+- tag-based portfolio and watchlist statistics, such as ticker count, current
+  position value, portfolio share, local P/L where available, and available data
+  coverage for the selected factor.
+
+This tagged terminal direction must remain educational and observational. Tag
+data, tag-linked external data, summaries, and statistics must not create broker
+order previews, broker orders, runtime trading signals, or personal investment
+recommendations. A practical staged UI direction is: first a `Ticker Tags`
+management view, then a `Tags` factor view, then portfolio/watchlist filters and
+tag-based statistics.
+
 Local LLM support may be added later only through explicit adapter/service layers. Future LLM work must use structured outputs and include confidence, data gaps, freshness metadata, source attribution where available, and hallucination-safety checks.
 
 Preferred future local/private-VM LLM for the research adapter:
 `Qwen/Qwen3-235B-A22B-Instruct-2507-FP8`. This records the model choice only;
 it must not enable runtime LLM behavior, trading signals, ratings, or broker
 order integration by itself.
+
+## Data Source Architecture
+
+T-Invest API is the primary source for current and broker-facing operational
+data: current/last prices, order book, last trades, trading status, streaming
+market data, portfolio positions, broker availability, and dividends/coupons
+when available through T-Invest.
+
+MOEX ISS is the secondary public exchange-data source for MOEX reference data,
+secid/board/classcode mapping, historical daily candles, index market context,
+listing/status metadata, and fallback/verification when T-Invest candles or
+metadata are unavailable. Free MOEX ISS data must be treated as delayed public
+data, not real-time.
+
+External data results should expose source metadata where practical:
+`source`, `fetched_at`, `as_of_date`, `freshness`, `delay_status`,
+`data_gaps`, and `errors`. Missing data must be reported as data gaps, not
+guessed. Data adapters must remain read-only and must not import order services
+or call broker order placement APIs.
+
+Local chart candle caching is read-only market-data infrastructure. Background
+chart refresh may update only locally selected tickers such as watchlist and
+portfolio tickers, must stay disabled unless explicitly enabled, and must never
+call order preview/execution services or create trading signals.
 
 ## Future Educational Ratings
 

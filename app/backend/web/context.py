@@ -3,9 +3,13 @@ from dataclasses import dataclass
 from app.charts.factory import build_chart_services
 from app.charts.images import ChartImageService
 from app.charts.position_values import PositionValueChartService
+from app.charts.repository import PriceCandleRepository
+from app.charts.snapshots import ChartDataRefreshService, ChartSnapshotService
 from app.client.config import get_invest_mode
 from app.integrations.tinvest import TInvestBroker
 from app.research.local_fundamentals_adapter import LocalFundamentalsAdapter
+from app.research.market_context import MOEXMarketContextAdapter
+from app.research.moex_iss_adapter import MOEXISSResearchAdapter
 from app.research.services import ResearchReportService, TickerResearchService
 from app.research.tinvest_adapter import TInvestDataAdapter
 from app.services.dividends import DividendsService
@@ -38,6 +42,9 @@ class WebRequestServices:
     report_builder: ResearchReportService
     chart_image_service: ChartImageService
     position_value_chart_service: PositionValueChartService
+    chart_candle_repository: PriceCandleRepository
+    chart_refresh_service: ChartDataRefreshService
+    chart_snapshot_service: ChartSnapshotService
 
 
 _resolver = UserContextResolver()
@@ -73,6 +80,7 @@ def build_web_services(user: UserContext) -> WebRequestServices:
         broker=broker,
         token_provider=token_provider,
         portfolio_service=portfolio_service,
+        session_factory=session_factory,
     )
     return WebRequestServices(
         user=user,
@@ -92,17 +100,25 @@ def build_web_services(user: UserContext) -> WebRequestServices:
             session_factory=session_factory,
         ),
         statistics_service=StatisticsService(session_factory=session_factory),
-        settings_view_service=SettingsViewService(mode_service=mode_service),
+        settings_view_service=SettingsViewService(
+            mode_service=mode_service,
+            chart_candle_repository=chart_services.candle_repository,
+        ),
         order_history_service=OrderHistoryService(session_factory=session_factory),
         ticker_research=TickerResearchService(
             [
                 TInvestDataAdapter(broker=broker, token_provider=token_provider),
+                MOEXISSResearchAdapter(),
                 LocalFundamentalsAdapter(),
+                MOEXMarketContextAdapter(),
             ]
         ),
         report_builder=ResearchReportService(),
         chart_image_service=chart_services.image_service,
         position_value_chart_service=chart_services.position_value_service,
+        chart_candle_repository=chart_services.candle_repository,
+        chart_refresh_service=chart_services.refresh_service,
+        chart_snapshot_service=chart_services.snapshot_service,
     )
 
 

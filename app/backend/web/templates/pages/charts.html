@@ -50,9 +50,30 @@
 </section>
 
 {% if ticker %}
-  <section class="chart-panel" aria-label="Chart image for {{ ticker }}">
-    <img class="chart-image" src="{{ chart_image_url }}" alt="Read-only {{ ticker }} {{ selected_range }} chart">
-    <p class="muted">{{ read_only_notice }}</p>
+  <section class="chart-panel" aria-label="Chart for {{ ticker }}">
+    {% if chart_data_url %}
+      <div
+        class="live-chart"
+        data-chart-url="{{ chart_data_url }}"
+        data-png-url="{{ chart_image_url }}"
+        data-refresh-ms="60000"
+      >
+        <div class="chart-status" data-chart-status>Loading chart data...</div>
+        <div class="data-status" data-chart-data-status aria-label="Data status"></div>
+        <div class="chart-summary" data-chart-summary></div>
+        <p class="muted chart-analytics-note">Hindsight-only analytics are educational diagnostics, not investment advice.</p>
+        <div class="terminal-chart-shell">
+          <div class="chart-headline" data-chart-headline></div>
+          <div class="chart-tooltip" data-chart-tooltip hidden></div>
+          <div class="chart-library-host" data-chart-host aria-label="Interactive price and volume chart"></div>
+        </div>
+        <p class="muted" data-chart-meta>{{ read_only_notice }}</p>
+        <p class="muted">PNG fallback: <a href="{{ chart_image_url }}">open static chart</a></p>
+      </div>
+    {% else %}
+      <img class="chart-image" src="{{ chart_image_url }}" alt="Read-only {{ ticker }} {{ selected_range }} chart">
+      <p class="muted">{{ read_only_notice }}</p>
+    {% endif %}
   </section>
 {% endif %}
 {% endblock %}

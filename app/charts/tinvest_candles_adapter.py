@@ -4,7 +4,13 @@ from typing import Callable, Optional, Protocol
 
 from tinkoff.invest import CandleInterval, Client
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_T_INVEST,
+    DELAY_STATUS_BROKER_API,
+    FRESHNESS_CURRENT_OR_LATEST,
+)
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartRange, PriceCandle
+from app.charts.services import chart_interval_for_range
 from app.client.utils.helpers import cast_money
 
 
@@ -30,7 +36,7 @@ class ReadOnlyInstrumentResolver(Protocol):
 class TInvestCandlesAdapter:
     """Read-only T-Invest candle adapter for chart data."""
 
-    source_name = "t-invest-candles"
+    source_name = DATA_SOURCE_T_INVEST
 
     def __init__(
         self,
@@ -43,13 +49,35 @@ class TInvestCandlesAdapter:
         self.now_provider = now_provider or (lambda: datetime.now(timezone.utc))
 
     def fetch_candles(self, ticker: str, range_name: ChartRange) -> ChartAdapterResult:
+        return self._fetch_candles_result(ticker, range_name)
+
+    def fetch_candles_since(self, ticker: str, range_name: ChartRange, since: datetime) -> ChartAdapterResult:
+        return self._fetch_candles_result(ticker, range_name, from_time=since)
+
+    def _fetch_candles_result(
+        self,
+        ticker: str,
+        range_name: ChartRange,
+        from_time: Optional[datetime] = None,
+    ) -> ChartAdapterResult:
+        fetched_at = self.now_provider()
         normalized_ticker = self._normalize_ticker(ticker)
         gaps: list[ChartDataGap] = []
         errors: list[str] = []
 
         if not normalized_ticker:
             gaps.append(ChartDataGap("ticker", "Ticker is required.", "high"))
-            return ChartAdapterResult(self.source_name, ticker=normalized_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
+                data_gaps=gaps,
+                errors=errors,
+                interval=chart_interval_for_range(range_name),
+            )
 
         token_context = self._get_token_context()
         if not token_context.token:
@@ -65,7 +93,17 @@ class TInvestCandlesAdapter:
                 )
             )
             gaps.append(ChartDataGap("price_history", "Candles require a resolved instrument and token.", "medium"))
-            return ChartAdapterResult(self.source_name, ticker=normalized_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
+                data_gaps=gaps,
+                errors=errors,
+                interval=chart_interval_for_range(range_name),
+            )
 
         broker = self._get_broker()
         try:
@@ -74,17 +112,37 @@ class TInvestCandlesAdapter:
             errors.append(self._format_lookup_error("Instrument identity lookup", exc, token_context))
             gaps.append(ChartDataGap("instrument_identity", f"Could not resolve ticker {normalized_ticker}.", "high"))
             gaps.append(ChartDataGap("price_history", "Candles require a resolved instrument.", "medium"))
-            return ChartAdapterResult(self.source_name, ticker=normalized_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=normalized_ticker,
+                fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
+                data_gaps=gaps,
+                errors=errors,
+                interval=chart_interval_for_range(range_name),
+            )
 
         figi = str(getattr(instrument, "figi", "") or "")
         resolved_ticker = str(getattr(instrument, "ticker", normalized_ticker) or normalized_ticker).upper()
         if not figi:
             gaps.append(ChartDataGap("instrument_identity", "Instrument FIGI is unavailable.", "high"))
             gaps.append(ChartDataGap("price_history", "Candles require FIGI.", "medium"))
-            return ChartAdapterResult(self.source_name, ticker=resolved_ticker, data_gaps=gaps, errors=errors)
+            return ChartAdapterResult(
+                self.source_name,
+                ticker=resolved_ticker,
+                fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
+                data_gaps=gaps,
+                errors=errors,
+                interval=chart_interval_for_range(range_name),
+            )
 
         try:
-            candles = self._fetch_tinvest_candles(token_context.token, figi, range_name)
+            candles = self._fetch_tinvest_candles(token_context.token, figi, range_name, from_time=from_time)
         except Exception as exc:
             errors.append(self._format_lookup_error("Candle lookup", exc, token_context))
             gaps.append(ChartDataGap("price_history", "Historical candles are unavailable.", "medium"))
@@ -92,25 +150,46 @@ class TInvestCandlesAdapter:
                 self.source_name,
                 ticker=resolved_ticker,
                 figi=figi,
+                fetched_at=fetched_at,
+                as_of_date=fetched_at.date().isoformat(),
+                freshness=FRESHNESS_CURRENT_OR_LATEST,
+                delay_status=DELAY_STATUS_BROKER_API,
                 data_gaps=gaps,
                 errors=errors,
+                interval=chart_interval_for_range(range_name),
             )
 
         return ChartAdapterResult(
             self.source_name,
             ticker=resolved_ticker,
             figi=figi,
+            fetched_at=fetched_at,
+            as_of_date=self._candles_as_of_date(candles) or fetched_at.date().isoformat(),
+            freshness=FRESHNESS_CURRENT_OR_LATEST,
+            delay_status=DELAY_STATUS_BROKER_API,
             candles=candles,
             data_gaps=gaps,
             errors=errors,
+            interval=chart_interval_for_range(range_name),
         )
 
-    def _fetch_tinvest_candles(self, token: str, figi: str, range_name: ChartRange) -> list[PriceCandle]:
+    def _fetch_tinvest_candles(
+        self,
+        token: str,
+        figi: str,
+        range_name: ChartRange,
+        from_time: Optional[datetime] = None,
+    ) -> list[PriceCandle]:
         spec = candle_range_spec(range_name)
         to_time = self.now_provider()
         if to_time.tzinfo is None:
             to_time = to_time.replace(tzinfo=timezone.utc)
-        from_time = to_time - timedelta(days=spec.days)
+        if from_time is None:
+            from_time = to_time - timedelta(days=spec.days)
+        elif from_time.tzinfo is None:
+            from_time = from_time.replace(tzinfo=timezone.utc)
+        else:
+            from_time = from_time.astimezone(timezone.utc)
 
         with Client(token) as client:
             response = client.market_data.get_candles(
@@ -200,6 +279,11 @@ class TInvestCandlesAdapter:
 
     def _clean_token(self, token: Optional[str]) -> str:
         return "" if token is None else str(token).strip().strip('"').strip("'")
+
+    def _candles_as_of_date(self, candles: list[PriceCandle]) -> Optional[str]:
+        if not candles:
+            return None
+        return max(candle.time for candle in candles).date().isoformat()
 
     def _format_lookup_error(self, label: str, exc: Exception, token_context: ChartTokenContext) -> str:
         if self._is_auth_error(exc):

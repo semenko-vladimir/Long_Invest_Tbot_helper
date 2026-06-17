@@ -2,6 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Optional, Protocol
 
+from app.data_sources.schemas import (
+    DATA_SOURCE_T_INVEST,
+    DELAY_STATUS_BROKER_API,
+    FRESHNESS_CURRENT_OR_LATEST,
+)
 from app.research.schemas import (
     AdapterResult,
     DataGap,
@@ -36,7 +41,7 @@ class ReadOnlyTInvestBroker(Protocol):
 class TInvestDataAdapter:
     """Read-only research adapter backed by existing T-Invest lookup helpers."""
 
-    source_name = "t-invest"
+    source_name = DATA_SOURCE_T_INVEST
 
     def __init__(
         self,
@@ -246,6 +251,8 @@ class TInvestDataAdapter:
             source_name=self.source_name,
             fetched_at=fetched_at,
             as_of_date=fetched_at.date().isoformat(),
+            freshness=FRESHNESS_CURRENT_OR_LATEST,
+            delay_status=DELAY_STATUS_BROKER_API,
             notes=notes,
         )
 
