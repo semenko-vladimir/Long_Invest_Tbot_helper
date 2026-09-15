@@ -21,6 +21,8 @@ Use Python 3.12 and install the base requirements:
 .\venv312\Scripts\python.exe -m unittest discover -q
 ```
 
+Tbot uses the current `t-tech-investments==1.51.0` Python SDK from the official T-Bank package index declared in `requirements-base.txt`. Keep `SSL_TBANK_VERIFY="True"` in `.env`; Python SDK 1.49.2+ then uses its bundled T-Bank/Ministry certificate for TLS verification. SSL verification must never be disabled. The SDK client targets the official sandbox endpoint while `APP_MODE="sandbox"` is active and the official production endpoint only for explicit prod mode.
+
 Copy `.env.example` to `.env`, copy `users.example.json` to `users.json`, and replace its placeholders. Configure `BOT_TOKEN` in `.env`; the copied `users.json` is the preferred source for the Telegram chat ID, sandbox token, optional production token, broker fee, database path, and default user. Keep `APP_MODE="sandbox"`, `ALLOW_PROD_TRADING="false"`, and automatic execution flags disabled. Never commit `.env`, `users.json`, tokens, or local databases. If `users.json` is absent and `USERS_CONFIG_PATH` is unset, the legacy `.env` values `SANDBOX_TOKEN`, `TOKEN`, `CHAT_ID`, and `BROKER_FEE` remain supported as a fallback.
 
 Start the Telegram runtime with:

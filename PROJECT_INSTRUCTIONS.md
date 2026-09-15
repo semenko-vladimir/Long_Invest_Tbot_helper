@@ -11,6 +11,8 @@ Automatic market/event monitoring, news ingestion, LLM analysis, ratings, and al
 ## Safety invariants
 
 - Keep `APP_MODE` sandbox-first and preserve production token handling.
+- Use the current `t-tech-investments` Python SDK from the official T-Bank package index; keep `SSL_TBANK_VERIFY="True"` so TLS verification uses the SDK-bundled certificate.
+- Use only the SDK's official `sandbox-invest-public-api.tbank.ru:443` and `invest-public-api.tbank.ru:443` endpoints; never disable SSL verification.
 - Keep `ALLOW_PROD_TRADING` and all `ModeService`/`OrderService`/`TInvestBroker` guards intact.
 - Broker orders require the existing explicit manual preview and confirmation flow.
 - Never create an order from a chart, signal, reminder, analysis, research result, monitoring event, or LLM output.

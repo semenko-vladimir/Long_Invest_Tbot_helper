@@ -104,7 +104,7 @@ class TInvestCandlesAdapterTests(unittest.TestCase):
         class FakeClient:
             market_data = FakeMarketData()
 
-            def __init__(self, token):
+            def __init__(self, token, *, target=None):
                 self.token = token
 
             def __enter__(self):
@@ -113,7 +113,7 @@ class TInvestCandlesAdapterTests(unittest.TestCase):
             def __exit__(self, exc_type, exc, tb):
                 return False
 
-        with mock.patch("app.charts.tinvest_candles_adapter.Client", FakeClient):
+        with mock.patch("app.client.utils.tinvest.Client", FakeClient):
             result = adapter.fetch_candles("SBER", "month")
 
         self.assertEqual(result.errors, [])
@@ -136,7 +136,7 @@ class TInvestCandlesAdapterTests(unittest.TestCase):
         class FakeClient:
             market_data = FakeMarketData()
 
-            def __init__(self, token):
+            def __init__(self, token, *, target=None):
                 self.token = token
 
             def __enter__(self):
@@ -145,7 +145,7 @@ class TInvestCandlesAdapterTests(unittest.TestCase):
             def __exit__(self, exc_type, exc, tb):
                 return False
 
-        with mock.patch("app.charts.tinvest_candles_adapter.Client", FakeClient):
+        with mock.patch("app.client.utils.tinvest.Client", FakeClient):
             result = adapter.fetch_candles("SBER", "month")
 
         serialized = " ".join(result.errors)

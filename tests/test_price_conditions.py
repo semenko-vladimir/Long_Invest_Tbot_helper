@@ -183,7 +183,7 @@ class TInvestBrokerClosingPricesTests(unittest.TestCase):
         class FakeClient:
             market_data = FakeMarketData()
 
-            def __init__(self, token):
+            def __init__(self, token, *, target=None):
                 self.token = token
 
             def __enter__(self):
@@ -192,7 +192,7 @@ class TInvestBrokerClosingPricesTests(unittest.TestCase):
             def __exit__(self, exc_type, exc, tb):
                 return False
 
-        with mock.patch("app.integrations.tinvest.Client", FakeClient):
+        with mock.patch("app.client.utils.tinvest.Client", FakeClient):
             prices = broker.get_closing_prices("token", "SBER", 30)
 
         self.assertEqual(prices, [100.5, 101.25])
@@ -223,7 +223,7 @@ class TInvestBrokerClosingPricesTests(unittest.TestCase):
         class FakeClient:
             market_data = FakeMarketData()
 
-            def __init__(self, token):
+            def __init__(self, token, *, target=None):
                 self.token = token
 
             def __enter__(self):
@@ -232,7 +232,7 @@ class TInvestBrokerClosingPricesTests(unittest.TestCase):
             def __exit__(self, exc_type, exc, tb):
                 return False
 
-        with mock.patch("app.integrations.tinvest.Client", FakeClient):
+        with mock.patch("app.client.utils.tinvest.Client", FakeClient):
             average = broker.get_previous_day_average_price("token", "SBER")
 
         self.assertEqual(average, 95.0)

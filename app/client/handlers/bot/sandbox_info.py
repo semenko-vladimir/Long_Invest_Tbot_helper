@@ -1,9 +1,9 @@
 from telebot import types
 from app.client.bot.bot import bot
-from tinkoff.invest import Client
-from tinkoff.invest.services import SandboxService
+from t_tech.invest.services import SandboxService
 from app.client.utils.helpers import to_money_value
-from tinkoff.invest import MoneyValue
+from t_tech.invest import MoneyValue
+from app.client.utils.tinvest import create_tinvest_client
 from app.client.handlers.user_context import get_telegram_services_or_notify
 from app.client.handlers.utils.message_utils import send_or_edit_message
 
@@ -82,7 +82,7 @@ def set_sandbox_balance_2(message):
         # Отправляем сообщение о начале обработки
         send_or_edit_message(chat_id, f"⏳ *Обработка запроса*\n\nПополняем баланс на {money_value} руб...")
         
-        with Client(services.user.sandbox_token) as client:
+        with create_tinvest_client(services.user.sandbox_token, sandbox=True) as client:
             sb: SandboxService = client.sandbox
 
             accounts = sb.get_sandbox_accounts()

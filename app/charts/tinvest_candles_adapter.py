@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional, Protocol
 
-from tinkoff.invest import CandleInterval, Client
+from t_tech.invest import CandleInterval
 
 from app.data_sources.schemas import (
     DATA_SOURCE_T_INVEST,
@@ -12,6 +12,7 @@ from app.data_sources.schemas import (
 from app.charts.schemas import ChartAdapterResult, ChartDataGap, ChartRange, PriceCandle
 from app.charts.services import chart_interval_for_range
 from app.client.utils.helpers import cast_money
+from app.client.utils.tinvest import create_tinvest_client
 
 
 @dataclass(frozen=True)
@@ -142,7 +143,13 @@ class TInvestCandlesAdapter:
             )
 
         try:
-            candles = self._fetch_tinvest_candles(token_context.token, figi, range_name, from_time=from_time)
+            candles = self._fetch_tinvest_candles(
+                token_context.token,
+                figi,
+                range_name,
+                from_time=from_time,
+                sandbox=token_context.mode == "sandbox",
+            )
         except Exception as exc:
             errors.append(self._format_lookup_error("Candle lookup", exc, token_context))
             gaps.append(ChartDataGap("price_history", "Historical candles are unavailable.", "medium"))
@@ -179,6 +186,7 @@ class TInvestCandlesAdapter:
         figi: str,
         range_name: ChartRange,
         from_time: Optional[datetime] = None,
+        sandbox: Optional[bool] = None,
     ) -> list[PriceCandle]:
         spec = candle_range_spec(range_name)
         to_time = self.now_provider()
@@ -191,7 +199,7 @@ class TInvestCandlesAdapter:
         else:
             from_time = from_time.astimezone(timezone.utc)
 
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=sandbox) as client:
             response = client.market_data.get_candles(
                 figi=figi,
                 from_=from_time,

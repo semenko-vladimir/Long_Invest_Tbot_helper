@@ -3,10 +3,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from tinkoff.invest import CandleInterval, Client, InstrumentIdType, OrderDirection, OrderType
-from tinkoff.invest.services import SandboxService
+from t_tech.invest import CandleInterval, Client, InstrumentIdType, OrderDirection, OrderType
+from t_tech.invest.services import SandboxService
 
 from app.backend.models.trading import Order
+from app.client.utils.tinvest import create_tinvest_client
 from app.client.utils.helpers import cast_money
 from app.client.utils.methods import (
     check_enough_currency,
@@ -59,7 +60,7 @@ class TInvestBroker:
 
     def get_portfolio(self, token: str, *, sandbox: bool) -> dict:
         try:
-            with Client(token) as client:
+            with create_tinvest_client(token, sandbox=sandbox) as client:
                 if sandbox:
                     account_id = self._get_sandbox_account_id(client, create_if_missing=True)
                     portfolio = client.sandbox.get_sandbox_portfolio(account_id=account_id)
@@ -75,7 +76,7 @@ class TInvestBroker:
 
     def get_instrument_name(self, token: str, figi: str) -> Optional[str]:
         try:
-            with Client(token) as client:
+            with create_tinvest_client(token) as client:
                 response = client.instruments.get_instrument_by(
                     id=figi,
                     id_type=InstrumentIdType.INSTRUMENT_ID_TYPE_FIGI,
@@ -88,7 +89,7 @@ class TInvestBroker:
         normalized_ticker = ticker.upper()
         matches: dict[str, InstrumentLookup] = {}
 
-        with Client(token) as client:
+        with create_tinvest_client(token) as client:
             for method_name in SUPPORTED_INSTRUMENT_METHODS:
                 data = getattr(client.instruments, method_name)().instruments
                 for instrument in data:
@@ -116,7 +117,7 @@ class TInvestBroker:
         return next(iter(matches.values()))
 
     def get_price(self, token: str, figi: str, operation: str) -> float:
-        with Client(token) as client:
+        with create_tinvest_client(token) as client:
             price_sell, price_buy = get_current_price(figi, client, "fast")
             price = price_buy if operation == "buy" else price_sell
             if price is None:
@@ -124,18 +125,18 @@ class TInvestBroker:
             return cast_money(price)
 
     def get_lot_size(self, token: str, figi: str) -> int:
-        with Client(token) as client:
+        with create_tinvest_client(token) as client:
             return get_lotSize(token, figi, client)
 
     def has_enough_cash(self, token: str, figi: str, lots: int, sandbox: bool) -> bool:
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=sandbox) as client:
             _, price_buy = get_current_price(figi, client, "fast")
             if price_buy is None:
                 raise ValueError("Current buy price is unavailable.")
             return check_enough_currency(token, figi, client, price_buy, lots, sandbox)
 
     def get_available_quantity(self, token: str, figi: str, sandbox: bool) -> float:
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=sandbox) as client:
             return float(get_available_qty(token, figi, client, sandbox))
 
     def get_dividend_info(self, token: str, figi: str, period_days: int) -> Optional[DividendLookup]:
@@ -159,7 +160,7 @@ class TInvestBroker:
         period_days = max(int(days), 1)
         instrument = self.resolve_unique_instrument(token, ticker)
         now = datetime.now(timezone.utc)
-        with Client(token) as client:
+        with create_tinvest_client(token) as client:
             response = client.market_data.get_candles(
                 figi=instrument.figi,
                 from_=now - timedelta(days=period_days),
@@ -183,7 +184,7 @@ class TInvestBroker:
         now = datetime.now(timezone.utc)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        with Client(token) as client:
+        with create_tinvest_client(token) as client:
             response = client.market_data.get_candles(
                 figi=instrument.figi,
                 from_=today_start - timedelta(days=period_days),
@@ -203,7 +204,7 @@ class TInvestBroker:
         return None
 
     def place_order(self, token: str, figi: str, ticker: str, lots: int, operation: str, sandbox: bool) -> BrokerOrderResult:
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=sandbox) as client:
             account_id = self._get_account_id(client, sandbox)
             price_sell, price_buy = get_current_price(figi, client, "fast")
             price = price_buy if operation == "buy" else price_sell

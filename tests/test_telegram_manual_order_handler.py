@@ -247,7 +247,7 @@ class TelegramManualOrderHandlerTests(unittest.TestCase):
             elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 call_names.add(node.func.id)
 
-        self.assertNotIn("tinkoff.invest", imported_modules)
+        self.assertNotIn("t_tech.invest", imported_modules)
         self.assertNotIn("TradingApiClient", imported_names)
         self.assertNotIn("Client", imported_names)
         self.assertNotIn("post_order", attribute_names)
