@@ -9,9 +9,10 @@ Tbot v1 runs as a local Telegram polling process. The former FastAPI/web-termina
    .\venv312\Scripts\python.exe -m pip install -r requirements-v1.txt
    ```
 
-3. Copy `.env.example` to `.env` and set `BOT_TOKEN`, `SANDBOX_TOKEN`, `CHAT_ID`, and `BROKER_FEE`.
-4. Keep `APP_MODE="sandbox"` and `ALLOW_PROD_TRADING="false"` for local development.
-5. Start the bot:
+3. Copy `.env.example` to `.env` and set `BOT_TOKEN`.
+4. Copy `users.example.json` to `users.json` and replace the Telegram chat ID and sandbox token placeholders. Keep the default user enabled and adjust `broker_fee` only if needed.
+5. Keep `APP_MODE="sandbox"` and `ALLOW_PROD_TRADING="false"` for local development.
+6. Start the bot:
 
    ```powershell
    .\venv312\Scripts\python.exe app\run.py
@@ -26,3 +27,5 @@ Run tests with:
 ```
 
 Do not commit `.env`, `users.json`, tokens, local databases, caches, virtual environments, or `../Tbot_terminal_archive/`.
+
+Legacy fallback: if `users.json` is absent and `USERS_CONFIG_PATH` is unset, the bot can use `SANDBOX_TOKEN`, `TOKEN`, `CHAT_ID`, and `BROKER_FEE` from `.env`.

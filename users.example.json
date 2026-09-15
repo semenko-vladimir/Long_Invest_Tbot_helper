@@ -1,0 +1,15 @@
+{
+  "default_user_id": "default",
+  "users": [
+    {
+      "id": "default",
+      "name": "Local Investor",
+      "telegram_chat_id": "your_telegram_chat_id",
+      "sandbox_token": "your_sandbox_token",
+      "token": "",
+      "broker_fee": 0.3,
+      "db_path": "data/users/default/database.db",
+      "enabled": true
+    }
+  ]
+}
