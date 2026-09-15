@@ -24,7 +24,7 @@ class UsersConfigTests(unittest.TestCase):
 
     def users_payload(self) -> dict:
         return {
-            "default_web_user_id": "default",
+            "default_user_id": "default",
             "users": [
                 {
                     "id": "default",
@@ -48,7 +48,7 @@ class UsersConfigTests(unittest.TestCase):
             ],
         }
 
-    def test_load_users_config_parses_users_and_default_web_user(self):
+    def test_load_users_config_parses_users_and_default_user(self):
         path = self.write_users(self.users_payload())
 
         with mock.patch.dict(os.environ, {"USERS_CONFIG_PATH": str(path)}, clear=True), \
@@ -56,21 +56,21 @@ class UsersConfigTests(unittest.TestCase):
             config = load_users_config()
 
         self.assertEqual(len(config.users), 2)
-        self.assertEqual(config.default_web_user().user_id, "default")
+        self.assertEqual(config.default_user().user_id, "default")
         self.assertEqual(config.get_user_by_chat_id(222).user_id, "olga")
         self.assertEqual(config.get_user("olga").db_path, "data/users/olga/database.db")
 
-    def test_default_web_user_env_overrides_json_default(self):
+    def test_default_user_env_overrides_json_default(self):
         path = self.write_users(self.users_payload())
 
         with mock.patch.dict(
             os.environ,
-            {"USERS_CONFIG_PATH": str(path), "DEFAULT_WEB_USER_ID": "olga"},
+            {"USERS_CONFIG_PATH": str(path), "DEFAULT_USER_ID": "olga"},
             clear=True,
         ), mock.patch("app.client.config.users.load_dotenv"):
             config = load_users_config()
 
-        self.assertEqual(config.default_web_user().user_id, "olga")
+        self.assertEqual(config.default_user().user_id, "olga")
 
     def test_user_context_resolver_maps_chat_id_and_blocks_unknown(self):
         path = self.write_users(self.users_payload())
@@ -88,14 +88,14 @@ class UsersConfigTests(unittest.TestCase):
         with self.assertRaises(UnknownUserError):
             resolver.resolve_telegram_chat(333)
 
-    def test_runtime_token_helpers_use_default_web_user_when_users_json_is_configured(self):
+    def test_runtime_token_helpers_use_default_user_when_users_json_is_configured(self):
         path = self.write_users(self.users_payload())
 
         with mock.patch.dict(
             os.environ,
             {
                 "USERS_CONFIG_PATH": str(path),
-                "DEFAULT_WEB_USER_ID": "olga",
+                "DEFAULT_USER_ID": "olga",
                 "APP_MODE": "sandbox",
             },
             clear=True,

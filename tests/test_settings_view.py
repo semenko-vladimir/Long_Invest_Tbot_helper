@@ -51,14 +51,11 @@ class SettingsViewServiceTests(unittest.TestCase):
             "get_chart_data_refresh_ranges": ("day", "month"),
             "get_chart_data_refresh_interval_seconds": 90,
             "investment_plans_enabled": True,
-            "get_api_base_url": "http://localhost:8000",
             "investor_reminders_enabled": False,
             "get_investor_reminder_time": "09:30",
             "anti_greedy_policy_enabled": True,
             "get_anti_greedy_profit_pct": 20.0,
             "get_anti_greedy_check_time": "18:30",
-            "web_auth_enabled": True,
-            "get_web_auth_token": "owner-secret",
         }
         values.update(overrides)
         return [
@@ -79,14 +76,11 @@ class SettingsViewServiceTests(unittest.TestCase):
         self.assertTrue(view.background_schedulers_enabled)
         self.assertTrue(view.chart_data_refresh_enabled)
         self.assertTrue(view.investment_plans_enabled)
-        self.assertEqual(view.api_base_url, "http://localhost:8000")
         self.assertFalse(view.investor_reminders_enabled)
         self.assertEqual(view.investor_reminder_time, "09:30")
         self.assertTrue(view.anti_greedy_policy_enabled)
         self.assertEqual(view.anti_greedy_profit_pct, 20.0)
         self.assertEqual(view.anti_greedy_check_time, "18:30")
-        self.assertTrue(view.web_auth_enabled)
-        self.assertTrue(view.web_auth_token_configured)
         self.assertTrue(view.chart_data.refresh_enabled)
         self.assertEqual(view.chart_data.ranges, ("day", "month"))
         self.assertEqual(view.chart_data.interval_seconds, 90)
@@ -105,16 +99,12 @@ class SettingsViewServiceTests(unittest.TestCase):
                 investment_plans_enabled=False,
                 get_investor_reminder_time="09:00",
                 anti_greedy_policy_enabled=False,
-                web_auth_enabled=False,
-                get_web_auth_token=None,
             ):
                 stack.enter_context(patcher)
             view = self.build_service().current()
 
         self.assertFalse(view.sandbox_token_configured)
         self.assertFalse(view.token_configured)
-        self.assertFalse(view.web_auth_enabled)
-        self.assertFalse(view.web_auth_token_configured)
         self.assertFalse(view.anti_greedy_policy_enabled)
         self.assertFalse(view.chart_data_refresh_enabled)
 

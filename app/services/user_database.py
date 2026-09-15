@@ -70,7 +70,7 @@ def session_factory_for_path(db_path: str | Path) -> SessionFactory:
 def get_default_session_factory() -> SessionFactory:
     if not users_config_is_configured():
         return SessionLocal
-    return session_factory_for_user(UserContextResolver().default_web_user())
+    return session_factory_for_user(UserContextResolver().default_user())
 
 
 def configure_runtime_databases() -> list[Path]:
@@ -195,5 +195,4 @@ def _create_database_handle(db_path: Path) -> UserDatabaseHandle:
 
 
 def _ensure_models_registered() -> None:
-    import app.backend.models.research  # noqa: F401
     import app.backend.models.trading  # noqa: F401

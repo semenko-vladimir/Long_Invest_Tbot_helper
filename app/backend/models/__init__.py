@@ -1,7 +1,6 @@
 from app.backend.models.database import Base, engine, get_db, SessionLocal
 
-# Import all models here so that they are registered with SQLAlchemy
-from app.backend.models.research import ResearchSnapshot
+# Import all active models here so that they are registered with SQLAlchemy
 from app.backend.models.trading import (
     Buy,
     Instrument,

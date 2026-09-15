@@ -1,8 +1,6 @@
 import sys
 import os
-import threading
 import time
-import uvicorn
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -17,14 +15,12 @@ from app.client.config.schedulers_config import configure_schedulers
 from app.client.config import ConfigError, get_invest_mode, validate_startup_config
 from app.client.config.db_config import configure_database, DatabaseConfigError
 from app.client.log.logger import setup_logger
-from app.backend.main_api import app as fastapi_app
 from app.client.handlers.menu.main_menu import send_main_menu
 from app.client.handlers.portfolio.portfolio_handler import get_portfolio_handler
 from app.client.handlers.instruments.instruments_handler import instruments_handler
 from app.client.handlers.dividends.dividends_handler import dividends_handler
 from app.client.handlers.bot.bot_handler import bot_handler
 from app.client.handlers.orders.manual_order_handler import manual_order_handler
-from app.client.handlers.research.research_handler import research_command_handler, research_text_command_handler
 from app.client.handlers.charts.chart_handler import chart_command_handler, position_chart_command_handler
 from app.client.handlers.statistics.statistics_handler import statistics_handler
 from app.client.handlers.help.help_handler import help_handler
@@ -84,19 +80,6 @@ def start(message):
         bot.send_message(chat_id, "Произошла ошибка при запуске бота. Пожалуйста, попробуйте позже.")
 
 
-def run_api():
-    """
-    Запускает FastAPI сервер.
-    """
-    try:
-        api_host = os.getenv("API_HOST", "127.0.0.1")
-        api_port = int(os.getenv("API_PORT", "8000"))
-        uvicorn.run(fastapi_app, host=api_host, port=api_port)
-    
-    except Exception as e:
-        logger.error(f"Ошибка при запуске API сервера: {str(e)}")
-
-
 if __name__ == '__main__':
     try:
         # Проверка токенов
@@ -113,11 +96,6 @@ if __name__ == '__main__':
             logger.error(f"Не удалось настроить базу данных: {str(e)}")
             sys.exit(1)
         
-        # Запуск API в отдельном потоке
-        api_thread = threading.Thread(target=run_api, daemon=True)
-        api_thread.start()
-        logger.info("API сервер запущен на http://localhost:8000")
-
         # Настройка планировщиков
         configure_schedulers()
         logger.info("Планировщики успешно настроены")

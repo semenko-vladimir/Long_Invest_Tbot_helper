@@ -1,144 +1,28 @@
-# Local Setup For Investor V1
+# Local Telegram setup
 
-This is the minimal laptop startup path for the sandbox-first investor assistant. It avoids the optional ML, signal, chart, and analytics dependencies from `requirements-optional.txt`.
+Tbot v1 runs as a local Telegram polling process. The former FastAPI/web-terminal process is no longer part of the runtime.
 
-**Python 3.12 is the canonical supported version for this project. Python 3.13/3.14 are not currently tested.**
+1. Create or activate a Python 3.12 virtual environment.
+2. Install dependencies:
 
-Python 3.14 is not recommended for this repo because binary packages used by pandas/NumPy/grpc may not match the interpreter yet. The current T-Invest SDK packages used by this repo are quarantined on PyPI, so `requirements-base.txt` pins the same SDK versions through direct PyPI file URLs and should be revisited before production use.
+   ```powershell
+   .\venv312\Scripts\python.exe -m pip install -r requirements-v1.txt
+   ```
 
-## 1. Create a virtual environment
+3. Copy `.env.example` to `.env` and set `BOT_TOKEN`, `SANDBOX_TOKEN`, `CHAT_ID`, and `BROKER_FEE`.
+4. Keep `APP_MODE="sandbox"` and `ALLOW_PROD_TRADING="false"` for local development.
+5. Start the bot:
 
-```powershell
-py -V:Astral/CPython3.12.13 -m venv venv
-.\venv\Scripts\Activate.ps1
-```
+   ```powershell
+   .\venv312\Scripts\python.exe app\run.py
+   ```
 
-If that launcher name is not available, use another local Python 3.12 executable instead of the first command above.
+The bot supports Telegram portfolio, positions, watchlist, dividends, charts, settings, and manual order preview/confirmation. No automatic market monitoring or auto-trading is implemented.
 
-If PowerShell blocks activation, run:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\venv\Scripts\Activate.ps1
-```
-
-## 2. Install minimal dependencies
+Run tests with:
 
 ```powershell
-python -m pip install --upgrade pip
-python -m pip install -r requirements-base.txt
+.\venv312\Scripts\python.exe -m unittest discover -q
 ```
 
-`requirements.txt` and `requirements-v1.txt` are compatibility aliases for the
-same active investor v1 dependency set. They do not install optional legacy
-packages.
-
-Use the optional dependency set only if you explicitly need old signals, ML,
-GPT, charts, or analytics. These packages are not part of the active investor
-v1 runtime:
-
-```powershell
-python -m pip install -r requirements-optional.txt
-```
-
-## 3. Create `.env` and single-user `users.json`
-
-```powershell
-Copy-Item .env.example .env
-Copy-Item users.example.json users.json
-```
-
-Fill these app-level values in `.env`:
-
-```env
-BOT_TOKEN = "your_telegram_bot_token"
-USERS_CONFIG_PATH = "users.json"
-DEFAULT_WEB_USER_ID = "default"
-APP_MODE = "sandbox"
-INVEST_MODE = "sandbox"
-ALLOW_PROD_TRADING = "false"
-ENABLE_BACKGROUND_SCHEDULERS = "false"
-ENABLE_INVESTOR_REMINDERS = "false"
-INVESTOR_REMINDER_TIME = "09:00"
-API_BASE_URL = "http://localhost:8000"
-```
-
-Fill the single local user's `telegram_chat_id`, `sandbox_token`, `broker_fee`,
-and `db_path` in `users.json`. The file is ignored by git and should contain
-local secrets only. The project is intended for one unique user, not several
-independent users.
-
-`APP_MODE` is the canonical mode variable. `INVEST_MODE` is kept as a legacy alias for older local configs. A production token is only required in `users.json` when `APP_MODE="prod"`. Production trading is blocked unless `ALLOW_PROD_TRADING="true"` is set explicitly.
-
-## 4. Launch locally
-
-```powershell
-python app/run.py
-```
-
-Expected startup path:
-
-- SQLite creates `database.db` in the repo root when legacy `.env` fallback is used.
-- With `users.json`, SQLite uses the single configured user's DB path.
-- FastAPI starts on `http://localhost:8000`.
-- Telegram polling starts.
-- Background schedulers remain disabled unless explicitly enabled.
-
-## 5. Verify
-
-In another terminal:
-
-```powershell
-curl http://localhost:8000/
-curl http://localhost:8000/api/health
-```
-
-In Telegram:
-
-```text
-/start
-buy SBER 1
-Portfolio
-sell SBER 1
-```
-
-Expected v1 menu:
-
-- `Portfolio`
-- `Buy`
-- `Sell`
-- `Dividends`
-- `Watchlist`
-- `Stats`
-- `Reports`
-- `Help`
-
-Sandbox smoke-test scenario:
-
-1. Fill `BOT_TOKEN` in `.env`, then `sandbox_token` and `telegram_chat_id` in `users.json`.
-2. Keep `APP_MODE="sandbox"` and `ALLOW_PROD_TRADING="false"`.
-3. Start the app with `python app/run.py`.
-4. In Telegram, send `/start`.
-5. Optionally top up sandbox balance through `Help` -> `Sandbox info`.
-6. Send `buy SBER 1`, then verify the position with `Portfolio`.
-7. Send `sell SBER 1` only after the sandbox position exists.
-
-Use `/help` or `Help` in Telegram for the complete investor-mode command list. Optional daily check-in reminders are off by default; enable them with `ENABLE_INVESTOR_REMINDERS=true` and `INVESTOR_REMINDER_TIME=09:00`.
-
-## Bootstrap Helper
-
-You can run the local helper instead of the manual setup steps:
-
-```powershell
-.\scripts\bootstrap.ps1
-```
-
-The script creates `venv`, installs `requirements-v1.txt` (a compatibility alias for `requirements-base.txt`), and copies `.env.example` to `.env` only when `.env` does not already exist. It never installs optional legacy dependencies or overwrites local secrets.
-
-## Common Blockers
-
-- `BOT_TOKEN`, the single user's `sandbox_token`, and the single user's `telegram_chat_id` must be real values, not placeholders.
-- User `token` can stay empty for sandbox mode.
-- If `fastapi`, `telebot`, `tinkoff`, or `sqlalchemy` imports fail, install `requirements-base.txt` inside the active `venv`.
-- If pip cannot resolve `tinkoff` or `tinkoff-investments`, check the quarantine note in `requirements-base.txt`; normal package-name installs are currently blocked by PyPI quarantine.
-- If Telegram handlers cannot reach the API, check `API_BASE_URL` and confirm `http://localhost:8000/` responds.
+Do not commit `.env`, `users.json`, tokens, local databases, caches, virtual environments, or `../Tbot_terminal_archive/`.

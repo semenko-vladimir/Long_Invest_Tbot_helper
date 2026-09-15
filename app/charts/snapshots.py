@@ -165,7 +165,7 @@ class ChartDataRefreshService:
 
 
 class ChartSnapshotService:
-    """Builds the JSON-ready chart snapshot used by the web terminal."""
+    """Builds the JSON-ready chart snapshot used by Telegram chart views."""
 
     def __init__(
         self,

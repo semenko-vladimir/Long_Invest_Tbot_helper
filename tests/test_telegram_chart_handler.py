@@ -94,7 +94,6 @@ class TelegramChartHandlerTests(unittest.TestCase):
             "/chart SBER intraday",
             "/chart SBER month analytics",
             "/chart *** month",
-            "/research SBER",
         ]
 
         for text in invalid_inputs:

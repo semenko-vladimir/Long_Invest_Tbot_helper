@@ -52,8 +52,5 @@ class UserContextResolver:
             raise UnknownUserError(f"Telegram chat_id '{chat_id}' is not authorized.")
         return UserContext.from_config(user)
 
-    def default_web_user(self) -> UserContext:
-        return UserContext.from_config(self.config_loader().default_web_user())
-
     def enabled_users(self) -> list[UserContext]:
         return [UserContext.from_config(user) for user in self.config_loader().enabled_users]
