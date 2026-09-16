@@ -49,12 +49,17 @@ def make_candidate(**kwargs):
 
 
 class FakePortfolioService:
-    def __init__(self, positions=None, error=None):
+    def __init__(self, positions=None, error=None, account_count=1):
         self.positions = positions or []
         self.error = error
+        self.account_count = account_count
 
     def get_portfolio_view(self):
-        return SimpleNamespace(positions=self.positions, error=self.error)
+        return SimpleNamespace(
+            positions=self.positions,
+            error=self.error,
+            account_count=self.account_count,
+        )
 
 
 class FakeBroker:
@@ -132,6 +137,21 @@ class AntiGreedyPolicyServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(service.find_candidates(), [])
+
+    def test_skips_aggregate_multi_account_view_without_explicit_order_account(self):
+        broker = FakeBroker(lot_size=10)
+        service = AntiGreedyPolicyService(
+            portfolio_service=FakePortfolioService(
+                [make_position(investment_account_id=2)],
+                account_count=2,
+            ),
+            broker=broker,
+            token_provider=lambda: "token",
+            threshold_pct=20.0,
+        )
+
+        self.assertEqual(service.find_candidates(), [])
+        self.assertEqual(broker.resolved, [])
 
 
 class AntiGreedyRunnerTests(unittest.TestCase):

@@ -126,7 +126,18 @@ def get_sandbox(call):
         # Отправляем сообщение о начале обработки
         send_or_edit_message(chat_id, "⏳ *Обработка запроса*\n\nПолучаем данные портфолио в песочнице...")
         
-        portfolio = services.broker.get_portfolio(services.user.sandbox_token, sandbox=True)
+        accounts = services.broker.list_accounts(services.user.sandbox_token, sandbox=True)
+        if len(accounts) != 1:
+            send_or_edit_message(
+                chat_id,
+                "⚠️ Use `Portfolio` to select an account when zero or multiple sandbox accounts exist.",
+            )
+            return
+        portfolio = services.broker.get_portfolio(
+            services.user.sandbox_token,
+            account_id=accounts[0].external_account_id,
+            sandbox=True,
+        )
         positions = portfolio['positions']
 
         text = (

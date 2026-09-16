@@ -109,6 +109,10 @@ def _baseline_revision_for_existing_schema(db_path: Path) -> str | None:
             }
             if not table_names or "alembic_version" in table_names:
                 return None
+            if _has_multi_account_foundation(table_names):
+                return "f7a4c2e9b103"
+            if "price_candles" in table_names:
+                return "e6a3b7c9d1f2"
             if _has_auto_schedule_fields(conn) and _has_strategy_auto_execution_fields(conn):
                 return "b4c7e91a2d6f"
             if _has_auto_schedule_fields(conn) and _has_typed_strategy_proposal_executions(conn):
@@ -132,6 +136,16 @@ def _has_auto_schedule_fields(conn) -> bool:
         "avg_period_days",
         "confirmation_mode",
     }.issubset(plan_columns) and "skipped_reason" in execution_columns
+
+
+def _has_multi_account_foundation(table_names: set[str]) -> bool:
+    return {
+        "broker_connections",
+        "investment_accounts",
+        "strategy_profiles",
+        "portfolio_snapshots",
+        "position_snapshots",
+    }.issubset(table_names)
 
 
 def _has_strategy_proposal_executions(conn) -> bool:
@@ -195,4 +209,5 @@ def _create_database_handle(db_path: Path) -> UserDatabaseHandle:
 
 
 def _ensure_models_registered() -> None:
+    import app.backend.models.accounts  # noqa: F401
     import app.backend.models.trading  # noqa: F401

@@ -25,6 +25,7 @@ from app.client.handlers.charts.chart_handler import chart_command_handler, posi
 from app.client.handlers.statistics.statistics_handler import statistics_handler
 from app.client.handlers.help.help_handler import help_handler
 from app.services.user_context import UnknownUserError, UserContextResolver
+from app.services.mode import ModeService
 
 logger = setup_logger(__name__)
 user_context_resolver = UserContextResolver()
@@ -66,11 +67,13 @@ def start(message):
     
     try:
         user_context = user_context_resolver.resolve_telegram_chat(chat_id)
-        send_main_menu(
-            chat_id,
-            f'Investor mode is ready for {user_context.display_name}. '
-            'Use the menu or type `buy SBER 1` / `sell SBER 1`.',
+        mode = ModeService().current()
+        instruction = (
+            'Use the menu or type `buy SBER 1` / `sell SBER 1`.'
+            if mode.trading_available
+            else 'Production portfolio access is read-only; trading actions are disabled.'
         )
+        send_main_menu(chat_id, f'Investor mode is ready for {user_context.display_name}. {instruction}')
     except UnknownUserError:
         logger.warning("Unauthorized Telegram /start attempt: chat_id=%s", chat_id)
         bot.send_message(chat_id, "This Telegram chat is not authorized for this local investor assistant.")

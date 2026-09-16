@@ -2,6 +2,8 @@
 
 Tbot v1 is a Telegram-first local investment assistant for one long-term investor. It is sandbox-first, stores local state in SQLite, reads portfolio and market data through the T-Invest/MOEX integrations, and keeps broker operations manual.
 
+The portfolio foundation supports any number of investment accounts under a broker connection. Telegram opens with an aggregate total and a separate broker-named summary for every enabled account, then allows drill-down into one account. Account identity always uses the broker's stable account ID; account list order and account names are never used as identity.
+
 The active runtime includes Telegram views and workflows for portfolio, positions, watchlist, dividends, charts, settings, and manual buy/sell order preview and confirmation. Telegram charts are read-only; chart data and reminders never create orders.
 
 The previous research/web-terminal direction has been archived locally in `../Tbot_terminal_archive/` and is not part of the active runtime. FastAPI, its web UI, research API, research snapshots, and terminal assets were removed because no active Telegram path requires them.
@@ -11,6 +13,14 @@ The previous research/web-terminal direction has been archived locally in `../Tb
 The intended future direction is automatic market and event monitoring with Telegram notifications. Monitoring, news/fundamental analysis, LLM analysis, ratings, and alert rules are not implemented by this cleanup.
 
 No automatic trading is allowed. `APP_MODE`, `ALLOW_PROD_TRADING`, `ModeService`, `OrderService`, `TInvestBroker`, and manual preview/confirmation safeguards remain in force. Signals, reminders, analysis, and future monitoring events must never call broker order methods.
+
+Production portfolio viewing is supported with `APP_MODE="prod"` and `ALLOW_PROD_TRADING="false"`. In that configuration the Telegram menu is read-only and does not show Buy/Sell actions; the service-level execution block remains authoritative.
+
+## Account architecture
+
+Persistent ownership follows `User -> BrokerConnection -> InvestmentAccount -> StrategyProfile`. Each account also owns its portfolio and position snapshots. The current per-user SQLite database supplies the `User` boundary; a secret-free broker connection can own N accounts and the account schema is provider-neutral so another broker adapter can be added later.
+
+T-Invest tokens remain in `.env` or `users.json` and are never copied into SQLite. Broker connections store only provider/key/display metadata. A strategy profile can hold a different free-form thesis, settings payload, and future analysis-profile key for each account. Future notifications and local-LLM/research work must accept an explicit investment-account context; the same ticker may therefore be treated differently under different account strategies. Deterministic calculations remain Python service logic, not prompt-only logic. See [the multi-account foundation note](docs/multi_account_foundation.md).
 
 ## Local setup
 

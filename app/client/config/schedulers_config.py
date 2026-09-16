@@ -53,6 +53,7 @@ def configure_chart_data_scheduler():
         from app.charts.factory import build_chart_services
         from app.charts.refresh_scheduler import ChartDataRefreshRunner
         from app.integrations.tinvest import TInvestBroker
+        from app.services.accounts import AccountRegistryService
         from app.services.mode import ModeService
         from app.services.portfolio import PortfolioService
         from app.services.user_context import UserContextResolver
@@ -86,10 +87,19 @@ def configure_chart_data_scheduler():
         token_provider = lambda user=user: user.active_token(get_invest_mode())
         mode_service = ModeService()
         broker = TInvestBroker(session_factory=session_factory)
+        account_registry = AccountRegistryService(
+            broker=broker,
+            session_factory=session_factory,
+            user=user,
+            mode_service=mode_service,
+            token_provider=token_provider,
+        )
         portfolio_service = PortfolioService(
             broker=broker,
             mode_service=mode_service,
             token_provider=token_provider,
+            account_registry=account_registry,
+            session_factory=session_factory,
         )
         watchlist_service = WatchlistService(
             broker=broker,
@@ -238,6 +248,7 @@ def configure_anti_greedy_scheduler():
         from app.client.handlers.plans import auto_confirm_handler
         from app.integrations.tinvest import TInvestBroker
         from app.services.anti_greedy import AntiGreedyPolicyService, AntiGreedyRunner
+        from app.services.accounts import AccountRegistryService
         from app.services.mode import ModeService
         from app.services.orders import OrderService
         from app.services.portfolio import PortfolioService
@@ -276,6 +287,13 @@ def configure_anti_greedy_scheduler():
         token_provider = lambda user=user: user.active_token(get_invest_mode())
         mode_service = ModeService()
         broker = TInvestBroker(session_factory=session_factory)
+        account_registry = AccountRegistryService(
+            broker=broker,
+            session_factory=session_factory,
+            user=user,
+            mode_service=mode_service,
+            token_provider=token_provider,
+        )
         order_service = OrderService(
             broker=broker,
             mode_service=mode_service,
@@ -285,6 +303,8 @@ def configure_anti_greedy_scheduler():
             broker=broker,
             mode_service=mode_service,
             token_provider=token_provider,
+            account_registry=account_registry,
+            session_factory=session_factory,
         )
         policy_service = AntiGreedyPolicyService(
             portfolio_service=portfolio_service,

@@ -9,6 +9,13 @@ from app.backend.models.trading import (
     Margin,
     Order,
 )
+from app.backend.models.accounts import (
+    BrokerConnection,
+    InvestmentAccount,
+    PortfolioSnapshot,
+    PositionSnapshot,
+    StrategyProfile,
+)
 
 # Create all tables in the database
 def create_all_tables():

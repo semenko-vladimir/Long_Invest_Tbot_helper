@@ -8,6 +8,7 @@ from app.client.config import get_invest_mode
 from app.client.handlers.utils.message_utils import send_or_edit_message
 from app.integrations.tinvest import TInvestBroker
 from app.services.dividends import DividendsService
+from app.services.accounts import AccountRegistryService
 from app.services.mode import ModeService
 from app.services.orders import OrderService
 from app.services.portfolio import PortfolioService
@@ -21,6 +22,7 @@ from app.services.watchlist import WatchlistService
 class TelegramUserServices:
     user: UserContext
     broker: TInvestBroker
+    account_registry: AccountRegistryService
     portfolio_service: PortfolioService
     order_service: OrderService
     watchlist_service: WatchlistService
@@ -64,10 +66,19 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
     token_provider = lambda: user.active_token(get_invest_mode())
     mode_service = ModeService()
     broker = TInvestBroker(session_factory=session_factory)
+    account_registry = AccountRegistryService(
+        broker=broker,
+        session_factory=session_factory,
+        user=user,
+        mode_service=mode_service,
+        token_provider=token_provider,
+    )
     portfolio_service = PortfolioService(
         broker=broker,
         mode_service=mode_service,
         token_provider=token_provider,
+        account_registry=account_registry,
+        session_factory=session_factory,
     )
     watchlist_service = WatchlistService(
         broker=broker,
@@ -83,6 +94,7 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
     return TelegramUserServices(
         user=user,
         broker=broker,
+        account_registry=account_registry,
         portfolio_service=portfolio_service,
         order_service=OrderService(
             broker=broker,
@@ -95,6 +107,7 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
             broker=broker,
             mode_service=mode_service,
             token_provider=token_provider,
+            portfolio_service=portfolio_service,
         ),
         statistics_service=StatisticsService(session_factory=session_factory),
         chart_image_service=chart_services.image_service,

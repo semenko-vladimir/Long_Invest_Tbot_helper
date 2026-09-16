@@ -4,7 +4,7 @@ from typing import Callable, Optional
 from app.client.config import get_active_invest_token
 from app.integrations.tinvest import TInvestBroker
 from app.services.mode import ModeService
-from app.services.portfolio import as_float, format_quantity, money, portfolio_error_message
+from app.services.portfolio import PortfolioService, format_quantity, money
 from app.services.watchlist import WatchlistItem, WatchlistService
 
 
@@ -46,11 +46,13 @@ class DividendsService:
         broker: Optional[TInvestBroker] = None,
         mode_service: Optional[ModeService] = None,
         token_provider: Optional[Callable[[], Optional[str]]] = None,
+        portfolio_service: Optional[PortfolioService] = None,
     ):
         self.watchlist_service = watchlist_service or WatchlistService()
         self.broker = broker or TInvestBroker()
         self.mode_service = mode_service or ModeService()
         self.token_provider = token_provider or get_active_invest_token
+        self.portfolio_service = portfolio_service
 
     def get_dividends_view(self, period_days: int = DEFAULT_DIVIDEND_PERIOD_DAYS) -> DividendsView:
         period_days = self._normalize_period(period_days)
@@ -146,18 +148,18 @@ class DividendsService:
         )
 
     def _load_position_quantities(self, token: str) -> tuple[Optional[dict[str, float]], Optional[str]]:
-        try:
-            mode = self.mode_service.current()
-            raw_portfolio = self.broker.get_portfolio(token, sandbox=mode.is_sandbox)
-        except Exception as exc:
-            return None, portfolio_error_message(exc)
+        if self.portfolio_service is None:
+            return None, "Portfolio account registry is not configured."
+        portfolio = self.portfolio_service.get_portfolio_view()
+        if portfolio.error:
+            return None, portfolio.error
 
         quantities: dict[str, float] = {}
-        for position in raw_portfolio.get("positions", []):
-            ticker = str(position.get("ticker") or "").strip().upper()
+        for position in portfolio.positions:
+            ticker = str(position.ticker or "").strip().upper()
             if not ticker:
                 continue
-            quantities[ticker] = quantities.get(ticker, 0.0) + as_float(position.get("quantity"))
+            quantities[ticker] = quantities.get(ticker, 0.0) + float(position.quantity)
         return quantities, None
 
     def _position_quantity(

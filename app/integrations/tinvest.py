@@ -8,6 +8,7 @@ from t_tech.invest.services import SandboxService
 
 from app.backend.models.trading import Order
 from app.client.utils.tinvest import create_tinvest_client
+from app.integrations.broker import BrokerAccountInfo
 from app.client.utils.helpers import cast_money
 from app.client.utils.methods import (
     check_enough_currency,
@@ -55,17 +56,32 @@ class BrokerPortfolioError(RuntimeError):
 class TInvestBroker:
     """Small adapter that keeps T-Invest SDK details out of services and views."""
 
+    provider_key = "tinvest"
+
     def __init__(self, *, session_factory: Optional[SessionFactory] = None):
         self.session_factory = session_factory or get_default_session_factory()
 
-    def get_portfolio(self, token: str, *, sandbox: bool) -> dict:
+    def list_accounts(self, token: str, *, sandbox: bool) -> list[BrokerAccountInfo]:
         try:
             with create_tinvest_client(token, sandbox=sandbox) as client:
                 if sandbox:
-                    account_id = self._get_sandbox_account_id(client, create_if_missing=True)
+                    accounts = client.sandbox.get_sandbox_accounts().accounts
+                else:
+                    accounts = client.users.get_accounts().accounts
+            return [self._normalize_account(account) for account in accounts]
+        except BrokerPortfolioError:
+            raise
+        except Exception as exc:
+            raise BrokerPortfolioError(_safe_broker_error_message(exc)) from exc
+
+    def get_portfolio(self, token: str, *, account_id: str, sandbox: bool) -> dict:
+        if not str(account_id or "").strip():
+            raise BrokerPortfolioError("An explicit broker account id is required.")
+        try:
+            with create_tinvest_client(token, sandbox=sandbox) as client:
+                if sandbox:
                     portfolio = client.sandbox.get_sandbox_portfolio(account_id=account_id)
                 else:
-                    account_id = self._get_prod_account_id(client)
                     portfolio = client.operations.get_portfolio(account_id=account_id)
 
                 return self._portfolio_response_to_dict(client, portfolio)
@@ -276,14 +292,28 @@ class TInvestBroker:
             raise BrokerPortfolioError("Broker account was not found.")
         return _account_id(accounts[0])
 
+    def _normalize_account(self, account) -> BrokerAccountInfo:
+        account_id = _account_id(account)
+        name = str(getattr(account, "name", "") or "").strip()
+        return BrokerAccountInfo(
+            external_account_id=account_id,
+            name=name or "T-Invest account",
+            account_type=_normalize_account_type(getattr(account, "type", None)),
+            status=_normalize_account_status(getattr(account, "status", None)),
+            access_level=_normalize_access_level(getattr(account, "access_level", None)),
+        )
+
     def _portfolio_response_to_dict(self, client: Client, portfolio) -> dict:
         positions = []
         for position in portfolio.positions:
             quantity = _cast_money_or_zero(position.quantity)
             current_price_one = _cast_money_or_zero(position.current_price)
+            instrument = self._position_instrument(client, position)
             positions.append(
                 {
-                    "ticker": self._position_ticker(client, position) or "Нет информации",
+                    "ticker": instrument.get("ticker") or "Нет информации",
+                    "name": instrument.get("name"),
+                    "instrument_uid": str(getattr(position, "instrument_uid", "") or instrument.get("uid") or ""),
                     "type": _position_type_label(str(position.instrument_type or "")),
                     "figi": position.figi,
                     "quantity": quantity,
@@ -305,16 +335,20 @@ class TInvestBroker:
             "positions": positions,
         }
 
-    def _position_ticker(self, client: Client, position) -> Optional[str]:
+    def _position_instrument(self, client: Client, position) -> dict:
         try:
             response = client.instruments.get_instrument_by(
                 id=position.figi,
                 id_type=InstrumentIdType.INSTRUMENT_ID_TYPE_FIGI,
             )
             ticker = getattr(response.instrument, "ticker", None)
-            return str(ticker).upper() if ticker else None
+            return {
+                "ticker": str(ticker).upper() if ticker else None,
+                "name": str(getattr(response.instrument, "name", "") or "") or None,
+                "uid": str(getattr(response.instrument, "uid", "") or "") or None,
+            }
         except Exception:
-            return None
+            return {}
 
     def _record_order(self, order_id: str, ticker: str, total_value: float, operation: str) -> None:
         db = self.session_factory()
@@ -338,6 +372,44 @@ def _account_id(account) -> str:
     if not account_id:
         raise BrokerPortfolioError("Broker account id is missing in API response.")
     return str(account_id)
+
+
+def _enum_value(value) -> Optional[str]:
+    if value is None:
+        return None
+    name = getattr(value, "name", None)
+    if name:
+        return str(name)
+    text = str(value).strip()
+    return text or None
+
+
+def _normalize_account_type(value) -> Optional[str]:
+    raw = _enum_value(value)
+    if raw is None:
+        return None
+    aliases = {
+        "ACCOUNT_TYPE_TINKOFF": "brokerage",
+        "ACCOUNT_TYPE_TINKOFF_IIS": "iis",
+    }
+    return aliases.get(raw.upper(), _strip_enum_prefix(raw, "ACCOUNT_TYPE_"))
+
+
+def _normalize_account_status(value) -> Optional[str]:
+    raw = _enum_value(value)
+    return _strip_enum_prefix(raw, "ACCOUNT_STATUS_") if raw else None
+
+
+def _normalize_access_level(value) -> Optional[str]:
+    raw = _enum_value(value)
+    return _strip_enum_prefix(raw, "ACCOUNT_ACCESS_LEVEL_") if raw else None
+
+
+def _strip_enum_prefix(value: str, prefix: str) -> str:
+    normalized = value.strip().upper()
+    if normalized.startswith(prefix):
+        normalized = normalized[len(prefix):]
+    return normalized.lower()
 
 
 def _cast_money_or_zero(value) -> float:

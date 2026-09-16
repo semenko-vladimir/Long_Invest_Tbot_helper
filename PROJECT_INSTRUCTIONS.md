@@ -8,6 +8,15 @@ The former research/web-terminal implementation is preserved outside the reposit
 
 Automatic market/event monitoring, news ingestion, LLM analysis, ratings, and alert rules are future work and are not implemented here.
 
+## Multi-account boundary
+
+- Portfolio ownership is `User -> BrokerConnection -> InvestmentAccount`.
+- Broker credentials stay in `.env`/`users.json`; database broker rows are secret-free metadata only.
+- Every account-specific portfolio read, snapshot, strategy, future notification, and future LLM/research request must carry an explicit investment-account context.
+- Never infer account identity from API list order or account display name.
+- Aggregate portfolio views may sum account totals, but canonical positions and snapshots remain attributed to their source account.
+- Strategy profiles are account-scoped and free-form. Do not introduce a global strategy or global LLM analysis profile.
+
 ## Safety invariants
 
 - Keep `APP_MODE` sandbox-first and preserve production token handling.
