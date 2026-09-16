@@ -1,9 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.backend.models.database import Base
+
+
+def utc_now() -> datetime:
+    """Return naive UTC for SQLite DateTime compatibility without utcnow()."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class BrokerConnection(Base):
@@ -18,8 +23,8 @@ class BrokerConnection(Base):
     display_name = Column(String, nullable=False)
     enabled = Column(Boolean, nullable=False, default=True)
     metadata_json = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+    updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
     accounts = relationship("InvestmentAccount", back_populates="broker_connection")
 
@@ -47,10 +52,10 @@ class InvestmentAccount(Base):
     status = Column(String, nullable=True)
     access_level = Column(String, nullable=True)
     enabled = Column(Boolean, nullable=False, default=True)
-    discovered_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_seen_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    discovered_at = Column(DateTime, nullable=False, default=utc_now)
+    last_seen_at = Column(DateTime, nullable=False, default=utc_now, index=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+    updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
     broker_connection = relationship("BrokerConnection", back_populates="accounts")
     strategy_profile = relationship(
@@ -77,8 +82,8 @@ class StrategyProfile(Base):
     thesis = Column(Text, nullable=True)
     settings_json = Column(Text, nullable=True)
     analysis_profile_key = Column(String, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+    updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
     investment_account = relationship("InvestmentAccount", back_populates="strategy_profile")
 
@@ -93,12 +98,12 @@ class PortfolioSnapshot(Base):
         nullable=False,
         index=True,
     )
-    captured_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    captured_at = Column(DateTime, nullable=False, default=utc_now, index=True)
     total_value = Column(Float, nullable=False)
     currency = Column(String, nullable=False, default="RUB")
     source = Column(String, nullable=False)
     freshness = Column(String, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
 
     investment_account = relationship("InvestmentAccount", back_populates="portfolio_snapshots")
     positions = relationship("PositionSnapshot", back_populates="portfolio_snapshot")
@@ -129,6 +134,6 @@ class PositionSnapshot(Base):
     market_value = Column(Float, nullable=True)
     expected_yield = Column(Float, nullable=True)
     currency = Column(String, nullable=False, default="RUB")
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
 
     portfolio_snapshot = relationship("PortfolioSnapshot", back_populates="positions")

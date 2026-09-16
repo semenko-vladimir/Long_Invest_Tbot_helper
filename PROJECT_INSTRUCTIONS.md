@@ -13,6 +13,7 @@ Automatic market/event monitoring, news ingestion, LLM analysis, ratings, and al
 - Portfolio ownership is `User -> BrokerConnection -> InvestmentAccount`.
 - Broker credentials stay in `.env`/`users.json`; database broker rows are secret-free metadata only.
 - Every account-specific portfolio read, snapshot, strategy, future notification, and future LLM/research request must carry an explicit investment-account context.
+- Every production order execution must carry an explicit broker account ID; never select an order target from account list order.
 - Never infer account identity from API list order or account display name.
 - Aggregate portfolio views may sum account totals, but canonical positions and snapshots remain attributed to their source account.
 - Strategy profiles are account-scoped and free-form. Do not introduce a global strategy or global LLM analysis profile.

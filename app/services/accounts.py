@@ -1,11 +1,10 @@
 import json
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Callable, Optional
 
 from sqlalchemy.exc import IntegrityError
 
-from app.backend.models.accounts import BrokerConnection, InvestmentAccount, StrategyProfile
+from app.backend.models.accounts import BrokerConnection, InvestmentAccount, StrategyProfile, utc_now
 from app.integrations.broker import BrokerAdapter, BrokerAccountInfo
 from app.services.mode import ModeService
 from app.services.user_context import UserContext
@@ -88,7 +87,11 @@ class AccountRegistryService:
                     InvestmentAccount.broker_connection_id == connection.id
                 )
             }
-            now = datetime.utcnow()
+            now = utc_now()
+            seen_external_ids = {
+                account_info.external_account_id
+                for account_info in discovered
+            }
             created_count = 0
             updated_count = 0
             for account_info in discovered:
@@ -119,7 +122,7 @@ class AccountRegistryService:
 
             connection.updated_at = now
             db.commit()
-            rows = self._enabled_account_rows(db, connection.id)
+            rows = self._current_account_rows(db, connection.id, seen_external_ids)
             return AccountRegistryResult(
                 accounts=tuple(self._to_context(row, connection) for row in rows),
                 created_count=created_count,
@@ -212,7 +215,7 @@ class AccountRegistryService:
             profile.thesis = thesis
             profile.settings_json = settings_json
             profile.analysis_profile_key = analysis_profile_key
-            profile.updated_at = datetime.utcnow()
+            profile.updated_at = utc_now()
             db.commit()
         except Exception:
             db.rollback()
@@ -246,6 +249,21 @@ class AccountRegistryService:
             InvestmentAccount.broker_connection_id == connection_id,
             InvestmentAccount.enabled.is_(True),
         ).order_by(InvestmentAccount.id.asc()).all()
+
+    @staticmethod
+    def _current_account_rows(
+        db,
+        connection_id: int,
+        seen_external_ids: set[str],
+    ) -> list[InvestmentAccount]:
+        if not seen_external_ids:
+            return []
+        rows = db.query(InvestmentAccount).filter(
+            InvestmentAccount.broker_connection_id == connection_id,
+            InvestmentAccount.enabled.is_(True),
+            InvestmentAccount.external_account_id.in_(seen_external_ids),
+        ).order_by(InvestmentAccount.id.asc()).all()
+        return [row for row in rows if _is_portfolio_readable(row.status)]
 
     def _to_context(
         self,
@@ -294,3 +312,7 @@ def _parse_settings(value: str | None) -> dict:
     except (TypeError, ValueError):
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _is_portfolio_readable(status: str | None) -> bool:
+    return str(status or "").strip().lower() == "open"

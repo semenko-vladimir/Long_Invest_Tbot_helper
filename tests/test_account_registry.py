@@ -131,11 +131,71 @@ class AccountRegistryTests(unittest.TestCase):
     def test_missing_account_is_not_deleted_or_disabled_after_one_response(self):
         broker = FakeBroker([info("a"), info("b")])
         registry = self.registry(broker)
+        first = registry.sync_accounts()
+        first_ids = {
+            item.external_account_id: item.investment_account_id
+            for item in first.accounts
+        }
+        broker.accounts = [info("a")]
+        second = registry.sync_accounts()
+
+        self.assertEqual({item.external_account_id for item in second.accounts}, {"a"})
+        self.assertEqual({item.external_account_id for item in registry.list_enabled_accounts()}, {"a", "b"})
+
+        broker.accounts = [info("b"), info("a")]
+        third = registry.sync_accounts()
+        third_ids = {
+            item.external_account_id: item.investment_account_id
+            for item in third.accounts
+        }
+        self.assertEqual(third_ids, first_ids)
+        db = self.session_factory()
+        try:
+            self.assertEqual(db.query(InvestmentAccount).count(), 2)
+        finally:
+            db.close()
+
+    def test_aggregate_after_fresh_sync_excludes_historical_missing_account(self):
+        broker = FakeBroker([info("a"), info("b")])
+        registry = self.registry(broker)
         registry.sync_accounts()
         broker.accounts = [info("a")]
-        registry.sync_accounts()
+        broker.portfolios = {
+            "a": {"total_amount_portfolio": 110, "positions": []},
+        }
+        service = PortfolioService(
+            broker=broker,
+            mode_service=FakeModeService(),
+            token_provider=lambda: "token",
+            account_registry=registry,
+            session_factory=self.session_factory,
+        )
 
-        self.assertEqual({item.external_account_id for item in registry.list_enabled_accounts()}, {"a", "b"})
+        aggregate = service.get_aggregate_portfolio()
+
+        self.assertEqual(
+            [view.account.external_account_id for view in aggregate.accounts],
+            ["a"],
+        )
+        self.assertEqual(aggregate.total_value, 110)
+
+    def test_closed_and_new_accounts_are_persisted_but_excluded_from_current_sync(self):
+        broker = FakeBroker([
+            info("open"),
+            BrokerAccountInfo("closed", "Closed", status="closed"),
+            BrokerAccountInfo("new", "New", status="new"),
+        ])
+        registry = self.registry(broker)
+
+        result = registry.sync_accounts()
+
+        self.assertEqual([item.external_account_id for item in result.accounts], ["open"])
+        db = self.session_factory()
+        try:
+            self.assertEqual(db.query(InvestmentAccount).count(), 3)
+            self.assertEqual(db.query(InvestmentAccount).filter_by(external_account_id="closed").one().status, "closed")
+        finally:
+            db.close()
 
     def test_context_from_another_user_cannot_be_validated(self):
         broker = FakeBroker([info("a")])

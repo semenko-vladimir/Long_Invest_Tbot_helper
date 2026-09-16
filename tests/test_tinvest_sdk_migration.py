@@ -2,6 +2,7 @@ import importlib.metadata
 import os
 from pathlib import Path
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 import t_tech.invest.channels as sdk_channels
@@ -65,6 +66,69 @@ class TInvestSdkMigrationTests(unittest.TestCase):
         broker = TInvestBroker(session_factory=lambda: None)
         with self.assertRaisesRegex(BrokerPortfolioError, "explicit broker account id"):
             broker.get_portfolio("token", account_id="", sandbox=False)
+
+    def test_production_order_without_explicit_account_fails_before_client_use(self):
+        broker = TInvestBroker(session_factory=lambda: None)
+
+        with mock.patch("app.integrations.tinvest.create_tinvest_client") as client_factory:
+            with self.assertRaisesRegex(BrokerPortfolioError, "explicit broker account id"):
+                broker.place_order(
+                    "token",
+                    "FIGI-SBER",
+                    "SBER",
+                    1,
+                    "buy",
+                    False,
+                )
+
+        client_factory.assert_not_called()
+
+    def test_production_order_uses_only_explicit_account_id(self):
+        broker = TInvestBroker(session_factory=lambda: None)
+        client = mock.MagicMock()
+        price = SimpleNamespace(units=100, nano=0)
+        context_manager = mock.MagicMock()
+        context_manager.__enter__.return_value = client
+        context_manager.__exit__.return_value = False
+
+        with mock.patch("app.integrations.tinvest.create_tinvest_client", return_value=context_manager), \
+            mock.patch("app.integrations.tinvest.get_current_price", return_value=(price, price)), \
+            mock.patch("app.integrations.tinvest.get_lotSize", return_value=10), \
+            mock.patch.object(broker, "_record_order"):
+            broker.place_order(
+                "token",
+                "FIGI-SBER",
+                "SBER",
+                1,
+                "buy",
+                False,
+                account_id="explicit-prod-account",
+            )
+
+        client.users.get_accounts.assert_not_called()
+        client.orders.post_order.assert_called_once()
+        self.assertEqual(
+            client.orders.post_order.call_args.kwargs["account_id"],
+            "explicit-prod-account",
+        )
+
+    def test_ambiguous_sandbox_order_target_fails_without_posting(self):
+        broker = TInvestBroker(session_factory=lambda: None)
+        client = mock.MagicMock()
+        client.sandbox.get_sandbox_accounts.return_value.accounts = [
+            SimpleNamespace(id="sandbox-a"),
+            SimpleNamespace(id="sandbox-b"),
+        ]
+        context_manager = mock.MagicMock()
+        context_manager.__enter__.return_value = client
+        context_manager.__exit__.return_value = False
+
+        with mock.patch("app.integrations.tinvest.create_tinvest_client", return_value=context_manager):
+            with self.assertRaisesRegex(BrokerPortfolioError, "multiple sandbox accounts"):
+                broker.place_order("token", "FIGI-SBER", "SBER", 1, "buy", True)
+
+        client.sandbox.open_sandbox_account.assert_not_called()
+        client.sandbox.post_sandbox_order.assert_not_called()
 
     def test_account_discovery_normalizes_broker_metadata_without_mutation(self):
         broker = TInvestBroker(session_factory=lambda: None)

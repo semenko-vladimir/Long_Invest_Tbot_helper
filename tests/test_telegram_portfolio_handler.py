@@ -4,7 +4,11 @@ from unittest import mock
 
 from app.client.handlers.menu.main_menu import build_main_menu
 from app.client.handlers.portfolio import portfolio_handler
-from app.services.accounts import InvestmentAccountContext, UnknownInvestmentAccountError
+from app.services.accounts import (
+    InvestmentAccountContext,
+    StrategyProfileContext,
+    UnknownInvestmentAccountError,
+)
 from app.services.mode import ModeContext
 from app.services.portfolio import AccountPortfolioView, AggregatePortfolioView
 
@@ -87,6 +91,38 @@ class TelegramPortfolioHandlerTests(unittest.TestCase):
 
         portfolio_service.get_account_portfolio.assert_not_called()
         self.assertIn("unavailable", send_message.call_args.args[1])
+
+    def test_account_and_strategy_markdown_is_escaped(self):
+        strategy = StrategyProfileContext(
+            id=1,
+            title="Core_*[plan]`2026`",
+            strategy_key=None,
+            thesis="Hold_* [quality] `forever`",
+            settings={},
+            analysis_profile_key=None,
+        )
+        context = InvestmentAccountContext(
+            **{
+                **account().__dict__,
+                "account_name": "Main_*[desk]`one`",
+                "strategy": strategy,
+            }
+        )
+        view = AccountPortfolioView(
+            mode=mode(),
+            account=context,
+            total_value=100,
+            total_value_display="100.00 RUB",
+            positions=(),
+            empty=True,
+        )
+
+        message = portfolio_handler.build_account_portfolio_message(view)
+
+        self.assertIn(r"Main\_\*\[desk\]\`one\`", message)
+        self.assertIn(r"Core\_\*\[plan\]\`2026\`", message)
+        self.assertIn(r"Hold\_\* \[quality\] \`forever\`", message)
+        self.assertNotIn(context.external_account_id, message)
 
 
 if __name__ == "__main__":

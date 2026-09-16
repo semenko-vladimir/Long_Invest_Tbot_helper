@@ -1,9 +1,8 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Callable, List, Optional
 
-from app.backend.models.accounts import PortfolioSnapshot, PositionSnapshot
+from app.backend.models.accounts import PortfolioSnapshot, PositionSnapshot, utc_now
 from app.client.config import get_active_invest_token
 from app.integrations.broker import BrokerAdapter
 from app.integrations.tinvest import TInvestBroker
@@ -282,7 +281,7 @@ class PortfolioService:
         try:
             snapshot = PortfolioSnapshot(
                 investment_account_id=account_context.investment_account_id,
-                captured_at=datetime.utcnow(),
+                captured_at=utc_now(),
                 total_value=total_value,
                 currency="RUB",
                 source=account_context.broker_provider,

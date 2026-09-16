@@ -1,3 +1,5 @@
+import re
+
 from telebot import types
 
 from app.client.bot.bot import bot
@@ -8,28 +10,34 @@ from app.services.portfolio import AccountPortfolioView, AggregatePortfolioView
 
 PORTFOLIO_ROOT_CALLBACK = "portfolio:root"
 PORTFOLIO_ACCOUNT_PREFIX = "portfolio:account:"
+MARKDOWN_SPECIAL_RE = re.compile(r"([\\_*`\[\]])")
 
 
 def build_aggregate_portfolio_message(portfolio: AggregatePortfolioView, user_name: str) -> str:
     lines = [
         "💼 *PORTFOLIO*",
-        f"ℹ️ User: {user_name}",
+        f"ℹ️ User: {_escape_markdown_text(user_name)}",
         f"ℹ️ Mode: {portfolio.mode.mode}",
         f"💎 *Combined total: {portfolio.total_value_display}*",
     ]
     if portfolio.partial:
         lines.extend(["", "⚠️ *Partial data:* one or more accounts could not be loaded."])
     if portfolio.error:
-        lines.extend(["", f"❌ {portfolio.error}"])
+        lines.extend(["", f"❌ {_escape_markdown_text(portfolio.error)}"])
     if portfolio.accounts:
         lines.extend(["", "*Accounts*"])
     for account_view in portfolio.accounts:
         account = account_view.account
-        type_label = f" · {_format_account_type(account.account_type)}" if account.account_type else ""
+        account_name = _escape_markdown_text(account.account_name)
+        type_label = (
+            f" · {_escape_markdown_text(_format_account_type(account.account_type))}"
+            if account.account_type
+            else ""
+        )
         if account_view.error:
-            lines.append(f"⚠️ {account.account_name}{type_label}: unavailable")
+            lines.append(f"⚠️ {account_name}{type_label}: unavailable")
         else:
-            lines.append(f"• {account.account_name}{type_label}: {account_view.total_value_display}")
+            lines.append(f"• {account_name}{type_label}: {account_view.total_value_display}")
     return "\n".join(lines)
 
 
@@ -48,20 +56,21 @@ def build_aggregate_portfolio_keyboard(portfolio: AggregatePortfolioView) -> typ
 
 def build_account_portfolio_message(portfolio: AccountPortfolioView) -> str:
     account = portfolio.account
-    lines = [f"💼 *{account.account_name}*"]
+    lines = [f"💼 *{_escape_markdown_text(account.account_name)}*"]
     if account.account_type:
-        lines.append(f"📋 Type: {_format_account_type(account.account_type)}")
+        lines.append(f"📋 Type: {_escape_markdown_text(_format_account_type(account.account_type))}")
 
     strategy = account.strategy
     if strategy is None or not any((strategy.title, strategy.thesis, strategy.strategy_key)):
         lines.append("🧭 Strategy: not configured")
     else:
-        lines.append(f"🧭 Strategy: {strategy.title or strategy.strategy_key or 'Configured'}")
+        strategy_label = strategy.title or strategy.strategy_key or "Configured"
+        lines.append(f"🧭 Strategy: {_escape_markdown_text(strategy_label)}")
         if strategy.thesis:
-            lines.append(strategy.thesis)
+            lines.append(_escape_markdown_text(strategy.thesis))
 
     if portfolio.error:
-        lines.extend(["", f"❌ {portfolio.error}"])
+        lines.extend(["", f"❌ {_escape_markdown_text(portfolio.error)}"])
         return "\n".join(lines)
 
     lines.extend(["", f"💎 *Total: {portfolio.total_value_display}*"])
@@ -74,7 +83,7 @@ def build_account_portfolio_message(portfolio: AccountPortfolioView) -> str:
         lines.extend(
             [
                 "",
-                f"🔖 *{position.ticker}* — {position.name}",
+                f"🔖 *{_escape_markdown_text(position.ticker)}* — {_escape_markdown_text(position.name)}",
                 f"├─ Quantity: {position.quantity_display}",
                 f"├─ Average: {position.average_price_display}",
                 f"├─ Current: {position.current_price_display}",
@@ -156,3 +165,7 @@ def _format_account_type(account_type: str) -> str:
     }
     normalized = str(account_type).strip().lower()
     return labels.get(normalized, normalized.replace("_", " ").title())
+
+
+def _escape_markdown_text(value: object) -> str:
+    return MARKDOWN_SPECIAL_RE.sub(r"\\\1", str(value))

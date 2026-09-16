@@ -11,9 +11,7 @@ from app.client.utils.tinvest import create_tinvest_client
 from app.integrations.broker import BrokerAccountInfo
 from app.client.utils.helpers import cast_money
 from app.client.utils.methods import (
-    check_enough_currency,
     get_dividends_data,
-    get_available_qty,
     get_current_price,
     get_lotSize,
 )
@@ -144,16 +142,58 @@ class TInvestBroker:
         with create_tinvest_client(token) as client:
             return get_lotSize(token, figi, client)
 
-    def has_enough_cash(self, token: str, figi: str, lots: int, sandbox: bool) -> bool:
+    def has_enough_cash(
+        self,
+        token: str,
+        figi: str,
+        lots: int,
+        sandbox: bool,
+        *,
+        account_id: str | None = None,
+    ) -> bool:
+        if not sandbox:
+            account_id = self._require_account_id(account_id)
         with create_tinvest_client(token, sandbox=sandbox) as client:
+            account_id = self._resolve_order_account_id(client, sandbox, account_id)
             _, price_buy = get_current_price(figi, client, "fast")
             if price_buy is None:
                 raise ValueError("Current buy price is unavailable.")
-            return check_enough_currency(token, figi, client, price_buy, lots, sandbox)
+            if sandbox:
+                positions = client.sandbox.get_sandbox_positions(account_id=account_id)
+            else:
+                positions = client.operations.get_positions(account_id=account_id)
+            rub_balance = next(
+                (
+                    cast_money(balance)
+                    for balance in positions.money
+                    if str(getattr(balance, "currency", "")).lower() == "rub"
+                ),
+                0.0,
+            )
+            order_value = cast_money(price_buy) * lots * get_lotSize(token, figi, client)
+            return order_value * 1.003 <= rub_balance
 
-    def get_available_quantity(self, token: str, figi: str, sandbox: bool) -> float:
+    def get_available_quantity(
+        self,
+        token: str,
+        figi: str,
+        sandbox: bool,
+        *,
+        account_id: str | None = None,
+    ) -> float:
+        if not sandbox:
+            account_id = self._require_account_id(account_id)
         with create_tinvest_client(token, sandbox=sandbox) as client:
-            return float(get_available_qty(token, figi, client, sandbox))
+            account_id = self._resolve_order_account_id(client, sandbox, account_id)
+            if sandbox:
+                positions = client.sandbox.get_sandbox_positions(account_id=account_id)
+            else:
+                positions = client.operations.get_positions(account_id=account_id)
+            security = next(
+                (item for item in positions.securities if item.figi == figi),
+                None,
+            )
+            return float(security.balance) if security is not None else 0.0
 
     def get_dividend_info(self, token: str, figi: str, period_days: int) -> Optional[DividendLookup]:
         data = get_dividends_data(token, period_days, figi)
@@ -219,9 +259,21 @@ class TInvestBroker:
                 return average
         return None
 
-    def place_order(self, token: str, figi: str, ticker: str, lots: int, operation: str, sandbox: bool) -> BrokerOrderResult:
+    def place_order(
+        self,
+        token: str,
+        figi: str,
+        ticker: str,
+        lots: int,
+        operation: str,
+        sandbox: bool,
+        *,
+        account_id: str | None = None,
+    ) -> BrokerOrderResult:
+        if not sandbox:
+            account_id = self._require_account_id(account_id)
         with create_tinvest_client(token, sandbox=sandbox) as client:
-            account_id = self._get_account_id(client, sandbox)
+            account_id = self._resolve_order_account_id(client, sandbox, account_id)
             price_sell, price_buy = get_current_price(figi, client, "fast")
             price = price_buy if operation == "buy" else price_sell
             if price is None:
@@ -270,27 +322,36 @@ class TInvestBroker:
                 warning=warning,
             )
 
-    def _get_account_id(self, client: Client, sandbox: bool) -> str:
-        if sandbox:
-            return self._get_sandbox_account_id(client, create_if_missing=True)
+    def _resolve_order_account_id(
+        self,
+        client: Client,
+        sandbox: bool,
+        account_id: str | None,
+    ) -> str:
+        explicit_account_id = str(account_id or "").strip()
+        if explicit_account_id:
+            return explicit_account_id
+        if not sandbox:
+            raise BrokerPortfolioError("An explicit broker account id is required for production orders.")
+        return self._get_single_sandbox_account_id(client)
 
-        return self._get_prod_account_id(client)
-
-    def _get_sandbox_account_id(self, client: Client, *, create_if_missing: bool) -> str:
+    def _get_single_sandbox_account_id(self, client: Client) -> str:
         sb: SandboxService = client.sandbox
         accounts = sb.get_sandbox_accounts().accounts
-        if accounts:
-            return _account_id(accounts[0])
-        if not create_if_missing:
-            raise BrokerPortfolioError("Sandbox broker account was not found.")
-        account = sb.open_sandbox_account()
-        return _account_id(account)
-
-    def _get_prod_account_id(self, client: Client) -> str:
-        accounts = client.users.get_accounts().accounts
         if not accounts:
-            raise BrokerPortfolioError("Broker account was not found.")
+            raise BrokerPortfolioError("Sandbox broker account was not found.")
+        if len(accounts) != 1:
+            raise BrokerPortfolioError(
+                "An explicit broker account id is required when multiple sandbox accounts exist."
+            )
         return _account_id(accounts[0])
+
+    @staticmethod
+    def _require_account_id(account_id: str | None) -> str:
+        explicit_account_id = str(account_id or "").strip()
+        if not explicit_account_id:
+            raise BrokerPortfolioError("An explicit broker account id is required for production orders.")
+        return explicit_account_id
 
     def _normalize_account(self, account) -> BrokerAccountInfo:
         account_id = _account_id(account)
