@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
 from app.charts.schemas import POSITION_VALUE_CHART_DISCLAIMER
@@ -15,6 +16,11 @@ CHART_CAPTION = (
     "Read-only educational chart. Hindsight-only analytics. Not a trading signal. "
     "Not investment advice. No broker orders were created."
 )
+MOEX_CHART_CAPTION = (
+    "Read-only MOEX ISS chart. Uses delayed public MOEX ISS data. "
+    "Hindsight-only analytics. Not a trading signal. Not investment advice. "
+    "No broker orders were created."
+)
 POSITION_CHART_CAPTION = f"Read-only chart. {POSITION_VALUE_CHART_DISCLAIMER}"
 CHART_USAGE_TEXT = (
     "Read-only chart usage:\n"
@@ -25,6 +31,15 @@ CHART_USAGE_TEXT = (
     f"Supported ranges: {CHART_SUPPORTED_RANGES_TEXT}.\n\n"
     f"{CHART_CAPTION}"
 )
+MOEX_CHART_USAGE_TEXT = (
+    "Read-only MOEX ISS chart usage:\n"
+    "/moex_chart SBER month\n\n"
+    "Plain chart without analytics:\n"
+    "/moex_chart SBER month plain\n"
+    "/moex_chart SBER month no_analytics\n\n"
+    f"Supported ranges: {CHART_SUPPORTED_RANGES_TEXT}.\n\n"
+    f"{MOEX_CHART_CAPTION}"
+)
 POSITION_CHART_USAGE_TEXT = (
     "Current quantity value chart usage:\n"
     "/position_chart SBER month\n\n"
@@ -33,6 +48,10 @@ POSITION_CHART_USAGE_TEXT = (
 )
 CHART_COMMAND_RE = re.compile(
     r"^\s*/chart(?:@\w+)?\s+([A-Z0-9-]+)\s+(\S+)(?:\s+(\S+))?\s*$",
+    re.IGNORECASE,
+)
+MOEX_CHART_COMMAND_RE = re.compile(
+    r"^\s*/moex_chart(?:@\w+)?\s+([A-Z0-9-]+)\s+(\S+)(?:\s+(\S+))?\s*$",
     re.IGNORECASE,
 )
 POSITION_CHART_COMMAND_RE = re.compile(
@@ -55,10 +74,18 @@ class PositionChartCommand:
 
 
 def parse_chart_command(text: Optional[str]) -> Optional[ChartCommand]:
+    return _parse_price_chart_command(text, CHART_COMMAND_RE)
+
+
+def parse_moex_chart_command(text: Optional[str]) -> Optional[ChartCommand]:
+    return _parse_price_chart_command(text, MOEX_CHART_COMMAND_RE)
+
+
+def _parse_price_chart_command(text: Optional[str], pattern) -> Optional[ChartCommand]:
     if not text:
         return None
 
-    match = CHART_COMMAND_RE.match(text)
+    match = pattern.match(text)
     if not match:
         return None
 
@@ -103,6 +130,10 @@ def send_chart_usage(chat_id: int) -> None:
     bot.send_message(chat_id=chat_id, text=CHART_USAGE_TEXT)
 
 
+def send_moex_chart_usage(chat_id: int) -> None:
+    bot.send_message(chat_id=chat_id, text=MOEX_CHART_USAGE_TEXT)
+
+
 def send_position_chart_usage(chat_id: int) -> None:
     bot.send_message(chat_id=chat_id, text=POSITION_CHART_USAGE_TEXT)
 
@@ -130,10 +161,51 @@ def send_chart(chat_id: int, command: ChartCommand) -> None:
         return
 
     if result.ok and result.png_bytes is not None:
-        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=CHART_CAPTION)
+        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=format_chart_caption(result))
         return
 
     bot.send_message(chat_id=chat_id, text=format_chart_error(result))
+
+
+def send_moex_chart(chat_id: int, command: ChartCommand) -> None:
+    services = get_telegram_services_or_notify(chat_id)
+    if services is None:
+        return
+
+    image_service = getattr(services, "moex_chart_image_service", None)
+    if image_service is None:
+        bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "MOEX ISS chart could not be generated.\n\n"
+                "Error: MOEX ISS chart service is not configured.\n\n"
+                f"{MOEX_CHART_CAPTION}"
+            ),
+        )
+        return
+
+    try:
+        result = image_service.render_png(
+            command.ticker,
+            command.range_name,
+            include_analytics=command.include_analytics,
+        )
+    except Exception as exc:
+        bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "MOEX ISS chart could not be generated.\n\n"
+                f"Error: {str(exc)}\n\n"
+                f"{MOEX_CHART_CAPTION}"
+            ),
+        )
+        return
+
+    if result.ok and result.png_bytes is not None:
+        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=format_moex_chart_caption(result))
+        return
+
+    bot.send_message(chat_id=chat_id, text=format_moex_chart_error(result))
 
 
 def send_position_chart(chat_id: int, command: PositionChartCommand) -> None:
@@ -160,7 +232,7 @@ def send_position_chart(chat_id: int, command: PositionChartCommand) -> None:
         return
 
     if result.ok and result.png_bytes is not None:
-        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=POSITION_CHART_CAPTION)
+        bot.send_photo(chat_id=chat_id, photo=result.png_bytes, caption=format_position_chart_caption(result))
         return
 
     bot.send_message(chat_id=chat_id, text=format_position_chart_error(result))
@@ -181,6 +253,21 @@ def format_chart_error(result) -> str:
     return f"Read-only chart could not be generated.\n\nError: {detail}\n\n{CHART_CAPTION}"
 
 
+def format_moex_chart_error(result) -> str:
+    errors = [str(error).strip() for error in getattr(result, "errors", []) if str(error).strip()]
+    if errors:
+        detail = "; ".join(errors)
+    else:
+        gaps = [
+            str(getattr(gap, "description", "")).strip()
+            for gap in getattr(result, "data_gaps", [])
+            if str(getattr(gap, "description", "")).strip()
+        ]
+        detail = "; ".join(gaps) if gaps else "No chart image was returned."
+
+    return f"MOEX ISS chart could not be generated.\n\nError: {detail}\n\n{MOEX_CHART_CAPTION}"
+
+
 def format_position_chart_error(result) -> str:
     errors = [str(error).strip() for error in getattr(result, "errors", []) if str(error).strip()]
     if errors:
@@ -196,6 +283,103 @@ def format_position_chart_error(result) -> str:
     return f"Current quantity value chart could not be generated.\n\nError: {detail}\n\n{POSITION_CHART_CAPTION}"
 
 
+def format_chart_caption(result) -> str:
+    return f"{CHART_CAPTION}{format_source_suffix(result)}"
+
+
+def format_moex_chart_caption(result) -> str:
+    return f"{MOEX_CHART_CAPTION}{format_source_suffix(result)}"
+
+
+def format_position_chart_caption(result) -> str:
+    return f"{POSITION_CHART_CAPTION}{format_source_suffix(result)}"
+
+
+def format_source_suffix(result) -> str:
+    source = str(getattr(result, "source_name", "") or "").strip()
+    fetched_at = getattr(result, "fetched_at", None)
+    as_of_date = getattr(result, "as_of_date", None)
+    freshness = str(getattr(result, "freshness", "") or "").strip()
+    delay_status = str(getattr(result, "delay_status", "") or "").strip()
+    candle_count = chart_result_candle_count(result)
+
+    if not source:
+        history = getattr(result, "history", None)
+        source = str(getattr(history, "source", "") or "").strip()
+        fetched_at = fetched_at or getattr(history, "fetched_at", None)
+        as_of_date = as_of_date or getattr(history, "as_of_date", None)
+        freshness = freshness or str(getattr(history, "freshness", "") or "").strip()
+        delay_status = delay_status or str(getattr(history, "delay_status", "") or "").strip()
+
+    if not source:
+        position_value = getattr(result, "position_value", None)
+        source = str(getattr(position_value, "source", "") or "").strip()
+        fetched_at = fetched_at or getattr(position_value, "fetched_at", None)
+        as_of_date = as_of_date or getattr(position_value, "as_of_date", None)
+        freshness = freshness or str(getattr(position_value, "freshness", "") or "").strip()
+        delay_status = delay_status or str(getattr(position_value, "delay_status", "") or "").strip()
+        candle_count = candle_count or len(getattr(position_value, "value_series", []) or [])
+
+    if not source:
+        return ""
+
+    suffix = f"\n\nSource: {source}"
+    suffix = f"{suffix} | Freshness: {normalize_caption_freshness(freshness)}"
+    suffix = f"{suffix} | Delay: {normalize_caption_delay(delay_status, source)}"
+    if as_of_date:
+        suffix = f"{suffix} | As of: {as_of_date}"
+    formatted_fetched_at = format_metadata_time(fetched_at)
+    if formatted_fetched_at:
+        suffix = f"{suffix} | Fetched: {formatted_fetched_at}"
+    suffix = f"{suffix} | Candles: {candle_count}"
+    return suffix
+
+
+def chart_result_candle_count(result) -> int:
+    history = getattr(result, "history", None)
+    candles = getattr(history, "candles", None)
+    if candles is not None:
+        return len(candles)
+    position_value = getattr(result, "position_value", None)
+    value_series = getattr(position_value, "value_series", None)
+    if value_series is not None:
+        return len(value_series)
+    return 0
+
+
+def normalize_caption_freshness(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"current", "latest_available", "stale", "partial"}:
+        return normalized
+    if "stale" in normalized or "local" in normalized:
+        return "stale"
+    if "partial" in normalized:
+        return "partial"
+    if "current" in normalized:
+        return "current"
+    return "latest_available"
+
+
+def normalize_caption_delay(value: str, source: str = "") -> str:
+    normalized = str(value or "").strip().lower()
+    source_text = str(source or "").strip().lower()
+    if normalized in {"broker_api", "moex_delayed", "cached"}:
+        return normalized
+    if "moex" in source_text or "iss" in normalized or "delayed" in normalized:
+        return "moex_delayed"
+    if "cache" in source_text or "cache" in normalized:
+        return "cached"
+    return "broker_api"
+
+
+def format_metadata_time(value) -> str:
+    if not isinstance(value, datetime):
+        return ""
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value.strftime("%Y-%m-%d %H:%M UTC")
+
+
 def normalize_chart_ticker(ticker: str) -> str:
     normalized = str(ticker or "").strip().upper()
     return normalized if normalized.replace("-", "").isalnum() else ""
@@ -209,6 +393,16 @@ def chart_command_handler(message):
         return
 
     send_chart(message.chat.id, command)
+
+
+@bot.message_handler(commands=["moex_chart"])
+def moex_chart_command_handler(message):
+    command = parse_moex_chart_command(getattr(message, "text", None))
+    if command is None:
+        send_moex_chart_usage(message.chat.id)
+        return
+
+    send_moex_chart(message.chat.id, command)
 
 
 @bot.message_handler(commands=["position_chart"])

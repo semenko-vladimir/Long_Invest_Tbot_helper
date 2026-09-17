@@ -44,7 +44,7 @@ def _load_local_env() -> None:
 @dataclass(frozen=True)
 class UsersConfig:
     users: list[UserConfig]
-    default_web_user_id: Optional[str]
+    default_user_id: Optional[str]
     source_path: Path
 
     @property
@@ -71,8 +71,8 @@ class UsersConfig:
                 return user
         return None
 
-    def default_web_user(self) -> UserConfig:
-        configured_default = _normalized(self.default_web_user_id)
+    def default_user(self) -> UserConfig:
+        configured_default = _normalized(self.default_user_id)
         if configured_default:
             return self.get_enabled_user(configured_default)
 
@@ -128,10 +128,10 @@ def load_users_config(path: Optional[str | Path] = None) -> UsersConfig:
 
     config = UsersConfig(
         users=users,
-        default_web_user_id=_normalized(os.getenv("DEFAULT_WEB_USER_ID") or payload.get("default_web_user_id")),
+        default_user_id=_normalized(os.getenv("DEFAULT_USER_ID") or payload.get("default_user_id")),
         source_path=config_path,
     )
-    config.default_web_user()
+    config.default_user()
     return config
 
 
@@ -153,11 +153,11 @@ def load_legacy_env_user_config() -> UsersConfig:
         db_path="database.db",
         enabled=True,
     )
-    return UsersConfig(users=[user], default_web_user_id="legacy", source_path=ROOT_DIR / ".env")
+    return UsersConfig(users=[user], default_user_id="legacy", source_path=ROOT_DIR / ".env")
 
 
-def get_default_web_user_config() -> UserConfig:
-    return load_runtime_users_config().default_web_user()
+def get_default_user_config() -> UserConfig:
+    return load_runtime_users_config().default_user()
 
 
 def validate_users_config_for_mode(mode: str) -> None:

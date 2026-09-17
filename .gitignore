@@ -8,11 +8,13 @@ user_strategies/
 .test-user-dbs/
 venv
 venv*/
+node_modules/
 log/log.txt
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .runtime/
+runtime/
 log.txt
 logs.log
 TODO.txt

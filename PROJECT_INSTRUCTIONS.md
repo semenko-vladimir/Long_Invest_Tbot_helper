@@ -1,119 +1,40 @@
-# Tbot v1 Project Instructions
+# Tbot v1 project instructions
 
-These instructions define the durable project rules for future Codex work in Tbot v1.
+Tbot v1 is a Telegram-first local investment assistant for one private long-term investor. The runtime is sandbox-first, uses SQLite and T-Invest/MOEX integrations, and keeps broker operations manual.
 
-## Product Framing
+The active interface is Telegram. Keep portfolio, positions, watchlist, dividends, read-only charts, settings, and manual buy/sell preview-confirmation workflows working. Do not reintroduce the archived web terminal or research HTTP surface without an explicit product decision.
 
-Tbot v1 is a local, sandbox-first assistant for one unique private long-term investor. It is a Telegram bot and FastAPI web terminal backed by SQLite and the T-Invest API.
+The former research/web-terminal implementation is preserved outside the repository at `../Tbot_terminal_archive/`. It is not active runtime code. Future research and monitoring should be redesigned around Telegram notifications and should not restore the archived design unchanged.
 
-The product direction is a calm local research terminal for long-term investing. It is not an auto-trading bot, signal bot, scalping tool, or investment adviser.
+Automatic market/event monitoring, news ingestion, LLM analysis, ratings, and alert rules are future work and are not implemented here.
 
-The product is not designed as a multi-user SaaS or shared bot. There is one
-unique local owner. `users.json` and `UserContext` are retained as the local
-configuration shell for that owner: Telegram chat ID, T-Invest tokens, broker
-fee, and the configured SQLite `db_path`. The web terminal selects that single
-user through `DEFAULT_WEB_USER_ID` and supports a single local owner token via
-`WEB_AUTH_ENABLED` / `WEB_AUTH_TOKEN`. Auth may stay disabled only for a
-localhost-only `API_HOST`; non-localhost FastAPI binding must fail startup
-unless the owner token is configured. Runtime services and mounted user-data API
-endpoints must use the selected single user's configured SQLite database; avoid adding new direct
-`SessionLocal()` calls in service code.
+## Multi-account boundary
 
-## Current V1 Runtime
+- Portfolio ownership is `User -> BrokerConnection -> InvestmentAccount`.
+- Broker credentials stay in `.env`/`users.json`; database broker rows are secret-free metadata only.
+- Every account-specific portfolio read, snapshot, strategy, future notification, and future LLM/research request must carry an explicit investment-account context.
+- Every production order execution must carry an explicit broker account ID; never select an order target from account list order.
+- Never infer account identity from API list order or account display name.
+- Aggregate portfolio views may sum account totals, but canonical positions and snapshots remain attributed to their source account.
+- Strategy profiles are account-scoped and free-form. Do not introduce a global strategy or global LLM analysis profile.
 
-The active v1 runtime is limited to:
+## Safety invariants
 
-- portfolio and current positions;
-- watchlist management;
-- dividend information for watched instruments;
-- manual buy and sell orders by ticker and lot count;
-- local manual order history and basic statistics;
-- investment plans, anti-greedy sell proposals, and reminders for manual review;
-- local settings and mode visibility;
-- read-only ticker research in the web terminal and Telegram;
-- read-only chart data and on-demand PNG rendering for educational price review.
+- Keep `APP_MODE` sandbox-first and preserve production token handling.
+- Use the current `t-tech-investments` Python SDK from the official T-Bank package index; keep `SSL_TBANK_VERIFY="True"` so TLS verification uses the SDK-bundled certificate.
+- Use only the SDK's official `sandbox-invest-public-api.tbank.ru:443` and `invest-public-api.tbank.ru:443` endpoints; never disable SSL verification.
+- Keep `ALLOW_PROD_TRADING` and all `ModeService`/`OrderService`/`TInvestBroker` guards intact.
+- Broker orders require the existing explicit manual preview and confirmation flow.
+- Never create an order from a chart, signal, reminder, analysis, research result, monitoring event, or LLM output.
+- Do not add auto-trading or weaken production safety checks.
+- Do not commit `.env`, `users.json`, tokens, databases, caches, virtual environments, or the external archive.
 
-Manual orders and explicitly confirmed plan/anti-greedy prompts are the only active broker order paths.
+## Change boundaries
 
-The default dependency set for v1 is `requirements-base.txt`. The
-`requirements.txt` and `requirements-v1.txt` files are compatibility aliases to
-that active runtime set. Matplotlib is part of active runtime only for
-on-demand, read-only PNG chart rendering. Legacy analytics, heavier charting,
-signal, ML, and GPT dependencies belong only in `requirements-optional.txt`
-and must remain explicitly opt-in.
+Prefer small changes that preserve Telegram/core behavior. Keep generic broker, database, portfolio, watchlist, dividend, order, and chart services when Telegram uses them. Remove terminal-only code rather than deleting shared services. Do not perform unrelated dependency upgrades or stack modernization.
 
-## Safety Rules
-
-- Keep the app sandbox-first by default.
-- Keep manual orders manual.
-- Do not add broad auto-trading.
-- Do not add strategy runtime, strategy auto-execution, or strategy dashboards unless a future task explicitly reintroduces them with a dedicated safety design.
-- Do not add runtime trading signals to the current v1 runtime.
-- Scheduled investment plans may check price conditions and send Telegram confirmation prompts, but broker orders must still require explicit confirmation and a fresh condition check immediately before execution.
-- Anti-greedy policy may detect positions above the configured profit threshold and send Telegram sell confirmation prompts, but broker orders must still require explicit confirmation and a fresh position/preview check immediately before execution.
-- Do not create broker orders from analysis, ratings, signals, reminders, plans, or LLM output.
-- Production trading must remain blocked unless all are explicitly configured:
-  - `APP_MODE="prod"`;
-  - production token for the active user;
-  - `ALLOW_PROD_TRADING="true"`.
-- Do not weaken safety guards in `ModeService`, `OrderService`, `TInvestBroker`, manual order handlers, or broker integration helpers.
-- Keep server-rendered web form POST routes protected by CSRF tokens.
-- Do not mount or enable legacy signal routers unless a future task explicitly reactivates them with a new safety design.
-- Local LLM / research / rating output (educational BUY/HOLD/SELL/WATCH/AVOID labels are allowed only as non-advisory educational analysis) must never call `OrderService.preview()` or `OrderService.execute()` directly and must never create broker orders.
-
-## Legacy Status
-
-Signal, ML, GPT, LSTM, chart, market-notification, and old trading-bot modules are legacy/non-runtime for investor v1. Runtime strategy services, strategy web UI, examples, tests, and legacy local-write API endpoints are not part of the single-owner active runtime.
-
-They may remain in the repository for migration safety and reversibility. Do not delete or reactivate them unless the task explicitly asks for that and includes a safety plan.
-
-## Future Research-Terminal Direction
-
-Future work may add long-term research workflows such as:
-
-- ticker research;
-- company profiles;
-- financial statement and valuation data;
-- dividend history and forecasts;
-- sector and competitor comparison;
-- macro context;
-- risk summaries and data-quality notes.
-
-Local LLM support may be added later only through explicit adapter/service layers. Future LLM work must use structured outputs and include confidence, data gaps, freshness metadata, source attribution where available, and hallucination-safety checks.
-
-Preferred future local/private-VM LLM for the research adapter:
-`Qwen/Qwen3-235B-A22B-Instruct-2507-FP8`. This records the model choice only;
-it must not enable runtime LLM behavior, trading signals, ratings, or broker
-order integration by itself.
-
-## Future Educational Ratings
-
-Educational long-term analytical ratings may be added later, including:
-
-- `BUY`;
-- `HOLD`;
-- `SELL`;
-- `WATCH`;
-- `AVOID`.
-
-These ratings must be clearly educational, not personal investment advice, and must never trigger broker orders automatically.
-
-Do not add these ratings to the current v1 runtime unless a future task explicitly asks for them.
-
-## Testing
-
-Use Python 3.12 and the project `venv312` environment for verification.
-
-Run:
+Run the full suite from `Tbot` after runtime changes:
 
 ```powershell
 .\venv312\Scripts\python.exe -m unittest discover -q
 ```
-
-Existing unittest tests should remain green unless a task explicitly changes covered behavior.
-
-## Documentation Rule
-
-Update `README.md` and/or `PROJECT_INSTRUCTIONS.md` whenever product behavior, safety policy, architecture, runtime scope, or setup changes.
-
-Documentation should keep the project framed as a local sandbox-first long-term investor assistant and research terminal.

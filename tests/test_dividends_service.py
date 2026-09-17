@@ -34,17 +34,30 @@ class FakeBroker:
         self.portfolio_error = portfolio_error
         self.portfolio_calls = []
 
-    def get_portfolio(self, token, *, sandbox):
-        self.portfolio_calls.append({"token": token, "sandbox": sandbox})
-        if self.portfolio_error:
-            raise self.portfolio_error
-        return self.portfolio
-
     def get_instrument_name(self, token, figi):
         return f"Name {figi}"
 
     def get_dividend_info(self, token, figi, period_days):
         return self.dividend
+
+
+class FakePortfolioService:
+    def __init__(self, broker):
+        self.broker = broker
+
+    def get_portfolio_view(self):
+        if self.broker.portfolio_error:
+            return SimpleNamespace(positions=[], error="Portfolio data is unavailable right now: temporary outage")
+        return SimpleNamespace(
+            positions=[
+                SimpleNamespace(
+                    ticker=item.get("ticker"),
+                    quantity=float(item.get("quantity", 0)),
+                )
+                for item in self.broker.portfolio.get("positions", [])
+            ],
+            error=None,
+        )
 
 
 def make_service(broker, items=None):
@@ -63,6 +76,7 @@ def make_service(broker, items=None):
         broker=broker,
         mode_service=FakeModeService(),
         token_provider=lambda: "token",
+        portfolio_service=FakePortfolioService(broker),
     )
 
 
@@ -87,7 +101,6 @@ class DividendsServiceTests(unittest.TestCase):
         view = service.get_dividends_view(365)
 
         self.assertIsNone(view.portfolio_error)
-        self.assertEqual(broker.portfolio_calls, [{"token": "token", "sandbox": True}])
         item = view.items[0]
         self.assertEqual(item.position_quantity, 10.0)
         self.assertEqual(item.position_quantity_display, "10.00")

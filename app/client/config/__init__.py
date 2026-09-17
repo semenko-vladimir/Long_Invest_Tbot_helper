@@ -1,6 +1,5 @@
 from dotenv import load_dotenv
 import os
-from ipaddress import ip_address
 from typing import Iterable, Optional
 
 
@@ -88,6 +87,29 @@ def anti_greedy_policy_enabled() -> bool:
     return _env_bool("ENABLE_ANTI_GREEDY_POLICY")
 
 
+def chart_data_refresh_enabled() -> bool:
+    return _env_bool("ENABLE_CHART_DATA_REFRESH")
+
+
+def get_chart_data_refresh_interval_seconds() -> int:
+    load_local_env()
+    value = _normalized(os.getenv("CHART_DATA_REFRESH_SECONDS") or "60")
+    try:
+        seconds = int(value)
+    except ValueError as exc:
+        raise ConfigError("Environment variable CHART_DATA_REFRESH_SECONDS must be a positive integer.") from exc
+    if seconds <= 0:
+        raise ConfigError("Environment variable CHART_DATA_REFRESH_SECONDS must be a positive integer.")
+    return seconds
+
+
+def get_chart_data_refresh_ranges() -> tuple[str, ...]:
+    load_local_env()
+    value = _normalized(os.getenv("CHART_DATA_REFRESH_RANGES") or "day,month")
+    ranges = tuple(part.strip().lower().replace("-", "_") for part in value.split(",") if part.strip())
+    return ranges or ("day", "month")
+
+
 def allow_auto_investing() -> bool:
     return _env_bool("ALLOW_AUTO_INVESTING")
 
@@ -134,10 +156,10 @@ def get_anti_greedy_check_time() -> str:
 
 def get_tokens() -> dict:
     load_local_env()
-    from app.client.config.users import get_default_web_user_config, users_config_is_configured
+    from app.client.config.users import get_default_user_config, users_config_is_configured
 
     if users_config_is_configured(load_env=False):
-        return get_default_web_user_config().tokens
+        return get_default_user_config().tokens
 
     return {
         "token": os.getenv("TOKEN"),
@@ -152,10 +174,10 @@ def get_active_invest_token() -> Optional[str]:
 
 def get_broker_fee() -> float:
     load_local_env()
-    from app.client.config.users import get_default_web_user_config, users_config_is_configured
+    from app.client.config.users import get_default_user_config, users_config_is_configured
 
     if users_config_is_configured(load_env=False):
-        return get_default_web_user_config().broker_fee
+        return get_default_user_config().broker_fee
 
     broker_fee = require_env("BROKER_FEE", placeholder_values=set())
     try:
@@ -164,55 +186,7 @@ def get_broker_fee() -> float:
         raise ConfigError("Environment variable BROKER_FEE must be a number, for example 0.3.") from exc
 
 
-def get_api_base_url() -> str:
-    load_local_env()
-    return os.getenv("API_BASE_URL", "http://localhost:8000").strip() or "http://localhost:8000"
-
-
-def get_api_host() -> str:
-    load_local_env()
-    return _normalized(os.getenv("API_HOST") or "127.0.0.1") or "127.0.0.1"
-
-
-def api_host_is_localhost(host: Optional[str] = None) -> bool:
-    normalized = _normalized(host if host is not None else get_api_host()).lower()
-    normalized = normalized.strip("[]")
-
-    if normalized == "localhost":
-        return True
-
-    try:
-        return ip_address(normalized).is_loopback
-    except ValueError:
-        return False
-
-
-def web_auth_enabled() -> bool:
-    return _env_bool("WEB_AUTH_ENABLED")
-
-
-def get_web_auth_token() -> Optional[str]:
-    load_local_env()
-    token = _normalized(os.getenv("WEB_AUTH_TOKEN"))
-    return token or None
-
-
-def validate_web_auth_config() -> None:
-    auth_enabled = web_auth_enabled()
-    token_configured = get_web_auth_token() is not None
-
-    if auth_enabled and not token_configured:
-        raise ConfigError("WEB_AUTH_TOKEN is required when WEB_AUTH_ENABLED=true.")
-
-    api_host = get_api_host()
-    if not api_host_is_localhost(api_host) and (not auth_enabled or not token_configured):
-        raise ConfigError(
-            "WEB_AUTH_ENABLED=true and WEB_AUTH_TOKEN are required when API_HOST is not localhost."
-        )
-
-
 def validate_startup_config() -> None:
-    validate_web_auth_config()
     require_env("BOT_TOKEN")
     from app.client.config.users import users_config_is_configured, validate_users_config_for_mode
 

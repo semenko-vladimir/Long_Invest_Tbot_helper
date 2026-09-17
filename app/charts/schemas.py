@@ -5,7 +5,10 @@ from typing import Literal, Optional
 
 ChartRange = Literal["day", "week", "month", "six_months", "year", "all"]
 ChartMode = Literal["price", "position_value"]
+ChartCandleInterval = Literal["hour", "day"]
 GapSeverity = Literal["low", "medium", "high"]
+ChartFreshness = Literal["current", "latest_available", "stale", "partial"]
+ChartDelayStatus = Literal["broker_api", "moex_delayed", "cached"]
 ChartAnalyticsMarkerKind = Literal["historical_entry", "historical_exit"]
 POSITION_VALUE_CHART_DISCLAIMER = (
     "Uses current position quantity valued at historical close prices; "
@@ -19,6 +22,36 @@ class ChartDataGap:
     category: str
     description: str
     severity: GapSeverity = "medium"
+
+
+@dataclass(frozen=True)
+class ChartCacheStatus:
+    used: bool = False
+    refreshed: bool = False
+    candle_count: int = 0
+    latest_candle_at: Optional[datetime] = None
+    oldest_candle_at: Optional[datetime] = None
+
+
+@dataclass(frozen=True)
+class ChartRefreshStatus:
+    requested: bool = False
+    attempted: bool = False
+    refreshed: bool = False
+    errors: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ChartDataStatus:
+    source: str
+    freshness: ChartFreshness
+    delay_status: ChartDelayStatus
+    fetched_at: Optional[datetime] = None
+    as_of_date: Optional[str] = None
+    candle_count: int = 0
+    data_gaps: list[ChartDataGap] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    educational_only: bool = True
 
 
 @dataclass(frozen=True)
@@ -72,14 +105,87 @@ class ChartSmaSeries:
 
 
 @dataclass(frozen=True)
+class ChartIndicatorPoint:
+    time: datetime
+    value: float
+
+
+@dataclass(frozen=True)
+class ChartIndicatorSeries:
+    key: str
+    label: str
+    window: Optional[int] = None
+    points: list[ChartIndicatorPoint] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ChartBandPoint:
+    time: datetime
+    middle: float
+    upper: float
+    lower: float
+
+
+@dataclass(frozen=True)
+class ChartBandSeries:
+    key: str
+    label: str
+    window: int
+    points: list[ChartBandPoint] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ChartMacdPoint:
+    time: datetime
+    macd: float
+    signal: float
+    histogram: float
+
+
+@dataclass(frozen=True)
+class ChartMacdSeries:
+    key: str = "macd"
+    label: str = "MACD 12/26/9"
+    points: list[ChartMacdPoint] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ChartVolumeStats:
+    latest_volume: Optional[int] = None
+    average_volume: Optional[float] = None
+    latest_vs_average_pct: Optional[float] = None
+
+
+@dataclass(frozen=True)
 class ChartAnalytics:
     entry_marker: Optional[ChartAnalyticsMarker] = None
     exit_marker: Optional[ChartAnalyticsMarker] = None
     hindsight_return_pct: Optional[float] = None
+    range_return_pct: Optional[float] = None
+    latest_change_pct: Optional[float] = None
+    periodic_volatility_pct: Optional[float] = None
+    annualized_volatility_pct: Optional[float] = None
     max_drawdown: Optional[ChartDrawdown] = None
     range_position: Optional[ChartRangePosition] = None
     sma20: ChartSmaSeries = field(default_factory=lambda: ChartSmaSeries(window=20, label="SMA20"))
     sma50: ChartSmaSeries = field(default_factory=lambda: ChartSmaSeries(window=50, label="SMA50"))
+    ema12: ChartIndicatorSeries = field(
+        default_factory=lambda: ChartIndicatorSeries(key="ema12", label="EMA12", window=12)
+    )
+    ema26: ChartIndicatorSeries = field(
+        default_factory=lambda: ChartIndicatorSeries(key="ema26", label="EMA26", window=26)
+    )
+    rsi14: ChartIndicatorSeries = field(
+        default_factory=lambda: ChartIndicatorSeries(key="rsi14", label="RSI14", window=14)
+    )
+    atr14: ChartIndicatorSeries = field(
+        default_factory=lambda: ChartIndicatorSeries(key="atr14", label="ATR14", window=14)
+    )
+    bollinger20: ChartBandSeries = field(
+        default_factory=lambda: ChartBandSeries(key="bollinger20", label="Bollinger 20", window=20)
+    )
+    macd: ChartMacdSeries = field(default_factory=ChartMacdSeries)
+    volume_stats: ChartVolumeStats = field(default_factory=ChartVolumeStats)
 
 
 @dataclass(frozen=True)
@@ -87,9 +193,14 @@ class ChartAdapterResult:
     source_name: str
     ticker: str
     figi: Optional[str] = None
+    fetched_at: Optional[datetime] = None
+    as_of_date: Optional[str] = None
+    freshness: Optional[str] = None
+    delay_status: Optional[str] = None
     candles: list[PriceCandle] = field(default_factory=list)
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    interval: Optional[ChartCandleInterval] = None
 
 
 @dataclass(frozen=True)
@@ -100,12 +211,21 @@ class ChartHistory:
     candles: list[PriceCandle]
     generated_at: datetime
     source: str
+    fetched_at: Optional[datetime] = None
+    as_of_date: Optional[str] = None
+    freshness: Optional[str] = None
+    delay_status: Optional[str] = None
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    interval: Optional[ChartCandleInterval] = None
     disclaimer: str = (
         "Read-only historical price data for educational review only. "
         "This is not personal investment advice and must not trigger broker orders."
     )
+
+    @property
+    def source_name(self) -> str:
+        return self.source
 
 
 @dataclass(frozen=True)
@@ -124,6 +244,10 @@ class PositionValueChart:
     value_series: list[PositionValuePoint]
     generated_at: datetime
     source: str
+    fetched_at: Optional[datetime] = None
+    as_of_date: Optional[str] = None
+    freshness: Optional[str] = None
+    delay_status: Optional[str] = None
     data_gaps: list[ChartDataGap] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     disclaimer: str = POSITION_VALUE_CHART_DISCLAIMER
@@ -131,6 +255,10 @@ class PositionValueChart:
     @property
     def ok(self) -> bool:
         return bool(self.value_series) and not self.errors
+
+    @property
+    def source_name(self) -> str:
+        return self.source
 
 
 @dataclass(frozen=True)
@@ -147,3 +275,33 @@ class ChartImageResult:
     @property
     def ok(self) -> bool:
         return self.png_bytes is not None and not self.errors
+
+    @property
+    def source_name(self) -> str:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.source
+        return self.history.source
+
+    @property
+    def fetched_at(self) -> Optional[datetime]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.fetched_at
+        return self.history.fetched_at
+
+    @property
+    def as_of_date(self) -> Optional[str]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.as_of_date
+        return self.history.as_of_date
+
+    @property
+    def freshness(self) -> Optional[str]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.freshness
+        return self.history.freshness
+
+    @property
+    def delay_status(self) -> Optional[str]:
+        if self.mode == "position_value" and self.position_value is not None:
+            return self.position_value.delay_status
+        return self.history.delay_status

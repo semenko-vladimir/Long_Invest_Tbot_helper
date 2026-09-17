@@ -65,6 +65,11 @@ class AntiGreedyPolicyService:
         if view.error:
             logger.warning("Anti-greedy policy skipped: %s", view.error)
             return []
+        if getattr(view, "account_count", 1) != 1:
+            logger.warning(
+                "Anti-greedy policy skipped: explicit account targeting is required when multiple accounts exist"
+            )
+            return []
 
         candidates = []
         for position in view.positions:

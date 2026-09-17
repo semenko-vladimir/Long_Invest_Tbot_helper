@@ -31,6 +31,7 @@ class OrderPreviewRequest:
     ticker: str
     lots: int
     order_type: str = "limit"
+    account_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ class OrderPreviewResult:
     requires_ticker_confirmation: bool
     warnings: list[str]
     confirm_token: str
+    account_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,7 @@ class OrderConfirmCommand:
     confirm_token: str
     ticker_confirmation: Optional[str] = None
     order_type: str = "limit"
+    account_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -83,6 +86,7 @@ class _PreviewToken:
     ticker: str
     lots: int
     expires_at: float
+    account_id: Optional[str] = None
     consumed: bool = False
 
 
@@ -105,6 +109,8 @@ class OrderService:
         token = self.token_provider()
         if not token:
             raise OrderValidationError("No broker token is configured for the current mode.")
+        if mode.mode == "prod" and mode.trading_available and not request.account_id:
+            raise OrderValidationError("An explicit broker account id is required for production orders.")
 
         try:
             instrument = self.broker.resolve_unique_instrument(token, request.ticker)
@@ -113,11 +119,23 @@ class OrderService:
             if lot_size <= 0:
                 raise OrderValidationError("Lot size is unavailable for this instrument.")
 
-            if request.operation == "buy":
-                if not self.broker.has_enough_cash(token, instrument.figi, request.lots, mode.is_sandbox):
+            validate_account_holdings = mode.is_sandbox or bool(request.account_id)
+            if request.operation == "buy" and validate_account_holdings:
+                if not self.broker.has_enough_cash(
+                    token,
+                    instrument.figi,
+                    request.lots,
+                    mode.is_sandbox,
+                    account_id=request.account_id,
+                ):
                     raise OrderValidationError("There is not enough cash for this buy order.")
-            else:
-                available_quantity = self.broker.get_available_quantity(token, instrument.figi, mode.is_sandbox)
+            elif request.operation == "sell" and validate_account_holdings:
+                available_quantity = self.broker.get_available_quantity(
+                    token,
+                    instrument.figi,
+                    mode.is_sandbox,
+                    account_id=request.account_id,
+                )
                 requested_quantity = request.lots * lot_size
                 if available_quantity <= 0:
                     raise OrderValidationError(f"{instrument.ticker} is not available in the active portfolio.")
@@ -159,6 +177,7 @@ class OrderService:
             requires_ticker_confirmation=mode.mode == "prod" and mode.trading_available,
             warnings=warnings,
             confirm_token=confirm_token,
+            account_id=request.account_id,
         )
 
     def execute(self, command: OrderConfirmCommand) -> OrderExecutionResult:
@@ -169,6 +188,9 @@ class OrderService:
         if not mode.trading_available:
             raise OrderExecutionBlocked("Execution is blocked because production trading is disabled.")
 
+        if mode.mode == "prod" and not command.account_id:
+            raise OrderExecutionBlocked("An explicit broker account id is required for production orders.")
+
         if mode.mode == "prod" and command.ticker_confirmation != command.ticker:
             raise OrderExecutionBlocked("Type the ticker exactly to confirm a production order.")
 
@@ -178,6 +200,7 @@ class OrderService:
                 ticker=command.ticker,
                 lots=command.lots,
                 order_type=command.order_type,
+                account_id=command.account_id,
             )
         )
 
@@ -193,6 +216,7 @@ class OrderService:
                 lots=preview.lots,
                 operation=preview.operation,
                 sandbox=mode.is_sandbox,
+                account_id=preview.account_id,
             )
         except Exception as exc:
             raise OrderServiceError("Order execution failed. Check broker availability and try again.") from exc
@@ -228,7 +252,14 @@ class OrderService:
         if request.order_type != "limit":
             raise OrderValidationError("Only limit orders are available in this version.")
 
-        return OrderPreviewRequest(operation=operation, ticker=ticker, lots=request.lots, order_type=request.order_type)
+        account_id = str(request.account_id or "").strip() or None
+        return OrderPreviewRequest(
+            operation=operation,
+            ticker=ticker,
+            lots=request.lots,
+            order_type=request.order_type,
+            account_id=account_id,
+        )
 
     def _normalize_confirm_command(self, command: OrderConfirmCommand) -> OrderConfirmCommand:
         request = self._normalize_preview_request(
@@ -237,6 +268,7 @@ class OrderService:
                 ticker=command.ticker,
                 lots=command.lots,
                 order_type=command.order_type,
+                account_id=command.account_id,
             )
         )
         ticker_confirmation = None
@@ -250,6 +282,7 @@ class OrderService:
             confirm_token=str(command.confirm_token or ""),
             ticker_confirmation=ticker_confirmation,
             order_type=request.order_type,
+            account_id=request.account_id,
         )
 
     def _issue_preview_token(self, request: OrderPreviewRequest) -> str:
@@ -261,6 +294,7 @@ class OrderService:
                 ticker=request.ticker,
                 lots=request.lots,
                 expires_at=time.time() + CONFIRM_TOKEN_TTL_SECONDS,
+                account_id=request.account_id,
             )
             return token
 
@@ -276,6 +310,7 @@ class OrderService:
                 preview_token.operation != command.operation
                 or preview_token.ticker != command.ticker
                 or preview_token.lots != command.lots
+                or preview_token.account_id != command.account_id
             ):
                 raise OrderExecutionBlocked("The confirmation does not match the preview. Preview the order again.")
 

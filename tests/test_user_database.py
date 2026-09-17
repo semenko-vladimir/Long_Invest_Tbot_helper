@@ -1,19 +1,22 @@
 import shutil
+import json
+import os
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 
 from app.backend.models.database import Base
-import app.backend.models.research  # noqa: F401
 import app.backend.models.trading  # noqa: F401
 from app.backend.models.trading import Instrument, Order
 from app.services.user_context import UserContext
 from app.services.user_database import (
     _table_columns,
     dispose_user_database_registry,
+    get_default_session_factory,
     resolve_db_path,
     run_migrations_for_user,
     session_factory_for_user,
@@ -79,6 +82,37 @@ class UserDatabaseTests(unittest.TestCase):
         second = session_factory_for_user(user)
 
         self.assertIs(first, second)
+
+    def test_default_session_factory_resolves_configured_default_user(self):
+        users_path = TEST_DB_DIR / "users.json"
+        configured_db_path = TEST_DB_DIR / "configured-default" / "database.db"
+        users_path.parent.mkdir(parents=True, exist_ok=True)
+        users_path.write_text(
+            json.dumps(
+                {
+                    "default_user_id": "configured-default",
+                    "users": [
+                        {
+                            "id": "configured-default",
+                            "name": "Configured Default",
+                            "telegram_chat_id": 111,
+                            "sandbox_token": "sandbox-placeholder-for-test",
+                            "broker_fee": 0.3,
+                            "db_path": str(configured_db_path),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with mock.patch.dict(os.environ, {"USERS_CONFIG_PATH": str(users_path)}, clear=True), \
+            mock.patch("app.client.config.users.load_dotenv"):
+            session = get_default_session_factory()()
+        try:
+            self.assertEqual(Path(session.bind.url.database).resolve(), configured_db_path.resolve())
+        finally:
+            session.close()
 
     def test_run_migrations_stamps_existing_create_all_database_without_version(self):
         db_path = TEST_DB_DIR / "legacy" / "database.db"

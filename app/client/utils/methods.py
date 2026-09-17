@@ -1,14 +1,11 @@
-import tinkoff
-from tinkoff.invest import Client, RequestError, InstrumentStatus, PositionsResponse
-from tinkoff.invest.services import InstrumentsService
-from tinkoff.invest import PortfolioResponse
+from t_tech.invest import InstrumentIdType, InstrumentStatus, PortfolioResponse, PositionsResponse, RequestError
+from t_tech.invest.services import InstrumentsService, SandboxService
 from datetime import datetime, timedelta
 from app.client.log.logger import setup_logger
 from app.client.utils.helpers import cast_money, create_df, format_date
-from tinkoff.invest import InstrumentIdType
-from dotenv import load_dotenv
 import os
 from app.client.config import get_active_invest_token
+from app.client.utils.tinvest import create_tinvest_client
 from typing import Optional
 
 logger = setup_logger(__name__)
@@ -81,7 +78,7 @@ def get_historic_candles(figi: str, start_time, end_time, interval):
     """
     TOKEN = get_active_invest_token()
 
-    with Client(TOKEN) as client:
+    with create_tinvest_client(TOKEN) as client:
         market_data = client.market_data
 
         data = market_data.get_candles(
@@ -142,7 +139,7 @@ def get_figi_by_ticker(ticker: str, token: Optional[str] = None):
     """
     TOKEN = token or get_active_invest_token()
 
-    with Client(TOKEN) as client:
+    with create_tinvest_client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         for method in ["shares", "bonds", "etfs", "currencies", "futures"]:
@@ -167,7 +164,7 @@ def get_ticker_by_figi(figi: str, instrument_type: str, token: Optional[str] = N
     """
     TOKEN = token or get_active_invest_token()
 
-    with Client(TOKEN) as client:
+    with create_tinvest_client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         # Карта методов для различных типов инструментов
@@ -206,7 +203,7 @@ def get_share_info_by_ticker(ticker: str):
 
     TOKEN = get_active_invest_token()
 
-    with Client(TOKEN) as client:
+    with create_tinvest_client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         data = DataFrame(instruments.shares(instrument_status=InstrumentStatus.INSTRUMENT_STATUS_ALL).instruments,
@@ -230,7 +227,7 @@ def get_info_by_ticker(ticker: str):
 
     TOKEN = get_active_invest_token()
 
-    with Client(TOKEN) as client:
+    with create_tinvest_client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         l = []
@@ -268,7 +265,7 @@ def get_info_by_figi(figi: str):
 
     TOKEN = get_active_invest_token()
 
-    with Client(TOKEN) as client:
+    with create_tinvest_client(TOKEN) as client:
         instruments: InstrumentsService = client.instruments
 
         l = []
@@ -303,7 +300,7 @@ def get_portfolio(token: str):
     :return: Словарь с информацией о портфеле (общая стоимость акций, облигаций, фондов, валют, ожидаемый доход, общая стоимость портфеля, позиции)
     """
     
-    with Client(token) as client:
+    with create_tinvest_client(token) as client:
         accounts = client.users.get_accounts()
         account_id = accounts.accounts[0].id
         portfolio: PortfolioResponse = client.operations.get_portfolio(account_id=account_id)
@@ -380,8 +377,6 @@ def get_portfolio(token: str):
         'positions': positions
     }
 
-from tinkoff.invest.services import SandboxService
-
 def get_sandbox_portfolio(token: str):
 
     """
@@ -394,7 +389,7 @@ def get_sandbox_portfolio(token: str):
     
     portfolio = None
 
-    with Client(token) as client:
+    with create_tinvest_client(token, sandbox=True) as client:
         sb: SandboxService = client.sandbox
 
         accounts = sb.get_sandbox_accounts()
@@ -491,13 +486,13 @@ def get_instrument_from_portfolio_by_ticker(token: str, figi: str, ticker: str, 
     portfolio = None
 
     if sandbox_method:
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=True) as client:
             sb: SandboxService = client.sandbox
             accounts = sb.get_sandbox_accounts()
             account_id = accounts.accounts[0].id
             portfolio: PortfolioResponse = sb.get_sandbox_portfolio(account_id=account_id)
     else:
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=False) as client:
             accounts = client.users.get_accounts()
             account_id = accounts.accounts[0].id
             portfolio: PortfolioResponse = client.operations.get_portfolio(account_id=account_id)
@@ -562,7 +557,7 @@ def get_dividends_data(token: str, period, figi):
         dict: информация о дивидендах, если такие есть, None - если нет
     """
 
-    with Client(token) as client:
+    with create_tinvest_client(token) as client:
         instruments_service: InstrumentsService = client.instruments
         
         try:
@@ -586,7 +581,7 @@ def get_dividends_data(token: str, period, figi):
             else:
                 return None  # Нет дивидендов для данного инструмента
 
-        except tinkoff.invest.exceptions.RequestError as e:
+        except RequestError as e:
             # Обработка ошибки, если инструмент не найден или другой запрос не удался
             logger.error(f"Произошла ошибка при получении данных для FIGI {figi}: {e.details}")
             return None  # Возвращаем None, чтобы пропустить этот инструмент и продолжить выполнение
@@ -601,7 +596,7 @@ def get_balance(token: str, client, sandbox_method):
     ----------
     token : str
         токен для доступа к API
-    client : tinkoff.invest.Client
+    client : t_tech.invest.Client
         объект для работы с API
     sandbox_method : bool
         флаг, указывающий, использовать ли песочницу
@@ -615,13 +610,13 @@ def get_balance(token: str, client, sandbox_method):
     positions = None
 
     if sandbox_method:
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=True) as client:
             sb: SandboxService = client.sandbox
             accounts = sb.get_sandbox_accounts()
             account_id = accounts.accounts[0].id
             positions: PositionsResponse = sb.get_sandbox_positions(account_id=account_id)
     else:
-        with Client(token) as client:
+        with create_tinvest_client(token, sandbox=False) as client:
             accounts = client.users.get_accounts()
             account_id = accounts.accounts[0].id
             positions: PositionsResponse = client.operations.get_positions(account_id=account_id)
@@ -674,13 +669,13 @@ def get_available_qty(token: str, figi: str, client, sandbox_method):
         positions = None
 
         if sandbox_method:
-            with Client(token) as client:
+            with create_tinvest_client(token, sandbox=True) as client:
                 sb: SandboxService = client.sandbox
                 accounts = sb.get_sandbox_accounts()
                 account_id = accounts.accounts[0].id
                 positions: PositionsResponse = sb.get_sandbox_positions(account_id=account_id)
         else:
-            with Client(token) as client:
+            with create_tinvest_client(token, sandbox=False) as client:
                 accounts = client.users.get_accounts()
                 account_id = accounts.accounts[0].id
                 positions: PositionsResponse = client.operations.get_positions(account_id=account_id)

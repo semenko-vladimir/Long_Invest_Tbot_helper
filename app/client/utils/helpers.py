@@ -1,4 +1,4 @@
-from tinkoff.invest import HistoricCandle
+from t_tech.invest import HistoricCandle
 import pytz
 
 def calculate_profit(average_position_price, current_price_one, brokerFee=0.3):

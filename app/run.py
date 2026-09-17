@@ -1,7 +1,6 @@
 import sys
 import os
-import threading
-import uvicorn
+import time
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -16,18 +15,17 @@ from app.client.config.schedulers_config import configure_schedulers
 from app.client.config import ConfigError, get_invest_mode, validate_startup_config
 from app.client.config.db_config import configure_database, DatabaseConfigError
 from app.client.log.logger import setup_logger
-from app.backend.main_api import app as fastapi_app
 from app.client.handlers.menu.main_menu import send_main_menu
 from app.client.handlers.portfolio.portfolio_handler import get_portfolio_handler
 from app.client.handlers.instruments.instruments_handler import instruments_handler
 from app.client.handlers.dividends.dividends_handler import dividends_handler
 from app.client.handlers.bot.bot_handler import bot_handler
 from app.client.handlers.orders.manual_order_handler import manual_order_handler
-from app.client.handlers.research.research_handler import research_command_handler, research_text_command_handler
 from app.client.handlers.charts.chart_handler import chart_command_handler, position_chart_command_handler
 from app.client.handlers.statistics.statistics_handler import statistics_handler
 from app.client.handlers.help.help_handler import help_handler
 from app.services.user_context import UnknownUserError, UserContextResolver
+from app.services.mode import ModeService
 
 logger = setup_logger(__name__)
 user_context_resolver = UserContextResolver()
@@ -69,11 +67,13 @@ def start(message):
     
     try:
         user_context = user_context_resolver.resolve_telegram_chat(chat_id)
-        send_main_menu(
-            chat_id,
-            f'Investor mode is ready for {user_context.display_name}. '
-            'Use the menu or type `buy SBER 1` / `sell SBER 1`.',
+        mode = ModeService().current()
+        instruction = (
+            'Use the menu or type `buy SBER 1` / `sell SBER 1`.'
+            if mode.trading_available
+            else 'Production portfolio access is read-only; trading actions are disabled.'
         )
+        send_main_menu(chat_id, f'Investor mode is ready for {user_context.display_name}. {instruction}')
     except UnknownUserError:
         logger.warning("Unauthorized Telegram /start attempt: chat_id=%s", chat_id)
         bot.send_message(chat_id, "This Telegram chat is not authorized for this local investor assistant.")
@@ -81,19 +81,6 @@ def start(message):
     except Exception as e:
         logger.error(f"Ошибка при обработке команды /start: {str(e)}")
         bot.send_message(chat_id, "Произошла ошибка при запуске бота. Пожалуйста, попробуйте позже.")
-
-
-def run_api():
-    """
-    Запускает FastAPI сервер.
-    """
-    try:
-        api_host = os.getenv("API_HOST", "127.0.0.1")
-        api_port = int(os.getenv("API_PORT", "8000"))
-        uvicorn.run(fastapi_app, host=api_host, port=api_port)
-    
-    except Exception as e:
-        logger.error(f"Ошибка при запуске API сервера: {str(e)}")
 
 
 if __name__ == '__main__':
@@ -112,11 +99,6 @@ if __name__ == '__main__':
             logger.error(f"Не удалось настроить базу данных: {str(e)}")
             sys.exit(1)
         
-        # Запуск API в отдельном потоке
-        api_thread = threading.Thread(target=run_api, daemon=True)
-        api_thread.start()
-        logger.info("API сервер запущен на http://localhost:8000")
-
         # Настройка планировщиков
         configure_schedulers()
         logger.info("Планировщики успешно настроены")
@@ -124,7 +106,16 @@ if __name__ == '__main__':
         
         # Запуск бота
         logger.info("Запуск бота...")
-        bot.polling()
+        while True:
+            try:
+                bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=20)
+                logger.warning("Telegram polling stopped without an exception; restarting in 10 seconds")
+            except Exception as e:
+                logger.error(
+                    "Telegram polling failed; restarting in 10 seconds: %s",
+                    type(e).__name__,
+                )
+            time.sleep(10)
     
     except Exception as e:
         logger.critical(f"Критическая ошибка при запуске приложения: {str(e)}")

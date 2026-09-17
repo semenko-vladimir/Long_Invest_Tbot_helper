@@ -3,39 +3,49 @@ from telebot import types
 from app.client.bot.bot import bot
 from app.client.config import get_investor_reminder_time, investor_reminders_enabled
 from app.client.handlers.utils.message_utils import last_messages
+from app.services.mode import ModeService
 
 
-HELP_TEXT = (
+COMMON_HELP_TEXT = (
     "*Investor mode help*\n\n"
     "Main actions:\n"
     "- `Portfolio` - current positions\n"
-    "- `Buy` - enter a manual buy order\n"
-    "- `Sell` - enter a manual sell order\n"
     "- `Dividends` - check dividend information for your watchlist\n"
     "- `Watchlist` - add or remove tickers to follow\n"
     "- `Stats` - basic text statistics for manual trades\n"
     "- `Reports` - simple reminder/report setup notes\n\n"
-    "Direct commands:\n"
+    "Read-only commands:\n"
+    "- `chart SBER month` - read-only price chart\n"
+    "- `position_chart SBER month` - current quantity value chart\n"
+    "- `sync_watchlist` - add current portfolio tickers to the local watchlist"
+)
+
+READ_ONLY_HELP_TEXT = (
+    COMMON_HELP_TEXT
+    + "\n\nProduction trading is disabled. No signals, ML, GPT/LSTM, or auto-trading are active in investor v1."
+)
+
+TRADING_HELP_TEXT = (
+    COMMON_HELP_TEXT
+    + "\n\n*Manual order commands available in this mode*\n"
     "- `buy SBER 1` - create a preview\n"
     "- `sell SBER 1` - create a preview\n"
     "- `confirm_order <token>` - confirm a sandbox preview\n"
     "- `confirm_order <token> SBER` - confirm a production preview\n"
-    "- `cancel_order <token>` - cancel a preview\n"
-    "- `chart SBER month` - read-only price chart\n"
-    "- `position_chart SBER month` - current quantity value chart\n\n"
-    "- `sync_watchlist` - add current portfolio tickers to the local watchlist\n\n"
-    "Sandbox mode is the default. No signals, ML, GPT/LSTM, or auto-trading are active in investor v1."
+    "- `cancel_order <token>` - cancel a preview\n\n"
+    "Orders still require explicit preview and confirmation. No auto-trading is active."
 )
 
 
 def send_help(chat_id):
+    mode = ModeService().current()
     inline_keyboard = types.InlineKeyboardMarkup()
     inline_keyboard.add(types.InlineKeyboardButton(text="Reports", callback_data="investor_reports"))
     inline_keyboard.add(types.InlineKeyboardButton(text="Sandbox info", callback_data="sandbox_info"))
 
     msg = bot.send_message(
         chat_id=chat_id,
-        text=HELP_TEXT,
+        text=TRADING_HELP_TEXT if mode.trading_available else READ_ONLY_HELP_TEXT,
         reply_markup=inline_keyboard,
         parse_mode="Markdown",
     )

@@ -66,13 +66,13 @@ class FakeBroker:
     def get_lot_size(self, token, figi):
         return self.lot_size
 
-    def has_enough_cash(self, token, figi, lots, sandbox):
+    def has_enough_cash(self, token, figi, lots, sandbox, *, account_id=None):
         return self.enough_cash
 
-    def get_available_quantity(self, token, figi, sandbox):
+    def get_available_quantity(self, token, figi, sandbox, *, account_id=None):
         return self.available_quantity
 
-    def place_order(self, *, token, figi, ticker, lots, operation, sandbox):
+    def place_order(self, *, token, figi, ticker, lots, operation, sandbox, account_id=None):
         self.placed_orders.append(
             {
                 "token": token,
@@ -81,6 +81,7 @@ class FakeBroker:
                 "lots": lots,
                 "operation": operation,
                 "sandbox": sandbox,
+                "account_id": account_id,
             }
         )
         return FakeOrderResult(total_value=self.price * self.lot_size * lots)
@@ -161,7 +162,9 @@ class OrderServiceTests(unittest.TestCase):
 
     def test_execute_requires_ticker_confirmation_for_prod_orders(self):
         service, broker = self.build_service(mode="prod", trading_available=True)
-        preview = service.preview(OrderPreviewRequest(operation="buy", ticker="SBER", lots=1))
+        preview = service.preview(
+            OrderPreviewRequest(operation="buy", ticker="SBER", lots=1, account_id="prod-account")
+        )
 
         with self.assertRaisesRegex(OrderExecutionBlocked, "Type the ticker exactly"):
             service.execute(
@@ -171,6 +174,7 @@ class OrderServiceTests(unittest.TestCase):
                     lots=1,
                     confirm_token=preview.confirm_token,
                     ticker_confirmation="VTBR",
+                    account_id="prod-account",
                 )
             )
 
@@ -178,7 +182,9 @@ class OrderServiceTests(unittest.TestCase):
 
     def test_execute_places_prod_order_after_matching_confirmation(self):
         service, broker = self.build_service(mode="prod", trading_available=True)
-        preview = service.preview(OrderPreviewRequest(operation="buy", ticker="SBER", lots=1))
+        preview = service.preview(
+            OrderPreviewRequest(operation="buy", ticker="SBER", lots=1, account_id="prod-account")
+        )
 
         result = service.execute(
             OrderConfirmCommand(
@@ -187,12 +193,22 @@ class OrderServiceTests(unittest.TestCase):
                 lots=1,
                 confirm_token=preview.confirm_token,
                 ticker_confirmation="sber",
+                account_id="prod-account",
             )
         )
 
         self.assertEqual(result.order_id, "order-1")
         self.assertEqual(len(broker.placed_orders), 1)
         self.assertFalse(broker.placed_orders[0]["sandbox"])
+        self.assertEqual(broker.placed_orders[0]["account_id"], "prod-account")
+
+    def test_prod_execution_requires_explicit_account_without_placing_order(self):
+        service, broker = self.build_service(mode="prod", trading_available=True)
+
+        with self.assertRaisesRegex(OrderValidationError, "explicit broker account id"):
+            service.preview(OrderPreviewRequest(operation="buy", ticker="SBER", lots=1))
+
+        self.assertEqual(broker.placed_orders, [])
 
     def test_execute_rejects_confirmation_that_does_not_match_preview(self):
         service, broker = self.build_service()

@@ -1,4 +1,5 @@
 import telebot
+from telebot import apihelper
 from dotenv import load_dotenv
 import os
 import codecs
@@ -13,5 +14,12 @@ except ConfigError as exc:
 
 if BOT_TOKEN:
     BOT_TOKEN = codecs.decode(BOT_TOKEN, 'unicode_escape')
+
+TELEGRAM_PROXY_URL = os.getenv("TELEGRAM_PROXY_URL", "").strip()
+if TELEGRAM_PROXY_URL:
+    apihelper.proxy = {
+        "http": TELEGRAM_PROXY_URL,
+        "https": TELEGRAM_PROXY_URL,
+    }
 
 bot = telebot.TeleBot(BOT_TOKEN)
