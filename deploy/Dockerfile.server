@@ -1,0 +1,30 @@
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /opt/tbot
+
+COPY requirements-base.txt requirements-v1.txt ./
+RUN sed '/^--extra-index-url /d; /^t-tech-investments==/d' requirements-base.txt > /tmp/requirements-public.txt \
+    && python -m pip install --no-cache-dir --index-url https://pypi.org/simple -r /tmp/requirements-public.txt
+
+# The official T-Bank package registry uses the Russian Trusted CA chain.
+COPY deploy/russian_trusted_root_ca.crt /usr/local/share/ca-certificates/
+COPY deploy/russian_trusted_sub_ca.crt /usr/local/share/ca-certificates/
+COPY deploy/russian_trusted_sub_ca_2024.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+ENV PIP_CERT=/etc/ssl/certs/ca-certificates.crt
+RUN python -m pip install --no-cache-dir --index-url https://opensource.tbank.ru/api/v4/projects/238/packages/pypi/simple \
+    --extra-index-url https://pypi.org/simple t-tech-investments==1.51.0
+
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
+COPY app/ ./app/
+
+# The legacy database engine opens ./database.db during import, even when
+# account databases live under data/users. Allow the unprivileged runtime user
+# to create that local SQLite file.
+RUN chown -R 1000:1000 /opt/tbot
+USER 1000:1000
+
+CMD ["python", "app/run.py"]

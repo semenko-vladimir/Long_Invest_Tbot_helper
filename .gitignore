@@ -1,4 +1,6 @@
 database.db
+backups/
+economic-news-reports/
 *.db-wal
 *.db-shm
 .env

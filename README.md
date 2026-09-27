@@ -47,6 +47,10 @@ For Ubuntu transfer and continued development, see [the Ubuntu transfer guide](d
 
 ## Market monitoring and news
 
+Для сравнения локальных моделей на вымышленных экономических новостях в
+репозитории есть отдельный [бенчмарк](docs/economic_news_benchmark.md).
+Он не входит в runtime Telegram-бота и не создаёт торговых поручений.
+
 Monitoring is opt-in for each enabled Telegram user. Open **Monitoring** in the bot or use `/monitor` to view settings. `/monitor_alerts on` enables urgent notifications; `/monitor_digest on` enables the daily 09:00 Moscow digest. `/monitor_scope owned` covers positions across all enabled accounts and the watchlist; `/monitor_scope market` covers MOEX TQBR shares. `/monitor_threshold 5` and `/monitor_time 09:00` change the price threshold and digest time. `/monitor_source add moex_main` or `/monitor_source add https://example.org/feed.xml` adds an RSS/Atom source; `remove` removes it. The bot polls every five minutes while at least one subscription is enabled. A cached intraday chart is attached to a price notification when available; text is sent otherwise.
 
 Default feeds are [MOEX main news](https://www.moex.com/export/news.aspx?cat=101), [MOEX listing news](https://www.moex.com/export/news.aspx?cat=104), [Bank of Russia news](https://www.cbr.ru/rss/eventrss), and [Bank of Russia press releases](https://www.cbr.ru/rss/RssPress). Other issuer news requires a user-supplied RSS/Atom feed. News relevance currently uses transparent rules; `NewsAnalyzer` is the interface for a future local model. MOEX ISS quotes may be delayed, and the bot labels price messages accordingly.

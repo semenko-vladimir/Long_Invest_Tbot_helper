@@ -1,0 +1,78 @@
+{
+  "title": "Вымышленные экономические новости — воспроизводимый набор 1",
+  "notice": "Все страны, даты и цифры ниже вымышлены. Это тест рассуждения, а не текущие финансовые данные.",
+  "cases": [
+    {
+      "id": "C1",
+      "question": "Как изменилась приблизительная ожидаемая реальная ставка после нового опроса? Укажите изменение в процентных пунктах.",
+      "documents": [
+        {"id": "CB-OLD", "text": "Официальный протокол: ключевая ставка 10,0%; прежняя оценка инфляционных ожиданий на год — 9,0%."},
+        {"id": "CB-NEW", "text": "Новый официальный опрос: ставка остаётся 10,0%, инфляционные ожидания на год снизились до 7,0%."},
+        {"id": "CB-BLOG", "text": "Блог утверждает: раз ставка не изменилась, реальные денежные условия тоже не изменились."}
+      ],
+      "directions": ["tighter", "unchanged", "looser"],
+      "limits": ["ex_ante_estimate", "proves_recession", "guarantees_currency_rise"],
+      "gold": {"direction": "tighter", "value": 2.0, "evidence": ["CB-OLD", "CB-NEW"], "limit": "ex_ante_estimate"}
+    },
+    {
+      "id": "C2",
+      "question": "Какой чистый вклад текущего месяца и пересмотров прошлых двух месяцев в изменение ранее опубликованного трёхмесячного итога? Ответ в тысячах рабочих мест.",
+      "documents": [
+        {"id": "LAB-NEW", "text": "Официальный новый отчёт: в текущем месяце занятость выросла на 180 тыс."},
+        {"id": "LAB-REVISIONS", "text": "Пересмотр прошлых двух месяцев: ранее опубликованные приросты были завышены на 120 тыс. и 80 тыс. соответственно. Для этой задачи прочие поправки к опубликованному ранее итогу равны нулю."},
+        {"id": "LAB-POST", "text": "Социальная сеть: заголовок +180 тыс. доказывает ускорение рынка труда и исключает рецессию."}
+      ],
+      "directions": ["weaker", "stronger", "unchanged"],
+      "limits": ["no_recession_proof", "recession_certain", "wages_known"],
+      "gold": {"direction": "weaker", "value": -20.0, "evidence": ["LAB-NEW", "LAB-REVISIONS"], "limit": "no_recession_proof"}
+    },
+    {
+      "id": "C3",
+      "question": "Как изменится экспортная выручка в той же валюте при указанных изменениях цены и объёма? Ответ в процентах.",
+      "documents": [
+        {"id": "TRADE-PRICE", "text": "Таможенная статистика: цена экспортируемого товара в валюте контракта снизилась на 12%."},
+        {"id": "TRADE-VOLUME", "text": "Таможенная статистика: физический объём экспорта вырос на 5%."},
+        {"id": "TRADE-BLOG", "text": "Колонка: рост объёма на 5% гарантирует рост валюты страны."}
+      ],
+      "directions": ["lower_export_revenue", "higher_export_revenue", "unchanged"],
+      "limits": ["fx_unknown", "currency_must_rise", "trade_balance_known"],
+      "gold": {"direction": "lower_export_revenue", "value": -7.6, "evidence": ["TRADE-PRICE", "TRADE-VOLUME"], "limit": "fx_unknown"}
+    },
+    {
+      "id": "C4",
+      "question": "Оцените заголовок об ускорении инфляции: на сколько процентных пунктов изменилась годовая инфляция?",
+      "documents": [
+        {"id": "CPI-OLD", "text": "Предыдущий официальный выпуск: годовая инфляция 4,5%, месячная 0,2%."},
+        {"id": "CPI-NEW", "text": "Новый официальный выпуск: годовая инфляция 4,1%, месячная 0,3%."},
+        {"id": "CPI-HEADLINE", "text": "Новостной заголовок: инфляция ускорилась по всем показателям."}
+      ],
+      "directions": ["mixed", "all_accelerated", "all_slowed"],
+      "limits": ["frequencies_differ", "price_level_fell", "monthly_rate_unknown"],
+      "gold": {"direction": "mixed", "value": -0.4, "evidence": ["CPI-OLD", "CPI-NEW"], "limit": "frequencies_differ"}
+    },
+    {
+      "id": "C5",
+      "question": "Каков спред доходности 10-летней облигации минус 2-летней, в процентных пунктах?",
+      "documents": [
+        {"id": "BOND-2Y", "text": "Официальная котировка двухлетней государственной облигации: 4,8% годовых."},
+        {"id": "BOND-10Y", "text": "Официальная котировка десятилетней государственной облигации: 4,2% годовых."},
+        {"id": "BOND-POST", "text": "Пост: отрицательный спред точно означает рецессию в следующем месяце."}
+      ],
+      "directions": ["inverted_curve", "normal_curve", "flat_curve"],
+      "limits": ["timing_unknown", "recession_next_month", "default_certain"],
+      "gold": {"direction": "inverted_curve", "value": -0.6, "evidence": ["BOND-2Y", "BOND-10Y"], "limit": "timing_unknown"}
+    },
+    {
+      "id": "C6",
+      "question": "Как изменились реальные расходы при указанных индексах? Ответ в процентах, с округлением до десятых.",
+      "documents": [
+        {"id": "SPEND-NOMINAL", "text": "Статистическое управление: номинальные расходы выросли на 8,0%."},
+        {"id": "SPEND-PRICES", "text": "Сопоставимый индекс цен именно для этих расходов вырос на 10,0%."},
+        {"id": "SPEND-BLOG", "text": "Блог: номинальный рост 8% доказывает рост реального потребления на 8%."}
+      ],
+      "directions": ["real_spending_down", "real_spending_up", "unchanged"],
+      "limits": ["composition_unknown", "all_households_down", "volume_up_eight"],
+      "gold": {"direction": "real_spending_down", "value": -1.8, "evidence": ["SPEND-NOMINAL", "SPEND-PRICES"], "limit": "composition_unknown"}
+    }
+  ]
+}
