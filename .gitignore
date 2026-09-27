@@ -8,6 +8,7 @@ user_strategies/
 .test-user-dbs/
 venv
 venv*/
+.venv/
 node_modules/
 log/log.txt
 __pycache__/

@@ -109,6 +109,8 @@ def _baseline_revision_for_existing_schema(db_path: Path) -> str | None:
             }
             if not table_names or "alembic_version" in table_names:
                 return None
+            if {"monitoring_preferences", "monitoring_events", "monitoring_runs"}.issubset(table_names):
+                return "a3d9c8b7e621"
             if _has_multi_account_foundation(table_names):
                 return "f7a4c2e9b103"
             if "price_candles" in table_names:
@@ -211,3 +213,4 @@ def _create_database_handle(db_path: Path) -> UserDatabaseHandle:
 def _ensure_models_registered() -> None:
     import app.backend.models.accounts  # noqa: F401
     import app.backend.models.trading  # noqa: F401
+    import app.backend.models.monitoring  # noqa: F401

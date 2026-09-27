@@ -14,6 +14,7 @@ COMMON_HELP_TEXT = (
     "- `Watchlist` - add or remove tickers to follow\n"
     "- `Stats` - basic text statistics for manual trades\n"
     "- `Reports` - simple reminder/report setup notes\n\n"
+    "- `Monitoring` - market alerts, news sources, and morning digest\n\n"
     "Read-only commands:\n"
     "- `chart SBER month` - read-only price chart\n"
     "- `position_chart SBER month` - current quantity value chart\n"

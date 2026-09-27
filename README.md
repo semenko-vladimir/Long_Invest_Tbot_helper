@@ -10,7 +10,7 @@ The previous research/web-terminal direction has been archived locally in `../Tb
 
 ## Direction and safety
 
-The intended future direction is automatic market and event monitoring with Telegram notifications. Monitoring, news/fundamental analysis, LLM analysis, ratings, and alert rules are not implemented by this cleanup.
+Read-only market and news monitoring with Telegram notifications is available by opt-in. News analysis currently uses deterministic rules; a local LLM implementation, fundamental analysis, and ratings remain future work.
 
 No automatic trading is allowed. `APP_MODE`, `ALLOW_PROD_TRADING`, `ModeService`, `OrderService`, `TInvestBroker`, and manual preview/confirmation safeguards remain in force. Signals, reminders, analysis, and future monitoring events must never call broker order methods.
 
@@ -42,3 +42,13 @@ Start the Telegram runtime with:
 ```
 
 The archive is outside the Git repository and must not be staged or committed with Tbot.
+
+For Ubuntu transfer and continued development, see [the Ubuntu transfer guide](docs/ubuntu-transfer.md).
+
+## Market monitoring and news
+
+Monitoring is opt-in for each enabled Telegram user. Open **Monitoring** in the bot or use `/monitor` to view settings. `/monitor_alerts on` enables urgent notifications; `/monitor_digest on` enables the daily 09:00 Moscow digest. `/monitor_scope owned` covers positions across all enabled accounts and the watchlist; `/monitor_scope market` covers MOEX TQBR shares. `/monitor_threshold 5` and `/monitor_time 09:00` change the price threshold and digest time. `/monitor_source add moex_main` or `/monitor_source add https://example.org/feed.xml` adds an RSS/Atom source; `remove` removes it. The bot polls every five minutes while at least one subscription is enabled. A cached intraday chart is attached to a price notification when available; text is sent otherwise.
+
+Default feeds are [MOEX main news](https://www.moex.com/export/news.aspx?cat=101), [MOEX listing news](https://www.moex.com/export/news.aspx?cat=104), [Bank of Russia news](https://www.cbr.ru/rss/eventrss), and [Bank of Russia press releases](https://www.cbr.ru/rss/RssPress). Other issuer news requires a user-supplied RSS/Atom feed. News relevance currently uses transparent rules; `NewsAnalyzer` is the interface for a future local model. MOEX ISS quotes may be delayed, and the bot labels price messages accordingly.
+
+The optional `monitoring` object in each `users.json` entry accepts `alerts_enabled`, `digest_enabled`, `scope` (`owned` or `market`), `threshold_pct`, `digest_time` (`HH:MM` Moscow), and `sources` (list of built-in names or HTTPS feed URLs). Explicit keys in this file override Telegram choices; an empty object leaves every field editable in Telegram. Settings and event history live in each user's SQLite database. Monitoring never sends broker orders.

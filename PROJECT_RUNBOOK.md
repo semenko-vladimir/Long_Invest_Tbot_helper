@@ -16,4 +16,4 @@ Run tests with:
 .\venv312\Scripts\python.exe -m unittest discover -q
 ```
 
-The future monitoring direction is market/event observation with Telegram notifications. It is not implemented yet. No signal, reminder, analysis, or monitoring event may create a broker order.
+Read-only market and news monitoring is available by opt-in through `/monitor`. No signal, reminder, analysis, or monitoring event may create a broker order. For Ubuntu setup, Git bundle transfer, and optional systemd operation, see [docs/ubuntu-transfer.md](docs/ubuntu-transfer.md).

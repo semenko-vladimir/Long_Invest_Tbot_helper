@@ -19,7 +19,9 @@ Tbot v1 runs as a local Telegram polling process. The former FastAPI/web-termina
    .\venv312\Scripts\python.exe app\run.py
    ```
 
-The bot supports Telegram portfolio, positions, watchlist, dividends, charts, settings, and manual order preview/confirmation. No automatic market monitoring or auto-trading is implemented.
+The bot supports Telegram portfolio, positions, watchlist, dividends, charts, settings, opt-in read-only market/news monitoring, and manual order preview/confirmation. No automatic trading is added.
+
+Ubuntu setup and transfer instructions are in [docs/ubuntu-transfer.md](docs/ubuntu-transfer.md).
 
 The active broker dependency is `t-tech-investments` from the official T-Bank Python package index declared in `requirements-base.txt`. Sandbox remains the default and uses `sandbox-invest-public-api.tbank.ru:443`; production requires the existing explicit mode and safety configuration.
 

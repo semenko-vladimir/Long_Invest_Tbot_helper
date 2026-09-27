@@ -9,7 +9,8 @@
       "token": "",
       "broker_fee": 0.3,
       "db_path": "data/users/default/database.db",
-      "enabled": true
+      "enabled": true,
+      "monitoring": {}
     }
   ]
 }

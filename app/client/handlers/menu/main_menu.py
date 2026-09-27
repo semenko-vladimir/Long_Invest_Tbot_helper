@@ -9,13 +9,15 @@ TRADING_MAIN_MENU_BUTTONS = (
     ("Portfolio", "Buy"),
     ("Sell", "Dividends"),
     ("Watchlist", "Stats"),
-    ("Reports", "Help"),
+    ("Reports", "Monitoring"),
+    ("Help",),
 )
 
 READ_ONLY_MAIN_MENU_BUTTONS = (
     ("Portfolio", "Dividends"),
     ("Watchlist", "Stats"),
-    ("Reports", "Help"),
+    ("Reports", "Monitoring"),
+    ("Help",),
 )
 
 

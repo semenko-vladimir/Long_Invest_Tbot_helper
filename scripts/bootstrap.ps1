@@ -29,7 +29,7 @@ Write-Host "Installing minimal investor v1 dependencies..."
 
 if (-not (Test-Path -LiteralPath ".env")) {
     Copy-Item -LiteralPath ".env.example" -Destination ".env"
-    Write-Host "Created .env from .env.example. Fill BOT_TOKEN, SANDBOX_TOKEN, and CHAT_ID before starting."
+    Write-Host "Created .env from .env.example. Fill BOT_TOKEN before starting."
 } else {
     Write-Host ".env already exists; leaving it unchanged."
 }
@@ -38,4 +38,3 @@ Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  .\venv\Scripts\Activate.ps1"
 Write-Host "  python app/run.py"
-Write-Host "  curl http://localhost:8000/"

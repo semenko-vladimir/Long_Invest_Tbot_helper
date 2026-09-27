@@ -12,6 +12,8 @@ sys.path.append(str(ROOT_DIR))
 from app.client.bot.bot import bot
 from app.client.config.investor_reminders import configure_investor_reminders
 from app.client.config.schedulers_config import configure_schedulers
+from app.client.config.monitoring_scheduler import configure_monitoring_scheduler
+import app.client.handlers.monitoring_handler  # noqa: F401 - registers commands
 from app.client.config import ConfigError, get_invest_mode, validate_startup_config
 from app.client.config.db_config import configure_database, DatabaseConfigError
 from app.client.log.logger import setup_logger
@@ -103,6 +105,7 @@ if __name__ == '__main__':
         configure_schedulers()
         logger.info("Планировщики успешно настроены")
         configure_investor_reminders()
+        configure_monitoring_scheduler()
         
         # Запуск бота
         logger.info("Запуск бота...")

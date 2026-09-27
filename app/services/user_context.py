@@ -17,6 +17,7 @@ class UserContext:
     db_path: str
     sandbox_token: Optional[str] = None
     token: Optional[str] = None
+    monitoring: Optional[dict] = None
 
     @classmethod
     def from_config(cls, user: UserConfig) -> "UserContext":
@@ -28,6 +29,7 @@ class UserContext:
             token=user.token,
             broker_fee=user.broker_fee,
             db_path=user.db_path,
+            monitoring=user.monitoring,
         )
 
     @property

@@ -1,10 +1,9 @@
 services:
   main_bot:
-    build:
-      context: .
-    container_name: bot
-    env_file:
-      - .env
-    restart: on-failure
-    volumes: 
-      - ./app:/app
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    init: true
+    volumes:
+      - ./users.json:/opt/tbot/users.json:ro
+      - ./data/users:/opt/tbot/data/users

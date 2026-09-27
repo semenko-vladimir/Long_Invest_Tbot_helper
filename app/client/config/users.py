@@ -25,6 +25,7 @@ class UserConfig:
     sandbox_token: Optional[str] = None
     token: Optional[str] = None
     enabled: bool = True
+    monitoring: Optional[dict] = None
 
     @property
     def tokens(self) -> dict:
@@ -197,7 +198,16 @@ def _parse_user(raw_user: Any, config_path: Path) -> UserConfig:
         broker_fee=broker_fee,
         db_path=db_path,
         enabled=enabled,
+        monitoring=_parse_monitoring(raw_user.get("monitoring")),
     )
+
+
+def _parse_monitoring(value: Any) -> Optional[dict]:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ConfigError("User monitoring settings must be a JSON object.")
+    return value
 
 
 def _validate_unique_users(users: list[UserConfig], config_path: Path) -> None:

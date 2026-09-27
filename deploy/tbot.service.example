@@ -1,0 +1,15 @@
+[Unit]
+Description=Tbot Telegram investor assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=REPLACE_WITH_ABSOLUTE_PROJECT_PATH
+ExecStart=REPLACE_WITH_ABSOLUTE_PROJECT_PATH/.venv/bin/python app/run.py
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
