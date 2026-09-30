@@ -2,8 +2,8 @@
 
 The Telegram bot runs in the `investment-tbot` container from
 `/home/feelwent/apps/investment-tbot`. Its Docker image is
-`investment-tbot:20260927` and its data directory is `data/users/default`.
-The old `tbot` container remains stopped and available for rollback.
+`investment-tbot:20261001-news-fix` and its data directory is
+`data/users/default`. Earlier bot containers remain stopped for rollback.
 
 ## User configuration
 
@@ -43,7 +43,11 @@ The original database was backed up to `backups/legacy_tbot_20260927.db` using
 SQLite's online backup API. Its migrated copy is in
 `data/users/default/database.db`. The migration preserved all original table
 row counts; both the original database and backup remain untouched. The
-current database schema revision is `a3d9c8b7e621`.
+current database schema revision is `d6e2a4b91c30`. The online SQLite backup
+and matching `.env`/`users.json` copies from before the news migration have the
+prefix `backups/pre_news_20260930T232006Z`; the backup revision is
+`a3d9c8b7e621`. The migration was checked on a copy before updating the live
+database.
 The switch to read-only real portfolio mode backed up `.env`, `users.json`,
 and the live SQLite database under `backups/pre_readonly_20260927T191926Z.*`.
 
@@ -65,14 +69,25 @@ curl --proxy http://127.0.0.1:12335 \
 ```
 
 HTTP 302 is a valid response for the Telegram API root. Verify the bot token
-with `deploy/verify-telegram.py` from the image before changing polling bots.
+and inactive webhook from the running container before changing polling bots.
 Only one container may poll Telegram with the same token at a time.
+
+On 1 October the `telegram-auto` route selected an unreachable node. The
+working route was `node-3`; the private refresh script now checks candidate
+nodes through a canary proxy and keeps the first route that reaches Telegram.
+It runs from `/home/feelwent/.config/investment-vpn/refresh.py`, outside this
+repository. Configuration backups remain in that private directory. Check the
+timer result and proxy response after any subscription change.
 
 ## Switching containers
 
-The current container was recreated after the mode change so its file mounts
-point to the updated config. It uses host networking, with
+The current container is on Git commit `d25cd76`. It uses host networking, with
 `TELEGRAM_PROXY_URL=http://127.0.0.1:12335`, and mounts `.env`, `users.json`,
-and `data`. A service-level verification found two real accounts and five
-positions, with trading disabled; the portfolio handler successfully sent a
-Telegram message. Keep the old project and database for rollback.
+and `data`. A service-level verification found two current broker accounts and
+five positions. An older third account still exists in SQLite; monitoring
+discovery excludes it. Trading remains disabled. `NEWS_LLM_ENABLED=true` uses
+the local Qwen3.5-4B Q6_K. Monitoring alerts and the 09:00 Moscow digest are
+enabled for the configured user with the default `owned` scope and 5% price
+threshold. A clearly labeled test alert was delivered through
+`MonitoringRunner._send_alerts` without writing a synthetic event to the live
+database. Keep the stopped prior containers and database backup for rollback.
