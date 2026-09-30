@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -48,6 +48,30 @@ class MonitoringTests(unittest.TestCase):
         self.assertIn("+6.00%", sent[0])
         with self.factory() as db:
             self.assertEqual(db.query(MonitoringEvent).count(), 1)
+
+    def test_monitoring_uses_current_broker_accounts_before_local_stale_rows(self):
+        current = SimpleNamespace(investment_account_id=2, status="open")
+        stale = SimpleNamespace(investment_account_id=1, status="open")
+        registry = SimpleNamespace(
+            sync_accounts=Mock(return_value=SimpleNamespace(accounts=(current,))),
+            list_enabled_accounts=Mock(return_value=(stale, current)),
+        )
+        services = SimpleNamespace(
+            account_registry=registry,
+            portfolio_service=SimpleNamespace(get_account_portfolio=lambda _: SimpleNamespace(positions=())),
+            watchlist_service=SimpleNamespace(list_items=lambda: SimpleNamespace(items=())),
+        )
+        with patch("app.services.monitoring.session_factory_for_user", return_value=self.factory), patch(
+            "app.client.handlers.user_context.build_telegram_services", return_value=services,
+        ):
+            runner = MonitoringRunner(self.user, send_text=lambda *_: None)
+            _, _, accounts = runner._interests()
+            self.assertEqual(accounts, (current,))
+            registry.list_enabled_accounts.assert_not_called()
+
+            registry.sync_accounts.side_effect = RuntimeError("broker temporarily unavailable")
+            _, _, fallback_accounts = runner._interests()
+            self.assertEqual(fallback_accounts, (stale, current))
 
     def test_news_digested_without_alert_when_old(self):
         sent = []

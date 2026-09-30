@@ -63,13 +63,12 @@ class MonitoringRunner:
         from app.client.handlers.user_context import build_telegram_services
 
         services = build_telegram_services(self.user)
-        accounts = tuple(account for account in services.account_registry.list_enabled_accounts()
-                         if str(account.status or "").lower() == "open")
-        if not accounts:
-            try:
-                accounts = services.account_registry.sync_accounts().accounts
-            except Exception:
-                logger.warning("Account discovery failed for monitoring user_id=%s", self.user.user_id)
+        try:
+            discovered = services.account_registry.sync_accounts().accounts
+        except Exception:
+            logger.warning("Account discovery failed for monitoring user_id=%s", self.user.user_id)
+            discovered = services.account_registry.list_enabled_accounts()
+        accounts = tuple(account for account in discovered if str(account.status or "").lower() == "open")
         by_ticker = defaultdict(list)
         names = {}
         db = self.session_factory()
