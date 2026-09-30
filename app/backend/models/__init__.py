@@ -16,7 +16,9 @@ from app.backend.models.accounts import (
     PositionSnapshot,
     StrategyProfile,
 )
-from app.backend.models.monitoring import MonitoringPreference, MonitoringEvent, MonitoringRun
+from app.backend.models.monitoring import (
+    MonitoringPreference, MonitoringEvent, MonitoringRun, NewsArticle, NewsAnalysisJob,
+)
 
 # Create all tables in the database
 def create_all_tables():

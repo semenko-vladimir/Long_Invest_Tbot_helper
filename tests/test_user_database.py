@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 from alembic.config import Config
+from alembic import command
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 
@@ -136,6 +137,33 @@ class UserDatabaseTests(unittest.TestCase):
                 version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
                 script = ScriptDirectory.from_config(Config("alembic.ini"))
                 self.assertEqual(version, script.get_current_head())
+        finally:
+            engine.dispose()
+
+    def test_news_queue_migration_preserves_existing_monitoring_events(self):
+        db_path = TEST_DB_DIR / "monitoring-old" / "database.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        config = Config("alembic.ini")
+        config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path.as_posix()}")
+        command.upgrade(config, "a3d9c8b7e621")
+        engine = create_engine(f"sqlite:///{db_path.as_posix()}")
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "INSERT INTO monitoring_events (event_key, kind, title, source, published_at, observed_at) "
+                    "VALUES ('old-news', 'news', 'Old news', 'moex_main', '2026-09-30', '2026-09-30')"
+                ))
+        finally:
+            engine.dispose()
+        run_migrations_for_user(str(db_path))
+        engine = create_engine(f"sqlite:///{db_path.as_posix()}")
+        try:
+            with engine.connect() as conn:
+                self.assertEqual(conn.execute(text("SELECT title FROM monitoring_events WHERE event_key='old-news'")).scalar_one(),
+                                 "Old news")
+                self.assertIn("investment_account_id", _table_columns(conn, "monitoring_events"))
+                self.assertEqual(conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one(),
+                                 "d6e2a4b91c30")
         finally:
             engine.dispose()
 

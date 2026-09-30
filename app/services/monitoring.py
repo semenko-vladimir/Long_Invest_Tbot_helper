@@ -1,6 +1,5 @@
 """Read-only market/news monitoring and per-user Telegram delivery."""
 
-import hashlib
 import json
 import logging
 from collections import defaultdict
@@ -11,10 +10,10 @@ from sqlalchemy.exc import IntegrityError
 
 from app.backend.models.accounts import PortfolioSnapshot, PositionSnapshot
 from app.backend.models.monitoring import MonitoringEvent, MonitoringRun
-from app.integrations.moex_iss import MOEXISSClient
-from app.integrations.moex_market_monitor import fetch_stock_quotes
+from app.integrations.moex_market_monitor import fetch_monitoring_quotes
 from app.services.monitoring_settings import MonitoringSettingsService
 from app.services.news_analysis import RuleNewsAnalyzer
+from app.services.news_queue import NewsQueue
 from app.services.news_sources import fetch_feed
 from app.services.user_context import UserContext
 from app.services.user_database import session_factory_for_user
@@ -35,16 +34,16 @@ class MonitoringRunner:
         self.settings_service = MonitoringSettingsService(self.session_factory, user)
         self.send_text = send_text
         self.send_chart = send_chart
-        self.quote_fetcher = quote_fetcher or (lambda today: fetch_stock_quotes(MOEXISSClient(), today))
+        self.quote_fetcher = quote_fetcher or fetch_monitoring_quotes
         self.feed_fetcher = feed_fetcher or fetch_feed
-        self.analyzer = analyzer or RuleNewsAnalyzer()
+        self.news_queue = NewsQueue(self.session_factory, user, prefilter=analyzer or RuleNewsAnalyzer())
 
     def run(self, now: datetime | None = None) -> None:
         now = now or datetime.now(timezone.utc)
         settings = self.settings_service.get()
         if not (settings.alerts_enabled or settings.digest_enabled):
             return
-        accounts_by_ticker, names = self._interests()
+        accounts_by_ticker, names, accounts = self._interests()
         failures = []
         try:
             quotes = self.quote_fetcher(now.astimezone(MOSCOW).date())
@@ -53,11 +52,11 @@ class MonitoringRunner:
         except Exception:
             failures.append("MOEX ISS")
             logger.exception("Market monitor failed for user_id=%s", self.user.user_id)
-        failures.extend(self._record_news(settings, names, accounts_by_ticker, now))
+        failures.extend(self._record_news(settings, names, accounts_by_ticker, accounts, now))
         if settings.alerts_enabled:
-            self._send_alerts(settings, accounts_by_ticker, now)
+            self._send_alerts(settings, accounts_by_ticker, accounts, now)
         if settings.digest_enabled:
-            self._send_digest_if_due(settings, now, failures)
+            self._send_digest_if_due(settings, accounts, now, failures)
 
     def _interests(self):
         # Existing account snapshots preserve account identity and avoid broker reads on each poll.
@@ -94,7 +93,7 @@ class MonitoringRunner:
                 by_ticker.setdefault(item.ticker, [])
         finally:
             db.close()
-        return by_ticker, names
+        return by_ticker, names, accounts
 
     def _record_prices(self, quotes, settings, accounts_by_ticker, now):
         for ticker, quote in quotes.items():
@@ -107,9 +106,8 @@ class MonitoringRunner:
             title = f"{ticker}: {quote.change_pct:+.2f}% к предыдущему закрытию ({quote.last:.2f} ₽)"
             self._record(key, "price", ticker, title, "MOEX ISS", now, None, {"change_pct": quote.change_pct}, now)
 
-    def _record_news(self, settings, names, accounts_by_ticker, now):
+    def _record_news(self, settings, names, accounts_by_ticker, accounts, now):
         cutoff = utc_naive(now - timedelta(days=2))
-        contexts = tuple({a.investment_account_id: a for group in accounts_by_ticker.values() for a in group}.values())
         failures = []
         for source in settings.sources:
             try:
@@ -122,14 +120,12 @@ class MonitoringRunner:
                 published = utc_naive(item.published_at)
                 if published < cutoff or published > utc_naive(now + timedelta(minutes=10)):
                     continue
-                assessment = self.analyzer.assess(item, names, contexts)
-                if not assessment.important:
-                    continue
-                if settings.scope == "owned" and assessment.ticker and assessment.ticker not in accounts_by_ticker:
-                    continue
-                key = "news:" + hashlib.sha256(item.url.encode("utf-8")).hexdigest()
-                self._record(key, "news", assessment.ticker, item.title, item.source, item.published_at, item.url,
-                             {"reason": assessment.reason}, now)
+                try:
+                    self.news_queue.enqueue(item, names, accounts_by_ticker, accounts, settings.scope, now)
+                except Exception:
+                    if source not in failures:
+                        failures.append(source)
+                    logger.exception("News intake failed: source=%s user_id=%s", source, self.user.user_id)
         return failures
 
     def _record(self, key, kind, ticker, title, source, published, url, payload, observed):
@@ -144,7 +140,8 @@ class MonitoringRunner:
         finally:
             db.close()
 
-    def _send_alerts(self, settings, accounts_by_ticker, now):
+    def _send_alerts(self, settings, accounts_by_ticker, accounts, now):
+        account_by_id = {account.investment_account_id: account for account in accounts}
         db = self.session_factory()
         try:
             pending = db.query(MonitoringEvent).filter(
@@ -152,11 +149,15 @@ class MonitoringRunner:
                 MonitoringEvent.observed_at >= utc_naive(now - timedelta(minutes=10)),
             ).order_by(MonitoringEvent.published_at).all()
             for event in pending:
+                if event.kind == "news" and event.source not in settings.sources:
+                    continue
                 if event.kind == "news" and event.published_at < utc_naive(now - timedelta(minutes=30)):
+                    continue
+                if event.investment_account_id and event.investment_account_id not in account_by_id:
                     continue
                 if settings.scope == "owned" and event.ticker and event.ticker not in accounts_by_ticker:
                     continue
-                text = self._format_event(event, accounts_by_ticker)
+                text = self._format_event(event, accounts_by_ticker, accounts)
                 try:
                     sent_chart = False
                     if event.kind == "price" and self.send_chart:
@@ -175,13 +176,39 @@ class MonitoringRunner:
         finally:
             db.close()
 
-    def _format_event(self, event, accounts_by_ticker):
+    def _format_event(self, event, accounts_by_ticker, accounts=()):
         lines = ["📈 Движение цены" if event.kind == "price" else "📰 Новость", event.title]
         if event.ticker:
             lines.append(f"Бумага: {event.ticker}")
-        for account in accounts_by_ticker.get(event.ticker, ()):
+        account_id = getattr(event, "investment_account_id", None)
+        if account_id:
+            affected = (account for account in accounts if account.investment_account_id == account_id)
+        else:
+            affected = accounts_by_ticker.get(event.ticker, ())
+        for account in affected:
             strategy = account.strategy.title if account.strategy and account.strategy.title else "без стратегии"
             lines.append(f"Счёт: {account.account_name} · {strategy}")
+        if event.kind == "news" and event.payload_json:
+            try:
+                payload = json.loads(event.payload_json)
+            except (TypeError, ValueError, AttributeError):
+                payload = {}
+            reason = payload.get("reason") if isinstance(payload, dict) else None
+            if reason:
+                label = "Оценка модели" if payload.get("analysis_status") == "model" else "Причина отбора"
+                lines.append(f"{label}: {reason}")
+            if isinstance(payload, dict) and payload.get("analysis_status") == "model":
+                analysis = payload.get("analysis") or {}
+                direction = {"positive": "положительное", "negative": "отрицательное",
+                             "mixed": "смешанное", "neutral": "нейтральное", "unknown": "неизвестно"}
+                lines.append("Разбор Qwen · справочная оценка")
+                lines.append("Возможное влияние: " + direction.get(analysis.get("impact"), "неизвестно"))
+                for fact in (analysis.get("facts") or [])[:4]:
+                    lines.append("• " + str(fact)[:180])
+                for limitation in (analysis.get("limitations") or [])[:3]:
+                    lines.append("Ограничение: " + str(limitation)[:180])
+            elif isinstance(payload, dict) and payload.get("analysis_status") == "unavailable":
+                lines.append("Анализ модели недоступен; показан отбор по правилам.")
         lines.append(f"Источник: {event.source} · {event.published_at.strftime('%d.%m %H:%M')} UTC")
         if event.kind == "price":
             lines.append("MOEX ISS: данные могут поступать с задержкой.")
@@ -189,7 +216,7 @@ class MonitoringRunner:
             lines.append(event.url)
         return "\n".join(lines)
 
-    def _send_digest_if_due(self, settings, now, failures):
+    def _send_digest_if_due(self, settings, accounts, now, failures):
         local = now.astimezone(MOSCOW)
         hour, minute = map(int, settings.digest_time.split(":"))
         if (local.hour, local.minute) < (hour, minute):
@@ -205,10 +232,13 @@ class MonitoringRunner:
                 return
             since = run.last_digest_at or utc_naive(now - timedelta(days=1))
             events = db.query(MonitoringEvent).filter(MonitoringEvent.observed_at > since).order_by(MonitoringEvent.observed_at.desc()).limit(30).all()
-            news = [event for event in events if event.kind == "news"][:8]
+            account_names = {account.investment_account_id: account.account_name for account in accounts}
+            news = [event for event in events if event.kind == "news" and event.source in settings.sources and
+                    (event.investment_account_id is None or event.investment_account_id in account_names)][:8]
             prices = [event for event in events if event.kind == "price"][:8]
             lines = [f"☀️ Утренний дайджест · {local:%d.%m.%Y}", "", "Новости:"]
-            lines += [f"• {event.title}\n{event.url}" for event in news] or ["• За период важных новостей не найдено."]
+            lines += [self._digest_news_line(event, account_names) for event in news] or [
+                "• За период важных новостей не найдено."]
             lines += ["", "Движения:"]
             lines += [f"• {event.title}" for event in prices] or ["• Значительных движений не найдено."]
             if failures:
@@ -221,3 +251,14 @@ class MonitoringRunner:
             logger.exception("Digest failed for user_id=%s", self.user.user_id)
         finally:
             db.close()
+
+    @staticmethod
+    def _digest_news_line(event, account_names):
+        account = f" · {account_names[event.investment_account_id]}" if event.investment_account_id in account_names else ""
+        try:
+            payload = json.loads(event.payload_json or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        status = payload.get("analysis_status") if isinstance(payload, dict) else None
+        note = " · разбор Qwen по RSS" if status == "model" else " · модель недоступна" if status == "unavailable" else ""
+        return f"• {event.title}{account}{note}\nИсточник: {event.source} · {event.url}"

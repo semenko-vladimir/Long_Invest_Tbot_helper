@@ -12,6 +12,10 @@ import requests
 from app.services.monitoring_settings import SOURCE_URLS, validate_source
 
 
+MAX_FEED_ITEMS = 100
+MAX_FEED_BYTES = 10_000_000
+
+
 @dataclass(frozen=True)
 class NewsItem:
     source: str
@@ -19,6 +23,7 @@ class NewsItem:
     url: str
     published_at: datetime
     summary: str = ""
+    full_text: str = ""
 
 
 def _public_host(url: str) -> bool:
@@ -47,30 +52,44 @@ def fetch_feed(source: str, *, session=None, now=None) -> list[NewsItem]:
         url = validate_source(target)
     else:
         raise ValueError("Too many RSS redirects.")
+    now = now or datetime.now(timezone.utc)
+    result: list[NewsItem] = []
+    parser = ElementTree.XMLPullParser(events=("end",))
+    size = 0
     try:
         response.raise_for_status()
-        chunks = []
-        size = 0
         for chunk in response.iter_content(32768):
+            if not chunk:
+                continue
             size += len(chunk)
-            if size > 1_000_000:
-                raise ValueError("RSS response exceeds 1 MB.")
-            chunks.append(chunk)
-        root = ElementTree.fromstring(b"".join(chunks))
+            if size > MAX_FEED_BYTES:
+                raise ValueError("RSS response exceeds 10 MB before 100 items.")
+            parser.feed(chunk)
+            for _, node in parser.read_events():
+                if node.tag.rsplit("}", 1)[-1] not in {"item", "entry"}:
+                    continue
+                item = _parse_item(source, node, now)
+                node.clear()
+                if item is not None:
+                    result.append(item)
+                if len(result) >= MAX_FEED_ITEMS:
+                    return result
+        parser.close()
+        return result
     finally:
         response.close()
-    now = now or datetime.now(timezone.utc)
-    result = []
-    for node in list(root.findall(".//item")) + list(root.findall(".//{*}entry")):
-        title = (node.findtext("title") or node.findtext("{*}title") or "").strip()
-        link_node = node.find("{*}link")
-        link = (node.findtext("link") or (link_node.get("href") if link_node is not None else "") or "").strip()
-        date_text = node.findtext("pubDate") or node.findtext("{*}published") or node.findtext("{*}updated")
-        published = _parse_date(date_text, now)
-        summary = (node.findtext("description") or node.findtext("{*}summary") or "").strip()
-        if title and link.startswith(("https://", "http://")):
-            result.append(NewsItem(source, title[:500], link[:1000], published, summary[:1500]))
-    return result[:100]
+
+
+def _parse_item(source: str, node: ElementTree.Element, now: datetime) -> NewsItem | None:
+    title = (node.findtext("title") or node.findtext("{*}title") or "").strip()
+    link_node = node.find("{*}link")
+    link = (node.findtext("link") or (link_node.get("href") if link_node is not None else "") or "").strip()
+    date_text = node.findtext("pubDate") or node.findtext("{*}published") or node.findtext("{*}updated")
+    published = _parse_date(date_text, now)
+    summary = (node.findtext("description") or node.findtext("{*}summary") or "").strip()
+    if title and link.startswith(("https://", "http://")):
+        return NewsItem(source, title[:500], link[:1000], published, summary[:1500])
+    return None
 
 
 def _parse_date(value: str | None, fallback: datetime) -> datetime:

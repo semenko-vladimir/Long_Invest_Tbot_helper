@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.backend.models.database import Base
 from app.backend.models.monitoring import MonitoringEvent
-from app.integrations.moex_market_monitor import StockQuote, fetch_stock_quotes
+from app.integrations.moex_market_monitor import StockQuote, fetch_monitoring_quotes, fetch_stock_quotes
 from app.services.monitoring import MonitoringRunner
 from app.services.monitoring_settings import MonitoringSettingsService, validate_source
 from app.services.news_sources import NewsItem
@@ -40,7 +40,7 @@ class MonitoringTests(unittest.TestCase):
         with patch("app.services.monitoring.session_factory_for_user", return_value=self.factory):
             runner = MonitoringRunner(self.user, send_text=lambda _, message: sent.append(message),
                                       quote_fetcher=lambda _: {"SBER": quote}, feed_fetcher=lambda _: [])
-        runner._interests = lambda: ({"SBER": []}, {"SBER": "Сбербанк"})
+        runner._interests = lambda: ({"SBER": []}, {"SBER": "Сбербанк"}, ())
         runner.settings_service.update(alerts_enabled=True)
         runner.run(now)
         runner.run(now)
@@ -56,7 +56,7 @@ class MonitoringTests(unittest.TestCase):
         with patch("app.services.monitoring.session_factory_for_user", return_value=self.factory):
             runner = MonitoringRunner(self.user, send_text=lambda _, message: sent.append(message),
                                       quote_fetcher=lambda _: {}, feed_fetcher=lambda _: [item])
-        runner._interests = lambda: ({}, {})
+        runner._interests = lambda: ({}, {}, ())
         runner.settings_service.update(digest_enabled=True)
         runner.run(now)
         runner.run(now)
@@ -72,7 +72,7 @@ class MonitoringTests(unittest.TestCase):
         with patch("app.services.monitoring.session_factory_for_user", return_value=self.factory):
             runner = MonitoringRunner(self.user, send_text=lambda *_: None, quote_fetcher=lambda _: {}, feed_fetcher=lambda _: [])
         event = SimpleNamespace(kind="price", title="SBER: +6%", ticker="SBER", source="MOEX ISS",
-                                published_at=datetime(2026, 9, 28), url=None)
+                                published_at=datetime(2026, 9, 28), url=None, payload_json=None)
         first = SimpleNamespace(account_name="Брокерский", strategy=SimpleNamespace(title="Рост"))
         second = SimpleNamespace(account_name="ИИС", strategy=SimpleNamespace(title="Дивиденды"))
         text = runner._format_event(event, {"SBER": [first, second]})
@@ -90,6 +90,23 @@ class MonitoringTests(unittest.TestCase):
                 }
         self.assertAlmostEqual(fetch_stock_quotes(FakeClient(), date(2026, 9, 28))["SBER"].change_pct, 6)
         self.assertFalse(fetch_stock_quotes(FakeClient(), date(2026, 9, 29)))
+
+    def test_monitoring_quote_fetch_retries_once_with_longer_timeout(self):
+        trade_date = date(2026, 9, 28)
+        quote = StockQuote("SBER", "Сбербанк", 106, 100, trade_date)
+        with patch("app.integrations.moex_market_monitor.MOEXISSClient") as client, patch(
+            "app.integrations.moex_market_monitor.fetch_stock_quotes",
+            side_effect=[RuntimeError("temporary disconnect"), {"SBER": quote}],
+        ) as fetch:
+            self.assertEqual(fetch_monitoring_quotes(trade_date)["SBER"], quote)
+        client.assert_called_once_with(timeout_seconds=15)
+        self.assertEqual(fetch.call_count, 2)
+
+        with patch("app.integrations.moex_market_monitor.fetch_stock_quotes",
+                   side_effect=RuntimeError("still unavailable")) as fetch:
+            with self.assertRaises(RuntimeError):
+                fetch_monitoring_quotes(trade_date)
+        self.assertEqual(fetch.call_count, 2)
 
 
 if __name__ == "__main__":

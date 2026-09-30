@@ -109,6 +109,9 @@ def _baseline_revision_for_existing_schema(db_path: Path) -> str | None:
             }
             if not table_names or "alembic_version" in table_names:
                 return None
+            if {"news_articles", "news_analysis_jobs"}.issubset(table_names) and \
+                    "investment_account_id" in _table_columns(conn, "monitoring_events"):
+                return "d6e2a4b91c30"
             if {"monitoring_preferences", "monitoring_events", "monitoring_runs"}.issubset(table_names):
                 return "a3d9c8b7e621"
             if _has_multi_account_foundation(table_names):

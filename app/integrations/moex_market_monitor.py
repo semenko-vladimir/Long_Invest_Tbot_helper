@@ -46,3 +46,12 @@ def fetch_stock_quotes(client: MOEXISSClient, today: date) -> dict[str, StockQuo
         if len(securities) < 100:
             break
     return result
+
+
+def fetch_monitoring_quotes(today: date) -> dict[str, StockQuote]:
+    """Use a longer timeout and one retry for the paginated market scan."""
+    client = MOEXISSClient(timeout_seconds=15)
+    try:
+        return fetch_stock_quotes(client, today)
+    except RuntimeError:
+        return fetch_stock_quotes(client, today)
