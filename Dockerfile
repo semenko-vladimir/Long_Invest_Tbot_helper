@@ -13,5 +13,7 @@ RUN cat /etc/ssl/certs/ca-certificates.crt /tmp/build-certs/*.pem > /tmp/build-c
 COPY alembic.ini ./
 COPY alembic/ ./alembic/
 COPY app/ ./app/
+RUN chown -R 1000:1000 /opt/tbot
+USER 1000:1000
 
 CMD ["python", "app/run.py"]

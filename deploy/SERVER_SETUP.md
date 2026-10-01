@@ -106,9 +106,11 @@ build fails TLS verification because the registry does not send the complete
 chain. Keep the existing running image until the new image has built and its
 configuration has been checked.
 
-The production container must run as `feelwent` (`1000:1000`) so SQLite and
-other data files stay writable by the server user. The Dockerfile does not set
-a runtime user. After building an image, stop and retain the previous
+The production container runs as `feelwent` (`1000:1000`) so SQLite and
+other data files stay writable by the server user. The Dockerfile grants that
+UID ownership of the image's app directory for legacy SQLite initialization
+and file logging, and sets it as the runtime user. After building an image,
+stop and retain the previous
 container, then start the new one with the same mounts and proxy:
 
 ```sh
