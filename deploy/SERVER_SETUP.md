@@ -110,8 +110,8 @@ The production container runs as `feelwent` (`1000:1000`) so SQLite and
 other data files stay writable by the server user. The Dockerfile grants that
 UID ownership of the image's app directory for legacy SQLite initialization
 and file logging, and sets it as the runtime user. After building an image,
-stop and retain the previous
-container, then start the new one with the same mounts and proxy:
+stop and retain the previous container, then start the new one with the same
+mounts and proxy:
 
 ```sh
 cd /home/feelwent/apps/investment-tbot
