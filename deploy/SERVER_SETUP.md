@@ -2,7 +2,7 @@
 
 The Telegram bot runs in the `investment-tbot` container from
 `/home/feelwent/apps/investment-tbot`. Its Docker image is
-`investment-tbot:20261001-news-timeout` and its data directory is
+`investment-tbot:20261001-news-ca` and its data directory is
 `data/users/default`. Earlier bot containers remain stopped for rollback.
 
 ## User configuration
@@ -95,3 +95,13 @@ The model read timeout is 420 seconds, below the news job's 10-minute lease.
 The first live batch completed all 14 account-scoped jobs without errors and
 stored two news events. The source publications were already too old for
 urgent delivery; they remain available to the morning digest.
+
+## Rebuilding the image
+
+From the server checkout, run `docker build -t investment-tbot:<tag> .` after
+pulling a reviewed commit. The image build includes the verified root and
+intermediate certificates in `deploy/certs` for the T-Bank package registry.
+They are used only by pip during the build. Without the intermediate, a clean
+build fails TLS verification because the registry does not send the complete
+chain. Keep the existing running image until the new image has built and its
+configuration has been checked.
