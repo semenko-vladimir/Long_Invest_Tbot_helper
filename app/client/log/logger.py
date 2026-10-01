@@ -20,15 +20,14 @@ def setup_logger(name=__name__, log_file='./app/client/log/logs.log', level=logg
     logger.setLevel(level)
 
     if not logger.hasHandlers():
-        # Создаем папки, если их нет
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-
+        file_handler = None
         try:
-            # Обработчик для записи в файл
+            # The source tree may be read-only for the container user.
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
             file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
             file_handler.setLevel(level)
-        except Exception as e:
-            print(f"Ошибка при создании FileHandler: {e}")
+        except OSError:
+            pass
 
         # Обработчик для вывода в консоль
         console_handler = logging.StreamHandler()
@@ -41,11 +40,13 @@ def setup_logger(name=__name__, log_file='./app/client/log/logs.log', level=logg
         )
 
         # Применение формата
-        file_handler.setFormatter(formatter)
+        if file_handler is not None:
+            file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
 
         # Добавление обработчиков в логгер
-        logger.addHandler(file_handler)
+        if file_handler is not None:
+            logger.addHandler(file_handler)
         logger.addHandler(console_handler)
 
     return logger

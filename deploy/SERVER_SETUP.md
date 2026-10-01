@@ -105,3 +105,26 @@ They are used only by pip during the build. Without the intermediate, a clean
 build fails TLS verification because the registry does not send the complete
 chain. Keep the existing running image until the new image has built and its
 configuration has been checked.
+
+The production container must run as `feelwent` (`1000:1000`) so SQLite and
+other data files stay writable by the server user. The Dockerfile does not set
+a runtime user. After building an image, stop and retain the previous
+container, then start the new one with the same mounts and proxy:
+
+```sh
+cd /home/feelwent/apps/investment-tbot
+IMAGE_TAG=investment-tbot:20261001-news-ca
+docker build -t "$IMAGE_TAG" .
+docker stop --timeout 20 investment-tbot
+docker rename investment-tbot "investment-tbot-prev-$(date +%Y%m%d%H%M%S)"
+docker run -d --name investment-tbot --network host --user 1000:1000 \
+  --restart unless-stopped \
+  -e TELEGRAM_PROXY_URL=http://127.0.0.1:12335 \
+  --mount type=bind,source="$PWD/.env",target=/opt/tbot/.env,readonly \
+  --mount type=bind,source="$PWD/users.json",target=/opt/tbot/users.json,readonly \
+  --mount type=bind,source="$PWD/data",target=/opt/tbot/data \
+  "$IMAGE_TAG"
+```
+
+Check `docker inspect investment-tbot` for `Config.User=1000:1000` and a
+running container before removing any prior image or container.
