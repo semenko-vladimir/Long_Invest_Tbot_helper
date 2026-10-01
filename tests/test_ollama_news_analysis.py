@@ -112,7 +112,7 @@ class OllamaNewsAnalysisTests(unittest.TestCase):
         self.assertEqual(second_input["investment_account"]["positions_status"], "unknown")
         self.assertTrue(any(fact["id"] == "positions_unknown" for fact in second_input["available_facts"]))
         self.assertEqual(http.calls[0][0], "http://127.0.0.1:11434/api/chat")
-        self.assertEqual(http.calls[0][2], (5, 240))
+        self.assertEqual(http.calls[0][2], (5, 420))
         self.assertEqual(http.calls[0][1]["options"],
                          {"num_ctx": 8192, "num_batch": 64, "num_predict": 2048, "temperature": 0})
         self.assertIs(http.calls[0][1]["think"], False)

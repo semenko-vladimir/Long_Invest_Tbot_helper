@@ -2,7 +2,7 @@
 
 The Telegram bot runs in the `investment-tbot` container from
 `/home/feelwent/apps/investment-tbot`. Its Docker image is
-`investment-tbot:20261001-news-fix` and its data directory is
+`investment-tbot:20261001-news-timeout` and its data directory is
 `data/users/default`. Earlier bot containers remain stopped for rollback.
 
 ## User configuration
@@ -81,7 +81,7 @@ timer result and proxy response after any subscription change.
 
 ## Switching containers
 
-The current container is on Git commit `d25cd76`. It uses host networking, with
+The current container uses the deployed Git HEAD. It uses host networking, with
 `TELEGRAM_PROXY_URL=http://127.0.0.1:12335`, and mounts `.env`, `users.json`,
 and `data`. A service-level verification found two current broker accounts and
 five positions. An older third account still exists in SQLite; monitoring
@@ -91,3 +91,7 @@ enabled for the configured user with the default `owned` scope and 5% price
 threshold. A clearly labeled test alert was delivered through
 `MonitoringRunner._send_alerts` without writing a synthetic event to the live
 database. Keep the stopped prior containers and database backup for rollback.
+The model read timeout is 420 seconds, below the news job's 10-minute lease.
+The first live batch completed all 14 account-scoped jobs without errors and
+stored two news events. The source publications were already too old for
+urgent delivery; they remain available to the morning digest.

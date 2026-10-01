@@ -17,7 +17,7 @@ class NewsLLMConfig:
     base_url: str = "http://127.0.0.1:11434"
     model: str = DEFAULT_MODEL
     connect_timeout: int = 5
-    read_timeout: int = 240
+    read_timeout: int = 420
 
     @property
     def analyzer_version(self) -> str:
@@ -37,7 +37,7 @@ class NewsLLMConfig:
                 base_url=os.getenv("NEWS_OLLAMA_BASE_URL", cls.base_url).strip().rstrip("/"),
                 model=os.getenv("NEWS_OLLAMA_MODEL", DEFAULT_MODEL).strip(),
                 connect_timeout=int(os.getenv("NEWS_OLLAMA_CONNECT_TIMEOUT_SECONDS", "5")),
-                read_timeout=int(os.getenv("NEWS_OLLAMA_READ_TIMEOUT_SECONDS", "240")),
+                read_timeout=int(os.getenv("NEWS_OLLAMA_READ_TIMEOUT_SECONDS", "420")),
             )
         except ValueError as exc:
             raise ValueError("Ollama timeouts must be whole seconds.") from exc
