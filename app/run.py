@@ -13,6 +13,8 @@ from app.client.bot.bot import bot
 from app.client.config.investor_reminders import configure_investor_reminders
 from app.client.config.schedulers_config import configure_schedulers
 from app.client.config.monitoring_scheduler import configure_monitoring_scheduler
+from app.client.config.stock_scheduler import configure_stock_scheduler
+import app.client.handlers.stocks.stock_handler  # noqa: F401 - registers stock/notes commands
 import app.client.handlers.monitoring_handler  # noqa: F401 - registers commands
 from app.client.config import ConfigError, get_invest_mode, validate_startup_config
 from app.client.config.db_config import configure_database, DatabaseConfigError
@@ -106,6 +108,7 @@ if __name__ == '__main__':
         logger.info("Планировщики успешно настроены")
         configure_investor_reminders()
         configure_monitoring_scheduler()
+        configure_stock_scheduler()
         
         # Запуск бота
         logger.info("Запуск бота...")

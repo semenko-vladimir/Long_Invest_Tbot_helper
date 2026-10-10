@@ -163,7 +163,28 @@ class UserDatabaseTests(unittest.TestCase):
                                  "Old news")
                 self.assertIn("investment_account_id", _table_columns(conn, "monitoring_events"))
                 self.assertEqual(conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one(),
-                                 "d6e2a4b91c30")
+                                 ScriptDirectory.from_config(Config("alembic.ini")).get_current_head())
+        finally:
+            engine.dispose()
+
+
+    def test_market_digest_migration_preserves_news_candles_and_preferences(self):
+        db_path = TEST_DB_DIR / "digest-old" / "database.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        config = Config("alembic.ini")
+        config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path.as_posix()}")
+        command.upgrade(config, "d6e2a4b91c30")
+        engine = create_engine(f"sqlite:///{db_path.as_posix()}")
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("INSERT INTO news_articles (article_key, source, url, title, summary, published_at, first_seen_at) "
+                                  "VALUES ('key', 'rbc', 'https://www.rbc.ru/x', 'Stored news', '', '2026-10-01', '2026-10-01')"))
+            run_migrations_for_user(str(db_path))
+            with engine.connect() as conn:
+                self.assertEqual(conn.execute(text("SELECT title FROM news_articles")).scalar_one(), "Stored news")
+                self.assertTrue(conn.execute(text("SELECT publication_time_known FROM news_articles")).scalar_one())
+                self.assertIn("turnover_rub", _table_columns(conn, "price_candles"))
+                self.assertEqual(conn.execute(text("PRAGMA integrity_check")).scalar_one(), "ok")
         finally:
             engine.dispose()
 

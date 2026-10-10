@@ -16,6 +16,10 @@ from app.services.statistics import StatisticsService
 from app.services.user_context import UnknownUserError, UserContext, UserContextResolver
 from app.services.user_database import session_factory_for_user
 from app.services.watchlist import WatchlistService
+from app.services.stock_market import StockMarketService
+from app.services.stock_charts import StockChartService
+from app.services.stock_notes import StockNotesService
+from app.services.stock_tracking import StockTrackingService
 
 
 @dataclass
@@ -31,6 +35,10 @@ class TelegramUserServices:
     chart_image_service: ChartImageService
     moex_chart_image_service: ChartImageService
     position_value_chart_service: PositionValueChartService
+    stock_market_service: StockMarketService | None = None
+    stock_chart_service: StockChartService | None = None
+    stock_notes_service: StockNotesService | None = None
+    stock_tracking_service: StockTrackingService | None = None
 
 
 _resolver = UserContextResolver()
@@ -91,6 +99,8 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
         portfolio_service=portfolio_service,
         session_factory=session_factory,
     )
+    market = StockMarketService(session_factory, user, portfolio_service, account_registry)
+    stock_charts = StockChartService(market)
     return TelegramUserServices(
         user=user,
         broker=broker,
@@ -109,10 +119,14 @@ def build_telegram_services(user: UserContext) -> TelegramUserServices:
             token_provider=token_provider,
             portfolio_service=portfolio_service,
         ),
-        statistics_service=StatisticsService(session_factory=session_factory),
+        statistics_service=StatisticsService(session_factory=session_factory, market_service=market),
         chart_image_service=chart_services.image_service,
         moex_chart_image_service=build_moex_chart_image_service(),
         position_value_chart_service=chart_services.position_value_service,
+        stock_market_service=market,
+        stock_chart_service=stock_charts,
+        stock_notes_service=StockNotesService(session_factory, user),
+        stock_tracking_service=StockTrackingService(market, stock_charts),
     )
 
 

@@ -93,8 +93,15 @@ def build_account_portfolio_message(portfolio: AccountPortfolioView) -> str:
     return "\n".join(lines)
 
 
-def build_account_portfolio_keyboard() -> types.InlineKeyboardMarkup:
+def build_account_portfolio_keyboard(portfolio=None) -> types.InlineKeyboardMarkup:
     keyboard = types.InlineKeyboardMarkup()
+    if portfolio is not None:
+        from app.client.handlers.stocks.stock_handler import stock_callback
+        from app.services.stock_market import instrument_key
+        for position in portfolio.positions:
+            if position.quantity and (position.instrument_uid or position.figi):
+                keyboard.add(types.InlineKeyboardButton(position.ticker,
+                    callback_data=stock_callback("card", portfolio.account.investment_account_id, instrument_key(position))))
     keyboard.add(types.InlineKeyboardButton(text="← All accounts", callback_data=PORTFOLIO_ROOT_CALLBACK))
     return keyboard
 
@@ -146,7 +153,7 @@ def portfolio_account_callback(call):
     bot.send_message(
         chat_id,
         build_account_portfolio_message(portfolio),
-        reply_markup=build_account_portfolio_keyboard(),
+        reply_markup=build_account_portfolio_keyboard(portfolio),
         parse_mode="Markdown",
     )
 

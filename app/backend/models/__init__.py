@@ -18,7 +18,9 @@ from app.backend.models.accounts import (
 )
 from app.backend.models.monitoring import (
     MonitoringPreference, MonitoringEvent, MonitoringRun, NewsArticle, NewsAnalysisJob,
+    NewsSourceState, ArticleAnalysisJob, AnalysisHourlyBudget, MarketReport, MarketRefreshState, DigestDelivery,
 )
+from app.backend.models.stocks import StockNote, StockTracking, StockRefreshState, StockAccountRefresh, StockChartCache
 
 # Create all tables in the database
 def create_all_tables():

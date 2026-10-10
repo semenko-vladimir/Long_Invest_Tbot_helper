@@ -10,6 +10,7 @@ import requests
 from app.backend.models.accounts import PortfolioSnapshot, PositionSnapshot
 from app.services.news_analysis import ModelNewsAnalysis, NewsAssessment
 from app.services.news_llm_config import NewsLLMConfig
+from app.services.local_inference import INFERENCE_LOCK, NewsAnalysisUnavailable
 
 
 IMPACTS = ("positive", "negative", "mixed", "neutral", "unknown")
@@ -30,10 +31,6 @@ RESPONSE_SCHEMA = {
                  "uncertainty", "insufficient_data", "source_url"],
     "additionalProperties": False,
 }
-
-
-class NewsAnalysisUnavailable(RuntimeError):
-    """The model request or its structured response could not be used."""
 
 
 class _SummaryText(HTMLParser):
@@ -79,14 +76,14 @@ class OllamaNewsAnalyzer:
         full_text = item.full_text[:6000]
         facts, positions_status = self._facts(item, summary, account.investment_account_id, ticker_names)
         if full_text:
-            facts["article_text"] = "Текст официальной страницы: " + full_text
+            facts["article_text"] = "Текст страницы источника: " + full_text
         strategy = account.strategy
         payload = {
             "article": {
                 "title": item.title[:500], "summary": summary,
                 "published_at": item.published_at.astimezone(timezone.utc).isoformat(),
                 "source": item.source, "source_url": item.url,
-                "evidence_scope": ("Текст официальной страницы ограничен 6000 символами."
+                "evidence_scope": ("Текст страницы источника ограничен 6000 символами."
                                    if full_text else "Только заголовок и аннотация RSS; полный текст не загружен."),
             },
             "investment_account": {
@@ -119,10 +116,11 @@ class OllamaNewsAnalyzer:
             "options": {"num_ctx": 8192, "num_batch": 64, "num_predict": 2048, "temperature": 0},
         }
         try:
-            response = self.http.post(self.config.base_url + "/api/chat", json=request,
-                                      timeout=(self.config.connect_timeout, self.config.read_timeout))
-            response.raise_for_status()
-            envelope = response.json()
+            with INFERENCE_LOCK:
+                response = self.http.post(self.config.base_url + "/api/chat", json=request,
+                                          timeout=(self.config.connect_timeout, self.config.read_timeout))
+                response.raise_for_status()
+                envelope = response.json()
         except (requests.RequestException, ValueError) as exc:
             raise NewsAnalysisUnavailable("Ollama request failed or returned invalid JSON.") from exc
         if not isinstance(envelope, dict) or envelope.get("done") is not True:
@@ -145,13 +143,13 @@ class OllamaNewsAnalyzer:
             facts=tuple(facts[key] for key in checked["fact_ids"]),
             uncertainty=checked["uncertainty"],
             insufficient_data=checked["insufficient_data"], source_url=item.url,
-            evidence_scope="official_article" if full_text else "rss_summary" if summary else "title_only",
+            evidence_scope=("official_article" if item.source.startswith(("moex_", "cbr_")) else "source_article") if full_text else "rss_summary" if summary else "title_only",
             limitations=(
                 "Доступен только заголовок RSS; полный текст не проверен."
                 if not summary and not full_text else
                 "Доступны заголовок и аннотация RSS; полный текст не проверен."
                 if not full_text else
-                "Текст официальной страницы ограничен 6000 символами; последующие изменения не проверены.",
+                "Текст страницы источника ограничен 6000 символами; последующие изменения не проверены.",
                 "Свежего снимка позиций нет; состав счёта неизвестен."
                 if positions_status == "unknown" else "Снимок позиций мог устареть к моменту анализа.",
             ),

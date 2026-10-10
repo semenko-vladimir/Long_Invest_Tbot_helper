@@ -1,5 +1,6 @@
 from io import BytesIO
 from datetime import datetime, timezone
+from textwrap import fill
 
 import matplotlib
 
@@ -53,6 +54,50 @@ class ChartImageService:
         self.history_service = history_service
         self.analytics_service = analytics_service or ChartAnalyticsService()
         self.position_value_service = position_value_service
+
+    def render_cached_history_png(self, ticker, candles, *, name="", reason="", range_bounds=None, notes=()):
+        """Render the supplied completed candles without any broker/network read."""
+        ordered = sorted(candles, key=lambda candle: candle.time)[-40:]
+        if len(ordered) < 2:
+            raise ValueError("At least two completed candles are required.")
+        figure = Figure(figsize=(10, 6.2), dpi=130, facecolor=FIGURE_BG)
+        grid = figure.add_gridspec(2, 1, height_ratios=(3, 1), hspace=0.08)
+        price_axis = figure.add_subplot(grid[0])
+        volume_axis = figure.add_subplot(grid[1], sharex=price_axis)
+        times, closes = [bar.time for bar in ordered], [bar.close for bar in ordered]
+        price_axis.plot(times, closes, color=PRICE_LINE_COLOR, linewidth=2)
+        if range_bounds:
+            low, high = range_bounds
+            price_axis.fill_between(times[-21:-1], low, high, color=PRICE_FILL_COLOR, alpha=0.35,
+                                    label="Диапазон предыдущих 20 сессий")
+            price_axis.legend(loc="best", fontsize=8)
+        price_axis.axvline(times[-1], color="#d97706", alpha=0.65, linestyle="--")
+        price_axis.scatter(times[-1], closes[-1], color="#d97706", s=35, zorder=4)
+        price_axis.set_title(f"{ticker} · {name[:55]}", loc="left", fontsize=14, fontweight="bold", color=TEXT_PRIMARY)
+        price_axis.set_ylabel("Цена, ₽" if ticker != "IMOEX" else "Значение индекса")
+        self._style_axis(price_axis)
+        price_axis.tick_params(labelbottom=False)
+        if any(bar.volume is not None and bar.volume > 0 for bar in ordered):
+            colors = [VOLUME_BAR_COLOR] * (len(ordered) - 1) + ["#d97706"]
+            volume_axis.bar(times, [bar.volume or 0 for bar in ordered], width=0.7, color=colors)
+            volume_axis.set_ylabel("Объём")
+            volume_axis.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+        else:
+            volume_axis.text(0.02, 0.5, "Объём не предоставлен источником", transform=volume_axis.transAxes, fontsize=9, color=TEXT_MUTED)
+        self._style_axis(volume_axis)
+        volume_axis.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=4, maxticks=8))
+        volume_axis.xaxis.set_major_formatter(mdates.DateFormatter("%d.%m"))
+        figure.text(0.085, 0.13, fill(reason, width=105, max_lines=3, placeholder="…"),
+                    fontsize=9, color=TEXT_PRIMARY, va="top")
+        metadata = f"Последняя завершённая сессия: {times[-1]:%d.%m.%Y} · MOEX ISS"
+        if notes:
+            metadata += " · " + "; ".join(notes)[:100]
+        figure.text(0.085, 0.045, fill(metadata, width=115, max_lines=2, placeholder="…"),
+                    fontsize=8, color=TEXT_MUTED, va="top")
+        figure.subplots_adjust(left=0.085, right=0.97, top=0.91, bottom=0.23)
+        output = BytesIO()
+        figure.savefig(output, format="png")
+        return output.getvalue()
 
     def render_png(
         self,

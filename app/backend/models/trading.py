@@ -92,6 +92,7 @@ class PriceCandleRecord(Base):
     low = Column(Float, nullable=False)
     close = Column(Float, nullable=False)
     volume = Column(Integer, nullable=True)
+    turnover_rub = Column(Float, nullable=True)
     source = Column(String, nullable=False)
     fetched_at = Column(DateTime, nullable=True)
     as_of_date = Column(String, nullable=True)

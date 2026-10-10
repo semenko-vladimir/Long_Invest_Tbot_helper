@@ -5,7 +5,7 @@ from typing import Literal, Optional
 
 ChartRange = Literal["day", "week", "month", "six_months", "year", "all"]
 ChartMode = Literal["price", "position_value"]
-ChartCandleInterval = Literal["hour", "day"]
+ChartCandleInterval = Literal["5min", "hour", "day"]
 GapSeverity = Literal["low", "medium", "high"]
 ChartFreshness = Literal["current", "latest_available", "stale", "partial"]
 ChartDelayStatus = Literal["broker_api", "moex_delayed", "cached"]
@@ -62,6 +62,7 @@ class PriceCandle:
     low: float
     close: float
     volume: Optional[int] = None
+    turnover_rub: Optional[float] = None
 
 
 @dataclass(frozen=True)

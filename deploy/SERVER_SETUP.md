@@ -2,8 +2,42 @@
 
 The Telegram bot runs in the `investment-tbot` container from
 `/home/feelwent/apps/investment-tbot`. Its Docker image is
-`investment-tbot:20261001-news-ca` and its data directory is
+`investment-tbot:stock-cards-20261008T174845Z` and its data directory is
 `data/users/default`. Earlier bot containers remain stopped for rollback.
+
+## Stock cards release, 9 October 2026
+
+The verified image ID is
+`sha256:60623404a44bfed7544450f87f892bba5f95b55cf3e22993158ca35c56a9cada`.
+It was built from Git base `ff9000809fc62da25cc3e5f73506ff940e6c88f9` plus
+the reviewed 55-file manifest. Those source files are applied to the server
+checkout as uncommitted changes; Git HEAD remains at the base commit. The
+release source and manifest are retained in
+`runtime/releases/stock-cards-20261008T174845Z`.
+
+The live database is at revision `f9a2b7c83e51`. The switch preserved all
+previous fields and records in 29 existing tables. The stopped previous
+container is `investment-tbot-prev-20261009T182607Z`; its image is
+`investment-tbot:20261001-news-ca`. The fresh backup of SQLite and private
+configuration is in
+`runtime/releases/stock-cards-20261008T174845Z/deployment-20261009T182607Z/backup`.
+Do not use `validation/data` from the release checks as live data.
+
+All 410 tests passed inside the image before deployment. Live checks confirmed
+the main process's Telegram proxy connection, valid bot token, inactive webhook,
+zero restarts, registered `/stock` and `/notes` commands, and a successful
+scheduled refresh of both current accounts. Real trading and automatic investing
+remain disabled. No test messages or broker orders were sent. Stock tracking is
+opt-in: portfolio -> account -> stock -> tracking. Reopen the Telegram menu with
+`/start` to see the added Notes button. The existing local Qwen model is retained.
+
+One initial switch was rolled back because a startup check required an INFO
+message that Alembic's logging configuration suppresses. The check now uses the
+main process's proxy socket and persisted scheduled-refresh state. The first
+attempt's backup and failed-container data were retained. Existing Alembic
+logging behavior remains unchanged; do not require that INFO message for health.
+The deployment state, migration log, and read-only live verification are retained
+beside the fresh backup.
 
 ## User configuration
 
@@ -43,7 +77,7 @@ The original database was backed up to `backups/legacy_tbot_20260927.db` using
 SQLite's online backup API. Its migrated copy is in
 `data/users/default/database.db`. The migration preserved all original table
 row counts; both the original database and backup remain untouched. The
-current database schema revision is `d6e2a4b91c30`. The online SQLite backup
+database schema revision before the 9 October update was `d6e2a4b91c30`. The online SQLite backup
 and matching `.env`/`users.json` copies from before the news migration have the
 prefix `backups/pre_news_20260930T232006Z`; the backup revision is
 `a3d9c8b7e621`. The migration was checked on a copy before updating the live
@@ -81,9 +115,9 @@ timer result and proxy response after any subscription change.
 
 ## Switching containers
 
-The current container uses the deployed Git HEAD. It uses host networking, with
+The current container uses the verified release described above. It uses host networking, with
 `TELEGRAM_PROXY_URL=http://127.0.0.1:12335`, and mounts `.env`, `users.json`,
-and `data`. A service-level verification found two current broker accounts and
+and `data`. An earlier service-level verification found two current broker accounts and
 five positions. An older third account still exists in SQLite; monitoring
 discovery excludes it. Trading remains disabled. `NEWS_LLM_ENABLED=true` uses
 the local Qwen3.5-4B Q6_K. Monitoring alerts and the 09:00 Moscow digest are
@@ -115,7 +149,7 @@ mounts and proxy:
 
 ```sh
 cd /home/feelwent/apps/investment-tbot
-IMAGE_TAG=investment-tbot:20261001-news-ca
+IMAGE_TAG=investment-tbot:next-reviewed-release
 docker build -t "$IMAGE_TAG" .
 docker stop --timeout 20 investment-tbot
 docker rename investment-tbot "investment-tbot-prev-$(date +%Y%m%d%H%M%S)"

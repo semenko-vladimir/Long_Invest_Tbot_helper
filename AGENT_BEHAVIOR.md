@@ -99,4 +99,4 @@ Definition of done for any task:
 - The requested scope is implemented, not only described
 - Existing flows are not broken
 - Architecture remains extendable
-- The result can support future UI and feature evolution without major rewrites
+- The result can support future UI and featрure evolution without major rewrites

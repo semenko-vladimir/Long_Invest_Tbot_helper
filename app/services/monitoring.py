@@ -9,12 +9,13 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.exc import IntegrityError
 
 from app.backend.models.accounts import PortfolioSnapshot, PositionSnapshot
-from app.backend.models.monitoring import MonitoringEvent, MonitoringRun
+from app.backend.models.monitoring import MonitoringEvent, MonitoringRun, DigestDelivery
 from app.integrations.moex_market_monitor import fetch_monitoring_quotes
 from app.services.monitoring_settings import MonitoringSettingsService
 from app.services.news_analysis import RuleNewsAnalyzer
 from app.services.news_queue import NewsQueue
 from app.services.news_sources import fetch_feed
+from app.services.monitoring_config import MonitoringLimits
 from app.services.user_context import UserContext
 from app.services.user_database import session_factory_for_user
 
@@ -27,8 +28,16 @@ def utc_naive(value: datetime) -> datetime:
     return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
+def event_payload(event):
+    try:
+        value = json.loads(event.payload_json or "{}")
+    except (ValueError, TypeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 class MonitoringRunner:
-    def __init__(self, user: UserContext, *, send_text, send_chart=None, quote_fetcher=None, feed_fetcher=None, analyzer=None):
+    def __init__(self, user: UserContext, *, send_text, send_chart=None, send_album=None, quote_fetcher=None, feed_fetcher=None, analyzer=None):
         self.user = user
         self.session_factory = session_factory_for_user(user)
         self.settings_service = MonitoringSettingsService(self.session_factory, user)
@@ -37,14 +46,23 @@ class MonitoringRunner:
         self.quote_fetcher = quote_fetcher or fetch_monitoring_quotes
         self.feed_fetcher = feed_fetcher or fetch_feed
         self.news_queue = NewsQueue(self.session_factory, user, prefilter=analyzer or RuleNewsAnalyzer())
+        from app.services.daily_digest import DigestService, DigestDeliveryService
+        self.digest_service = DigestService(self.session_factory, user)
+        self.digest_delivery = DigestDeliveryService(self.session_factory, user, send_text=send_text, send_album=send_album)
+        self.limits = MonitoringLimits.from_env()
 
-    def run(self, now: datetime | None = None) -> None:
+    def run(self, now: datetime | None = None, *, include_news=True) -> None:
         now = now or datetime.now(timezone.utc)
         settings = self.settings_service.get()
         if not (settings.alerts_enabled or settings.digest_enabled):
             return
-        accounts_by_ticker, names, accounts = self._interests()
         failures = []
+        try:
+            accounts_by_ticker, names, accounts = self._interests()
+        except Exception:
+            accounts_by_ticker, names, accounts = {}, {}, ()
+            failures.append("Счета: данные временно недоступны")
+            logger.warning("Monitoring account context unavailable user_id=%s", self.user.user_id)
         try:
             quotes = self.quote_fetcher(now.astimezone(MOSCOW).date())
             self._record_prices(quotes, settings, accounts_by_ticker, now)
@@ -52,7 +70,8 @@ class MonitoringRunner:
         except Exception:
             failures.append("MOEX ISS")
             logger.exception("Market monitor failed for user_id=%s", self.user.user_id)
-        failures.extend(self._record_news(settings, names, accounts_by_ticker, accounts, now))
+        if include_news:
+            failures.extend(self._record_news(settings, names, accounts_by_ticker, accounts, now))
         if settings.alerts_enabled:
             self._send_alerts(settings, accounts_by_ticker, accounts, now)
         if settings.digest_enabled:
@@ -80,12 +99,17 @@ class MonitoringRunner:
                 if snapshot is None or snapshot.captured_at < datetime.utcnow() - timedelta(days=2):
                     view = services.portfolio_service.get_account_portfolio(account)
                     for position in view.positions:
+                        if not position.quantity:
+                            continue
                         by_ticker[position.ticker].append(account)
                         names[position.ticker] = position.name
                 else:
                     for position in db.query(PositionSnapshot).filter(
-                        PositionSnapshot.portfolio_snapshot_id == snapshot.id
+                        PositionSnapshot.portfolio_snapshot_id == snapshot.id,
+                        PositionSnapshot.investment_account_id == account.investment_account_id,
                     ):
+                        if not position.quantity:
+                            continue
                         by_ticker[position.ticker].append(account)
             for item in services.watchlist_service.list_items().items:
                 names[item.ticker] = item.name if item.name != item.ticker else ""
@@ -150,8 +174,20 @@ class MonitoringRunner:
             for event in pending:
                 if event.kind == "news" and event.source not in settings.sources:
                     continue
-                if event.kind == "news" and event.published_at < utc_naive(now - timedelta(minutes=30)):
+                if event.kind == "news" and event.published_at < utc_naive(now - timedelta(hours=3)):
                     continue
+                payload = event_payload(event)
+                if event.kind == "news" and payload.get("analysis_status", "").startswith("article_"):
+                    analysis = payload.get("analysis") or {}
+                    if (payload.get("analysis_status") != "article_model" or payload.get("importance", 0) < self.limits.urgent_importance
+                            or not payload.get("publication_time_known") or analysis.get("evidence_scope") == "headline"):
+                        continue
+                    hour_count = db.query(MonitoringEvent).filter(MonitoringEvent.kind == "news",
+                        MonitoringEvent.delivered_at >= utc_naive(now - timedelta(hours=1))).count()
+                    today = datetime.combine(now.astimezone(MOSCOW).date(), datetime.min.time(), tzinfo=MOSCOW)
+                    day_count = db.query(MonitoringEvent).filter(MonitoringEvent.kind == "news", MonitoringEvent.delivered_at >= utc_naive(today)).count()
+                    if hour_count >= self.limits.news_alerts_per_hour or day_count >= self.limits.news_alerts_per_day:
+                        continue
                 if event.investment_account_id and event.investment_account_id not in account_by_id:
                     continue
                 if settings.scope == "owned" and event.ticker and event.ticker not in accounts_by_ticker:
@@ -176,6 +212,20 @@ class MonitoringRunner:
             db.close()
 
     def _format_event(self, event, accounts_by_ticker, accounts=()):
+        payload = event_payload(event)
+        if event.kind == "news" and payload.get("analysis_status", "").startswith("article_"):
+            analysis = payload.get("analysis") or {}
+            lines = ["📰 Важная новость · разбор Qwen", event.title, analysis.get("summary", ""), analysis.get("reason", "")]
+            names = {account.investment_account_id: account.account_name for account in accounts}
+            affected = [names[identifier] for identifier in payload.get("account_ids", ()) if identifier in names]
+            if affected:
+                lines.append("Затронутые счета: " + ", ".join(affected))
+            if analysis.get("uncertainty"):
+                lines.append("Ограничение: " + analysis["uncertainty"])
+            stamp = event.published_at.replace(tzinfo=timezone.utc).astimezone(MOSCOW)
+            lines.append(f"{event.source} · {stamp:%d.%m %H:%M} МСК")
+            lines.append(event.url or "")
+            return "\n".join(line for line in lines if line)[:3900]
         lines = ["📈 Движение цены" if event.kind == "price" else "📰 Новость", event.title]
         if event.ticker:
             lines.append(f"Бумага: {event.ticker}")
@@ -220,36 +270,22 @@ class MonitoringRunner:
         hour, minute = map(int, settings.digest_time.split(":"))
         if (local.hour, local.minute) < (hour, minute):
             return
-        db = self.session_factory()
-        try:
+        from app.services.daily_digest import DigestDraft
+        with self.session_factory() as db:
             run = db.get(MonitoringRun, 1)
-            if run is None:
-                run = MonitoringRun(id=1)
-                db.add(run)
             today_start = datetime.combine(local.date(), datetime.min.time(), tzinfo=MOSCOW)
-            if run.last_digest_at and run.last_digest_at >= utc_naive(today_start):
+            if run and run.last_digest_at and run.last_digest_at >= utc_naive(today_start):
                 return
-            since = run.last_digest_at or utc_naive(now - timedelta(days=1))
-            events = db.query(MonitoringEvent).filter(MonitoringEvent.observed_at > since).order_by(MonitoringEvent.observed_at.desc()).limit(30).all()
-            account_names = {account.investment_account_id: account.account_name for account in accounts}
-            news = [event for event in events if event.kind == "news" and event.source in settings.sources and
-                    (event.investment_account_id is None or event.investment_account_id in account_names)][:8]
-            prices = [event for event in events if event.kind == "price"][:8]
-            lines = [f"☀️ Утренний дайджест · {local:%d.%m.%Y}", "", "Новости:"]
-            lines += [self._digest_news_line(event, account_names) for event in news] or [
-                "• За период важных новостей не найдено."]
-            lines += ["", "Движения:"]
-            lines += [f"• {event.title}" for event in prices] or ["• Значительных движений не найдено."]
-            if failures:
-                lines += ["", "⚠️ Данные неполные: недоступны " + ", ".join(failures)]
-            self.send_text(self.user.telegram_chat_id, "\n".join(lines)[:3900])
-            run.last_digest_at = utc_naive(now)
-            db.commit()
+            delivery = db.get(DigestDelivery, local.date().isoformat())
+            saved = delivery.payload_json if delivery else None
+        try:
+            draft = DigestDraft.deserialize(saved) if saved else self.digest_service.build(local.date(), now=now)
+            if failures and not saved:
+                text = draft.text[:3500] + "\n\nПолнота текущего опроса: " + ", ".join(failures)[:300]
+                draft = DigestDraft(draft.report_date, text, draft.charts, draft.coverage)
+            self.digest_delivery.deliver(draft, now)
         except Exception:
-            db.rollback()
             logger.exception("Digest failed for user_id=%s", self.user.user_id)
-        finally:
-            db.close()
 
     @staticmethod
     def _digest_news_line(event, account_names):

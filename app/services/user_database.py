@@ -109,6 +109,15 @@ def _baseline_revision_for_existing_schema(db_path: Path) -> str | None:
             }
             if not table_names or "alembic_version" in table_names:
                 return None
+            if {"stock_notes", "stock_tracking", "stock_refresh_state", "stock_account_refresh", "stock_chart_cache",
+                    "article_analysis_jobs", "market_reports", "digest_deliveries"}.issubset(table_names) and \
+                    "account_ids_json" in _table_columns(conn, "stock_refresh_state"):
+                return "f9a2b7c83e51"
+            if {"article_analysis_jobs", "analysis_hourly_budgets", "news_source_states", "market_reports",
+                    "market_refresh_state", "digest_deliveries"}.issubset(table_names) and \
+                    "turnover_rub" in _table_columns(conn, "price_candles") and \
+                    {"categories_json", "publication_time_known", "last_seen_at", "body_checked_at"}.issubset(_table_columns(conn, "news_articles")):
+                return "e8f1a6b72d40"
             if {"news_articles", "news_analysis_jobs"}.issubset(table_names) and \
                     "investment_account_id" in _table_columns(conn, "monitoring_events"):
                 return "d6e2a4b91c30"
@@ -217,3 +226,4 @@ def _ensure_models_registered() -> None:
     import app.backend.models.accounts  # noqa: F401
     import app.backend.models.trading  # noqa: F401
     import app.backend.models.monitoring  # noqa: F401
+    import app.backend.models.stocks  # noqa: F401

@@ -1,12 +1,19 @@
 """Bounded text extraction from official MOEX and Bank of Russia news pages."""
 
 import re
+import json
+from dataclasses import dataclass
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urlsplit
 
 import requests
 
 from app.services.news_sources import _public_host
+from app.services.news_sources import _parse_date
+from app.services.media_news_sources import MEDIA_HOSTS, is_article_url
+from app.services.news_urls import fetch_public_html
 
 
 MAX_PAGE_BYTES = 512_000
@@ -19,6 +26,115 @@ _VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link"
 
 class ArticleTextUnavailable(RuntimeError):
     """An official page could not be read or did not contain article text."""
+
+
+@dataclass(frozen=True)
+class ArticleDocument:
+    text: str
+    published_at: datetime | None = None
+
+
+class _MediaArticleParser(HTMLParser):
+    def __init__(self, source):
+        super().__init__(convert_charrefs=True)
+        self.source = source
+        self.depth = 0
+        self.capture = None
+        self.ignore = None
+        self.parts = []
+        self.meta_body = ""
+        self.published = None
+        self.script = None
+        self.scripts = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag not in _VOID_TAGS:
+            self.depth += 1
+        if tag == "meta":
+            if attrs.get("itemprop") == "articleBody":
+                self.meta_body = attrs.get("content", "")[:MAX_TEXT_CHARS]
+            if attrs.get("itemprop") == "datePublished" or attrs.get("property") == "article:published_time":
+                self.published = attrs.get("content")
+        if tag == "time" and attrs.get("itemprop") == "datePublished":
+            self.published = attrs.get("datetime") or self.published
+        if tag == "script" and attrs.get("type") == "application/ld+json":
+            self.script = []
+        classes = set(attrs.get("class", "").split())
+        if self.capture is None and ((tag == "article" and attrs.get("itemprop") == "articleBody")
+                or bool(classes & {"article__text", "article__text_free", "article_text_wrapper"})):
+            self.capture = self.depth
+        if self.capture is not None:
+            if self.ignore is None and (tag in {"script", "style", "iframe", "aside", "nav", "footer"}
+                    or any(part in cls for cls in classes for part in ("banner", "related", "timeline", "social", "subscribe", "advert"))):
+                self.ignore = self.depth
+            if self.ignore is None and tag in _BLOCK_TAGS:
+                self.parts.append(" ")
+
+    def handle_endtag(self, tag):
+        if tag == "script" and self.script is not None:
+            try:
+                self.scripts.append(json.loads("".join(self.script)))
+            except ValueError:
+                pass
+            self.script = None
+        if self.ignore == self.depth:
+            self.ignore = None
+        if self.capture == self.depth:
+            self.capture = None
+        if tag not in _VOID_TAGS:
+            self.depth = max(0, self.depth - 1)
+
+    def handle_data(self, data):
+        if self.script is not None:
+            self.script.append(data)
+        elif self.capture is not None and self.ignore is None:
+            self.parts.append(data)
+
+    def document(self, fallback):
+        bodies, dates = [], []
+        def visit(value):
+            if isinstance(value, list):
+                for entry in value:
+                    visit(entry)
+            elif isinstance(value, dict):
+                kinds = value.get("@type")
+                kinds = [kinds] if isinstance(kinds, str) else kinds if isinstance(kinds, list) else []
+                if any(isinstance(kind, str) and kind in {"NewsArticle", "Article", "ReportageNewsArticle"} for kind in kinds):
+                    if isinstance(value.get("articleBody"), str):
+                        bodies.append(value["articleBody"])
+                    if value.get("datePublished"):
+                        dates.append(value["datePublished"])
+                for child in value.values():
+                    if isinstance(child, (dict, list)):
+                        visit(child)
+        for script in self.scripts:
+            visit(script)
+        text = self.meta_body or (bodies[0] if bodies else " ".join(self.parts))
+        text = " ".join(text.split())[:MAX_TEXT_CHARS]
+        date_text = self.published or (dates[0] if dates else None)
+        published = _parse_date(date_text, None) if date_text else None
+        if date_text:
+            try:
+                local = datetime.fromisoformat(date_text.replace("Z", "+00:00"))
+                if local.tzinfo is None:
+                    published = local.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+            except (ValueError, TypeError):
+                pass
+        return ArticleDocument(text, published)
+
+
+def fetch_article_document(item, *, session=None):
+    if item.source not in MEDIA_HOSTS:
+        return ArticleDocument(fetch_article_text(item, session=session))
+    if not is_article_url(item.source, item.url):
+        return ArticleDocument("")
+    parser = _MediaArticleParser(item.source)
+    parser.feed(fetch_public_html(item.url, MEDIA_HOSTS[item.source], session=session))
+    document = parser.document(item.published_at)
+    if not document.text:
+        raise ArticleTextUnavailable("Media article text was not found.")
+    return document
 
 
 def _target_classes(source: str, url: str) -> tuple[str, ...]:
@@ -98,6 +214,8 @@ class _ArticleParser(HTMLParser):
 
 
 def fetch_article_text(item, *, session=None) -> str:
+    if item.source in MEDIA_HOSTS:
+        return fetch_article_document(item, session=session).text
     targets = _target_classes(item.source, item.url)
     if not targets:
         return ""

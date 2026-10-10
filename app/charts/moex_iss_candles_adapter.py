@@ -149,7 +149,8 @@ class MOEXISSCandlesAdapter:
             high=float(candle.high),
             low=float(candle.low),
             close=float(candle.close),
-            volume=candle.volume,
+                volume=candle.volume,
+                turnover_rub=candle.value,
         )
 
     def _map_gap(self, gap) -> ChartDataGap:

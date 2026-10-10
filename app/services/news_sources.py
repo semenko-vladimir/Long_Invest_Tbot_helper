@@ -2,6 +2,7 @@
 
 import ipaddress
 import socket
+from html import unescape
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit
@@ -24,6 +25,8 @@ class NewsItem:
     published_at: datetime
     summary: str = ""
     full_text: str = ""
+    categories: tuple[str, ...] = ()
+    publication_time_known: bool = True
 
 
 def _public_host(url: str) -> bool:
@@ -81,14 +84,19 @@ def fetch_feed(source: str, *, session=None, now=None) -> list[NewsItem]:
 
 
 def _parse_item(source: str, node: ElementTree.Element, now: datetime) -> NewsItem | None:
-    title = (node.findtext("title") or node.findtext("{*}title") or "").strip()
+    title = unescape(node.findtext("title") or node.findtext("{*}title") or "").strip()
     link_node = node.find("{*}link")
     link = (node.findtext("link") or (link_node.get("href") if link_node is not None else "") or "").strip()
     date_text = node.findtext("pubDate") or node.findtext("{*}published") or node.findtext("{*}updated")
-    published = _parse_date(date_text, now)
+    unknown_date = datetime.min.replace(tzinfo=timezone.utc)
+    parsed_date = _parse_date(date_text, unknown_date)
+    date_known = parsed_date != unknown_date
+    published = parsed_date if date_known else now
     summary = (node.findtext("description") or node.findtext("{*}summary") or "").strip()
     if title and link.startswith(("https://", "http://")):
-        return NewsItem(source, title[:500], link[:1000], published, summary[:1500])
+        categories = tuple(child.text.strip() for child in node.findall("category") if child.text)
+        return NewsItem(source, title[:500], link[:1000], published, summary[:1500],
+                        categories=categories, publication_time_known=date_known)
     return None
 
 

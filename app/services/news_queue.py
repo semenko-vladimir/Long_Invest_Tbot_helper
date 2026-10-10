@@ -16,6 +16,7 @@ from app.services.accounts import InvestmentAccountContext, StrategyProfileConte
 from app.services.monitoring_settings import MonitoringSettingsService
 from app.services.news_analysis import NewsAssessment, RuleNewsAnalyzer
 from app.services.news_sources import NewsItem
+from app.services.news_urls import canonical_news_url
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ def _utc_naive(value: datetime) -> datetime:
 
 def _article_key(item: NewsItem) -> str:
     # MOEX publishes the same URL in its main and listing feeds.
-    return hashlib.sha256(item.url.encode("utf-8")).hexdigest()
+    return hashlib.sha256(canonical_news_url(item.url).encode("utf-8")).hexdigest()
 
 
 def _legacy_event_key(item: NewsItem) -> str:
@@ -44,13 +45,14 @@ def _content_signature(item: NewsItem) -> tuple[str, str]:
 
 class NewsQueue:
     def __init__(self, session_factory, user, *, prefilter=None, analyzer=None,
-                 analyzer_version=ANALYZER_VERSION, article_fetcher=None):
+                 analyzer_version=ANALYZER_VERSION, article_fetcher=None, publish_events=True):
         self.session_factory = session_factory
         self.user = user
         self.prefilter = prefilter or RuleNewsAnalyzer()
         self.analyzer = analyzer or RuleNewsAnalyzer()
         self.analyzer_version = analyzer_version
         self.article_fetcher = article_fetcher
+        self.publish_events = publish_events
 
     def enqueue(self, item, ticker_names, accounts_by_ticker, accounts, scope, now) -> bool:
         """Record a fresh article once and queue relevant account analyses."""
@@ -100,6 +102,9 @@ class NewsQueue:
                 db.add(article)
             article.title = item.title
             article.summary = item.summary
+            article.categories_json = json.dumps(item.categories, ensure_ascii=False)
+            article.publication_time_known = item.publication_time_known
+            article.last_seen_at = _utc_naive(now)
             if content_changed:
                 article.full_text = None
             article.published_at = _utc_naive(item.published_at)
@@ -197,7 +202,8 @@ class NewsQueue:
                     account = self._account_context(db, job.investment_account_id)
                     item = NewsItem(article.source, article.title, article.url,
                                     article.published_at.replace(tzinfo=timezone.utc), article.summary)
-                    names = {article.prefilter_ticker: article.prefilter_name or ""} if article.prefilter_ticker else {}
+                    names = json.loads(job.ticker_names_json) if job.ticker_names_json else {article.prefilter_ticker: article.prefilter_name or ""} if article.prefilter_ticker else {}
+                    expected_hash = job.content_hash
                     article_key = article.article_key
                     article_id = article.id
                     content_signature = _content_signature(item)
@@ -235,6 +241,11 @@ class NewsQueue:
                     job = db.get(NewsAnalysisJob, job_id)
                     current_article = db.get(NewsArticle, article_id)
                     db.refresh(current_article)
+                    if expected_hash:
+                        from app.services.market_news_queue import content_hash, item_from_article
+                        if job.content_hash != expected_hash or content_hash(item_from_article(current_article)) != expected_hash:
+                            db.commit()
+                            continue
                     if _content_signature(NewsItem(current_article.source, current_article.title,
                                                    current_article.url, current_article.published_at.replace(tzinfo=timezone.utc),
                                                    current_article.summary)) != content_signature:
@@ -248,7 +259,7 @@ class NewsQueue:
                     if assessment.analysis is not None:
                         result["analysis"] = asdict(assessment.analysis)
                     job.result_json = json.dumps(result, ensure_ascii=False)
-                    if assessment.important:
+                    if assessment.important and self.publish_events:
                         event_key = f"news:{article_key}:{account.investment_account_id}:{analyzer_version}"
                         if not db.query(MonitoringEvent.id).filter(MonitoringEvent.event_key == event_key).first():
                             db.add(MonitoringEvent(
@@ -274,7 +285,7 @@ class NewsQueue:
                     job.status = "failed" if permanent else "pending"
                     job.next_attempt_at = None if permanent else current_time() + timedelta(minutes=job.attempts)
                     job.error_text = type(exc).__name__
-                    if permanent and self.analyzer_version.startswith("ollama-") and not isinstance(exc, UnknownInvestmentAccountError):
+                    if self.publish_events and permanent and self.analyzer_version.startswith("ollama-") and not isinstance(exc, UnknownInvestmentAccountError):
                         article = db.get(NewsArticle, job.article_id)
                         is_security_notice = article is not None and getattr(
                             self.prefilter, "needs_security_match", lambda _: False

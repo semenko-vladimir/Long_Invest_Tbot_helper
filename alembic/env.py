@@ -25,6 +25,7 @@ from app.backend.models.database import Base
 import app.backend.models.accounts  # noqa: F401
 import app.backend.models.trading  # noqa: F401
 import app.backend.models.monitoring  # noqa: F401
+import app.backend.models.stocks  # noqa: F401
 
 target_metadata = Base.metadata
 

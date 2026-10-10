@@ -85,6 +85,7 @@ class PriceCandleRepository:
                 row.low = float(candle.low)
                 row.close = float(candle.close)
                 row.volume = int(candle.volume) if candle.volume is not None else None
+                row.turnover_rub = candle.turnover_rub
                 row.source = normalized_source
                 row.fetched_at = fetched_at
                 row.as_of_date = as_of_date
@@ -192,6 +193,7 @@ class PriceCandleRepository:
             low=float(row.low),
             close=float(row.close),
             volume=row.volume,
+            turnover_rub=row.turnover_rub,
         )
 
     def _normalize_ticker(self, ticker: str) -> str:

@@ -39,6 +39,17 @@ class StatisticsView:
     error: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class CurrentStatisticsView:
+    accounts: tuple
+    quotes: dict
+    index: dict
+    total_value: Optional[float]
+    unrealized_pnl: float
+    partial: bool
+    error: Optional[str] = None
+
+
 def _money(value: float) -> str:
     return f"{value:,.2f} RUB".replace(",", " ")
 
@@ -65,8 +76,26 @@ def _filter_by_days(rows, days: int) -> list:
 
 
 class StatisticsService:
-    def __init__(self, *, session_factory: Optional[SessionFactory] = None):
+    def __init__(self, *, session_factory: Optional[SessionFactory] = None, market_service=None):
         self.session_factory = session_factory or get_default_session_factory()
+        self.market_service = market_service
+
+    def get_current_view(self, *, refresh=True) -> CurrentStatisticsView:
+        from app.backend.models.stocks import StockRefreshState
+
+        if self.market_service is None:
+            raise ValueError("Сервис текущего портфеля не настроен.")
+        market = self.market_service
+        accounts = market.refresh(force=True) if refresh else market.snapshots()
+        with self.session_factory() as db:
+            state = db.get(StockRefreshState, 1)
+            import json
+            index = json.loads(state.index_json) if state else {}
+            error = state.error_text if state else None
+        return CurrentStatisticsView(accounts, market.quotes(), index,
+            sum(a.total_value for a in accounts if a.total_value is not None) if any(a.total_value is not None for a in accounts) else None,
+            sum(p.pnl for a in accounts for p in a.positions),
+            any(a.stale or a.total_value is None for a in accounts), error)
 
     def get_statistics_view(self, *, period_days: Optional[int] = None) -> StatisticsView:
         db = self.session_factory()

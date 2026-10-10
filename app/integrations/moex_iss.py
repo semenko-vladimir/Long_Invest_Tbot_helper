@@ -395,7 +395,7 @@ class MOEXISSClient:
             ticker,
             from_date=from_date,
             till_date=till_date,
-            candles_path_builder=lambda normalized_ticker: f"{self._board_security_path(normalized_ticker)}/candles.json",
+            candles_path_builder=lambda normalized_ticker: f"{self._board_security_path(normalized_ticker).removesuffix('.json')}/candles.json",
             unavailable_description="MOEX ISS daily candles are unavailable",
             empty_description="MOEX ISS returned no daily candles",
         )

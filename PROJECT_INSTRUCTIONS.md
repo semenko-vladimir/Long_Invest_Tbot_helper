@@ -6,7 +6,16 @@ The active interface is Telegram. Keep portfolio, positions, watchlist, dividend
 
 The former research/web-terminal implementation is preserved outside the repository at `../Tbot_terminal_archive/`. It is not active runtime code. Future research and monitoring should be redesigned around Telegram notifications and should not restore the archived design unchanged.
 
-Automatic market/event monitoring, news ingestion, LLM analysis, ratings, and alert rules are future work and are not implemented here.
+Read-only monitoring includes hourly news intake, local LLM article analysis,
+account-specific follow-ups for direct position matches, and cached daily market
+digests. Keep shared article facts separate from account strategy contexts;
+notifications and model output never create orders.
+
+Stock cards expose account-specific positions, refreshed statistics, descriptive
+technical charts, user-owned instrument notes shared across accounts, and opt-in
+periodic updates. Stock tracking is observation-only and pauses when its position
+closes. Trailing stops are not implemented; any future order workflow requires
+an explicit design and the existing manual confirmation safeguards.
 
 ## Multi-account boundary
 

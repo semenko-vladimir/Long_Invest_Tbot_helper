@@ -16,12 +16,18 @@ DEFAULT_SOURCES = (
     "moex_listing",
     "cbr_events",
     "cbr_press",
+    "rbc",
+    "interfax",
+    "kommersant",
 )
 SOURCE_URLS = {
     "moex_main": "https://www.moex.com/export/news.aspx?cat=101",
     "moex_listing": "https://www.moex.com/export/news.aspx?cat=104",
     "cbr_events": "https://www.cbr.ru/rss/eventrss",
     "cbr_press": "https://www.cbr.ru/rss/RssPress",
+    "rbc": "https://rssexport.rbc.ru/rbcnews/news/30/full.rss",
+    "interfax": "https://www.interfax.ru/rss.asp",
+    "kommersant": "https://www.kommersant.ru/RSS/news.xml",
 }
 
 
